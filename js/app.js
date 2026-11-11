@@ -13,6 +13,7 @@ import { closeAllSheets } from './ui/sheet.js';
 import { toast } from './ui/toast.js';
 import { initInstall } from './install.js';
 import { syncPushSubscription } from './push.js';
+import { unlockVoice } from './voice/speech.js';
 
 const ROUTES = [
   { path: 'login', load: () => import('./views/login.js'), public: true, chrome: false, depth: 0 },
@@ -134,6 +135,7 @@ function initTabbar() {
       return;
     }
     if (tab.dataset.voice !== undefined) {
+      unlockVoice(); // dentro del toque (antes del import asíncrono): iOS deja hablar a Lukas
       const { openVoice } = await import('./voice/voice-sheet.js');
       openVoice({ autoStart: true });
     }

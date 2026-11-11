@@ -39,6 +39,8 @@ export class Orb {
 
   loop(now) {
     const t = (now - this.t0) / 1000;
+    // Hablando: el orbe "respira" al ritmo de una voz (no hay audio que medir)
+    if (this.mode === 'speaking') this.target = 0.28 + 0.22 * Math.abs(Math.sin(t * 7.3) * Math.sin(t * 2.9 + 1));
     this.level += (this.target - this.level) * 0.25;
     const wantMorph = this.mode === 'thinking' ? 1 : 0;
     this.morph += (wantMorph - this.morph) * 0.06;
@@ -52,7 +54,7 @@ export class Orb {
     ctx.clearRect(0, 0, w, h);
     const cx = w / 2, cy = h / 2;
     const R = Math.min(w, h) * (this.compact ? 0.36 : 0.3);
-    const rec = this.mode === 'recording';
+    const rec = this.mode === 'recording' || this.mode === 'speaking';
     const lvl = rec ? this.level : 0;
 
     // Halo

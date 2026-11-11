@@ -144,3 +144,19 @@ test('fusión estricta y montos faltantes', async () => {
   assert.equal(recordReply([groc, foco], b, 'x'), 'Son dos gastos: 16 mil en mercado, y ¿cuánto te costó el foco?');
   assert.equal(amountQuestion('Pastillas'), '¿Cuánto te costaron las pastillas?');
 });
+
+test('respuestas cortas sin LLM', async () => {
+  const { quickIntent } = await import('../../supabase/functions/_shared/quick.ts');
+  const both = ['amount', 'confirm'], conf = ['confirm'];
+  for (const t of ['sí', 'Sí.', 'dale', 'listo', 'guárdalo', 'sí, guárdalos', 'de una', 'ok listo', 'Sí, por favor', 'perfecto, guárdalo']) assert.equal(quickIntent(t, conf)?.intent, 'confirm', t);
+  for (const t of ['no', 'No.', 'espera', 'mejor no', 'no, espera', 'todavía no']) assert.equal(quickIntent(t, conf)?.intent, 'stop', t);
+  for (const t of ['cancela', 'cancélalo', 'no, cancela todo', 'olvídalo']) assert.equal(quickIntent(t, conf)?.intent, 'cancel', t);
+  assert.deepEqual(quickIntent('8 mil', both), { intent: 'amount', amount: 8000 });
+  assert.deepEqual(quickIntent('ocho lucas', both), { intent: 'amount', amount: 8000 });
+  assert.deepEqual(quickIntent('sí, me costó 12.500', both), { intent: 'amount', amount: 12500 });
+  assert.equal(quickIntent('8 mil', conf), null); // sin monto pendiente, un número va al LLM
+  assert.equal(quickIntent('sí', []), null); // sin tarjetas, nada se resuelve en código
+  assert.equal(quickIntent('el foco 8 mil y los clavos 5 mil', both), null); // dos montos: LLM
+  assert.equal(quickIntent('almorcé por 18 lucas con la Visa en el centro comercial ayer', both), null);
+  assert.equal(quickIntent('sí pero cámbialo a hogar', conf), null);
+});

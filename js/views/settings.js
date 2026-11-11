@@ -16,6 +16,10 @@ import { enablePush, disablePush, pushStatus, hasPushSubscription, syncPushSubsc
 import { isStandalone, maybePromptInstall } from '../install.js';
 import { micStatus, showPermissionHelp } from '../permissions.js';
 import { exportTransactionsCSV, exportAllJSON } from '../utils/export.js';
+import { unlockVoice, speak, stopSpeaking, loadVoices, spanishVoices, pickVoice, hasGoodSpanish, voicePrefs, setVoicePrefs, isIOS, canSpeak } from '../voice/speech.js';
+import { testLine } from '../voice/talk.js';
+
+const rateLabel = (r) => `${Number(r).toFixed(2).replace(/0$/, '').replace('.', ',')}×`;
 
 export const title = 'Ajustes';
 
@@ -40,6 +44,7 @@ export function mount(screen) {
     const prefs = p.notification_prefs ?? {};
     const ps = pushStatus();
     const def = state.accounts.find((a) => a.id === p.default_account_id);
+    const vp = voicePrefs();
     screen.querySelector('.set-body').innerHTML = String(html`
       <div class="eyebrow mb-2">Perfil</div>
       <div class="list">
@@ -81,8 +86,18 @@ export function mount(screen) {
             unavailable: 'No disponible en este navegador', insecure: 'Requiere abrir la app con https://' }[mic] ?? 'Se pedirá al usarlo'}</div></div>
           ${mic === 'denied' || mic === 'insecure' ? html`<button class="btn btn-sm btn-secondary" data-help="mic">Cómo activarlo</button>` : ''}</div>
         <label class="list-row"><span class="cat-icon" style="--c:#A65BE0">${icon('mic', { size: 20 })}</span>
-          <div class="grow"><div class="row-title">Respuesta hablada</div><div class="row-sub">${APP_NAME} lee en voz alta lo que entendió</div></div>
+          <div class="grow"><div class="row-title">Respuesta hablada</div><div class="row-sub">${canSpeak() ? `${APP_NAME} te responde en voz alta` : 'Este navegador no permite voz'}</div></div>
           ${sw('voice_reply', p.voice_reply, 'voice')}</label>
+        ${p.voice_reply && canSpeak() ? html`
+          <label class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Voz</div><div class="row-sub ellipsis" data-voice-note>Cargando voces…</div></div>
+            <select class="input voice-select" data-voice-uri aria-label="Voz de ${APP_NAME}"><option value="">Automática</option></select></label>
+          <label class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Velocidad</div><div class="row-sub" data-rate-label>${rateLabel(vp.rate)}</div></div>
+            <input type="range" class="voice-rate" min="0.8" max="1.3" step="0.05" value="${vp.rate}" data-voice-rate aria-label="Velocidad de la voz"></label>
+          <button class="list-row tappable" data-voice-test><div class="grow" style="padding-left:52px"><div class="row-title">Probar voz</div><div class="row-sub">Escucha cómo suena ${APP_NAME}</div></div>${icon('sparkles', { size: 18, cls: 'chev' })}</button>
+          <label class="list-row"><span class="cat-icon" style="--c:#12875A">${icon('repeat', { size: 20 })}</span>
+            <div class="grow"><div class="row-title">Manos libres</div><div class="row-sub">Si ${APP_NAME} te pregunta algo, te vuelve a escuchar solo</div></div>
+            ${sw('handsfree', vp.handsfree !== false, 'handsfree')}</label>
+          <div class="voice-help" data-voice-help hidden></div>` : ''}
         <label class="list-row"><span class="cat-icon" style="--c:#2FB3A6">${icon('send', { size: 20 })}</span>
           <div class="grow"><div class="row-title">Enviar al hacer una pausa</div><div class="row-sub">Envía el audio tras 1,5 s de silencio</div></div>
           ${sw('voice_autosend', p.voice_autosend !== false, 'autosend')}</label>
@@ -113,6 +128,36 @@ export function mount(screen) {
 
       <button class="btn btn-danger btn-block mt-8" data-logout>${icon('logout')}Cerrar sesión</button>
       <p class="center muted xsmall mt-6">${APP_NAME} ${APP_VERSION} · ${state.session?.user?.email ?? ''}</p>`);
+    fillVoices();
+  };
+
+  /** Voces en español disponibles en este dispositivo (cargan tarde) y ayuda si no hay una buena */
+  const fillVoices = async () => {
+    const sel = screen.querySelector('[data-voice-uri]');
+    if (!sel) return;
+    const voices = await loadVoices(3000);
+    if (!sel.isConnected) return;
+    const es = spanishVoices(voices);
+    const chosen = pickVoice(voices);
+    const uri = voicePrefs().voiceURI;
+    sel.innerHTML = String(html`<option value="">Automática${es[0] ? ` (${es[0].name})` : ''}</option>
+      ${es.map((v) => html`<option value="${v.voiceURI}" ${v.voiceURI === uri ? 'selected' : ''}>${v.name} · ${v.lang}</option>`)}`);
+    const note = screen.querySelector('[data-voice-note]');
+    if (note) note.textContent = chosen ? `Usando ${chosen.name} (${chosen.lang})` : 'No hay voces en español en este dispositivo';
+    const help = screen.querySelector('[data-voice-help]');
+    if (!help) return;
+    const needHelp = !es.length || (isIOS() && !hasGoodSpanish(voices));
+    help.hidden = !needHelp;
+    help.innerHTML = !needHelp ? '' : String(isIOS()
+      ? html`<b>Consigue una voz más natural en el iPhone</b><ol>
+          <li>Abre <b>Ajustes</b> → <b>Accesibilidad</b> → <b>Contenido leído y hablado</b> → <b>Voces</b>.</li>
+          <li>Entra a <b>Español</b> y elige una voz como <b>Paulina</b> (México) o <b>Mónica</b> (España).</li>
+          <li>Descarga la versión <b>Mejorada</b> o <b>Premium</b> (pesa unos MB).</li>
+          <li>Cierra ${APP_NAME} del todo y vuelve a abrirla; elígela aquí arriba.</li></ol>`
+      : html`<b>Tu dispositivo no tiene voces en español</b><ol>
+          <li>En Android: <b>Ajustes</b> → <b>Sistema</b> → <b>Idioma</b> → <b>Salida de texto a voz</b>.</li>
+          <li>En el motor de Google, instala los datos de voz de <b>Español</b>.</li>
+          <li>Vuelve a abrir ${APP_NAME}.</li></ol>`);
   };
 
   screen.innerHTML = String(html`${topbar({ title: 'Ajustes', back: true })}<div class="scroller"><div class="content"><div class="set-body"></div></div></div>`);
@@ -124,7 +169,15 @@ export function mount(screen) {
   const offs = [
     bindTopbar(screen),
     on(screen, 'change', '[data-pref]', (e, inp) => savePrefs({ notification_prefs: { ...(state.profile.notification_prefs ?? {}), [inp.dataset.pref]: inp.checked } })),
-    on(screen, 'change', '[data-voice]', (e, inp) => savePrefs({ voice_reply: inp.checked })),
+    on(screen, 'change', '[data-voice]', (e, inp) => {
+      if (inp.checked) { unlockVoice(); speak('Listo, ahora te respondo en voz alta.'); } else stopSpeaking(); // dentro del toque: desbloquea la voz en iOS
+      savePrefs({ voice_reply: inp.checked });
+    }),
+    on(screen, 'change', '[data-voice-uri]', (e, sel) => { unlockVoice(); setVoicePrefs({ voiceURI: sel.value }); fillVoices(); speak(testLine()); }),
+    on(screen, 'input', '[data-voice-rate]', (e, inp) => { const l = screen.querySelector('[data-rate-label]'); if (l) l.textContent = rateLabel(inp.value); }),
+    on(screen, 'change', '[data-voice-rate]', (e, inp) => { unlockVoice(); setVoicePrefs({ rate: Number(inp.value) }); speak(testLine()); }),
+    on(screen, 'click', '[data-voice-test]', () => { unlockVoice(); speak(testLine()); }),
+    on(screen, 'change', '[data-handsfree]', (e, inp) => { setVoicePrefs({ handsfree: inp.checked }); haptic.select(); }),
     on(screen, 'change', '[data-autosend]', (e, inp) => savePrefs({ voice_autosend: inp.checked })),
     on(screen, 'change', '[data-reminder]', (e, inp) => inp.value && savePrefs({ reminder_time: `${inp.value.slice(0, 2)}:00` })),
     on(screen, 'change', '[data-push]', async (e, inp) => {
@@ -167,5 +220,5 @@ export function mount(screen) {
   hasPushSubscription().then((v) => { pushOn = v; render(); if (v) syncPushSubscription(); });
   micStatus().then((v) => { mic = v; render(); });
   aiUsage().then((u) => { usage = u?.quota_day ? u : null; render(); }).catch(() => { usage = null; render(); });
-  return () => offs.forEach((f) => f());
+  return () => { stopSpeaking(); offs.forEach((f) => f()); };
 }

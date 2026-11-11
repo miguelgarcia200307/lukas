@@ -3,6 +3,7 @@
 // VAD simple: detecta si hubo voz y avisa tras ~1,5 s de silencio después de hablar (auto-envío).
 import { MAX_RECORDING_SECONDS } from '../config.js';
 import { AppError } from '../api/base.js';
+import { sharedAudioContext, audioSession } from './speech.js';
 
 function supportedMimeType() {
   if (typeof MediaRecorder === 'undefined') return null;
@@ -23,19 +24,21 @@ export class Recorder {
     this.state = 'idle';
   }
 
-  /** Debe llamarse dentro del gesto del usuario (iOS exige crear el AudioContext ahí). */
+  /**
+   * La primera vez debe llamarse dentro de un gesto (iOS exige crear/reanudar el AudioContext ahí). El contexto es
+   * compartido y no se cierra: así, en manos libres, se puede volver a escuchar sin otro toque.
+   */
   async start() {
     if (!window.isSecureContext) throw new AppError('Para usar el micrófono la app debe abrirse con https://.', null, 'insecure');
     if (!canRecord()) throw new AppError('Tu navegador no permite grabar audio. Escríbelo en su lugar.', null, 'unavailable');
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    this.ctx = Ctx ? new Ctx() : null;
-    this.ctx?.resume?.();
+    this.ctx = sharedAudioContext();
+    audioSession('play-and-record');
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, sampleRate: { ideal: 16000 } },
       });
     } catch (err) {
-      this.ctx?.close?.();
+      audioSession('auto');
       if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
         throw new AppError('Necesito permiso para usar el micrófono. Actívalo en los ajustes del navegador o escríbelo.', err, 'denied');
       }
@@ -69,6 +72,7 @@ export class Recorder {
 
     if (this.ctx) {
       const src = this.ctx.createMediaStreamSource(this.stream);
+      this.src = src;
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 512;
       this.analyser.smoothingTimeConstant = 0.6;
@@ -153,8 +157,11 @@ export class Recorder {
       this.onHidden = null;
     }
     cancelAnimationFrame(this.raf);
+    try { this.src?.disconnect(); } catch { /* nada */ }
+    // Micrófono liberado del todo: iOS vuelve de modo grabación a reproducción (para que Lukas se oiga)
     this.stream?.getTracks().forEach((t) => { t.stop(); t.enabled = false; });
-    this.ctx?.close?.().catch?.(() => {});
+    audioSession('auto');
+    this.src = null;
     this.stream = null;
     this.ctx = null;
     this.analyser = null;

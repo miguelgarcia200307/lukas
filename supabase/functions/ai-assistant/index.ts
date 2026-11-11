@@ -7,6 +7,7 @@ import { type Built, buildContext, type RawCtx } from "../_shared/brain.ts";
 import { GroqError, orderModels, quotaSnapshot, shouldFallback, transcribe } from "../_shared/llm.ts";
 import { runTurn } from "../_shared/pipeline.ts";
 import { normalizeText } from "../_shared/normalize.ts";
+import { type Expect, parseExpect, quickIntent } from "../_shared/quick.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) || d;
 const GROQ_API_KEY = env("GROQ_API_KEY");
@@ -100,10 +101,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Entrada
-    let text = "", state: string | null = null, audio: File | null = null, mode = "turn";
+    let text = "", state: string | null = null, audio: File | null = null, mode = "turn", expect: Expect[] = [];
     if (body) {
       text = String(body.text ?? "").trim();
       if (body.mode === "amount") mode = "amount";
+      expect = parseExpect(body.expect);
       state = typeof body.state === "string" ? body.state : null;
       if (text.length > MAX_TEXT_CHARS) throw new HttpError(413, "El texto es muy largo. Cuéntamelo en pocas frases.", "too_long");
       if (!text) throw new HttpError(400, "Cuéntame qué gastaste o qué quieres saber.", "empty");
@@ -114,6 +116,7 @@ Deno.serve(async (req) => {
       if (a instanceof File && a.size > 0) audio = a;
       state = typeof form.get("state") === "string" ? String(form.get("state")) : null;
       if (form.get("mode") === "amount") mode = "amount";
+      expect = parseExpect(form.get("expect"));
       text = String(form.get("text") ?? "").trim();
       if (audio) {
         const mime = (audio.type || "").split(";")[0].trim().toLowerCase();
@@ -177,13 +180,17 @@ Deno.serve(async (req) => {
             metrics: { upload_ms: tParsed - t0, ctx_ms: tCtx - tParsed, stt_ms: sttMs, total_ms: Date.now() - t0, stt_model: sttModel } });
           return;
         }
-        // Respuesta a una tarjeta pendiente ("8 lucas"): solo se extrae el monto, sin llamar al LLM
-        if (mode === "amount") {
-          const amount = normalizeText(transcript).amounts[0] ?? null;
-          send("done", { intent: "amount", amount, transcript, reply: "", question: null, state: state ?? "",
-            metrics: { upload_ms: tParsed - t0, ctx_ms: tCtx - tParsed, stt_ms: sttMs, stt_model: sttModel, total_ms: Date.now() - t0 } });
-          await insertRow(user.token, "ai_logs", { transcript, model: sttModel, latency_ms: Date.now() - t0, response: { intent: "amount", amount } });
-          return;
+        // Respuestas cortas de la conversación ("sí", "cancela", "8 lucas") y la respuesta a una tarjeta pendiente:
+        // se resuelven en código, sin llamar al LLM (cero tokens)
+        if (mode === "amount" || expect.length) {
+          const q = quickIntent(transcript, mode === "amount" ? ["amount"] : expect)
+            ?? (mode === "amount" ? { intent: "amount" as const, amount: normalizeText(transcript).amounts[0] } : null);
+          if (q) {
+            send("done", { intent: q.intent, amount: q.amount ?? null, quick: true, transcript, reply: "", question: null, state: state ?? "",
+              metrics: { upload_ms: tParsed - t0, ctx_ms: tCtx - tParsed, stt_ms: sttMs, stt_model: sttModel, total_ms: Date.now() - t0 } });
+            await insertRow(user.token, "ai_logs", { transcript, model: sttModel, latency_ms: Date.now() - t0, response: { intent: q.intent, amount: q.amount ?? null, quick: true } });
+            return;
+          }
         }
         const out = await runTurn({
           text: transcript, state, built, apiKey: GROQ_API_KEY, models: CHAT_MODELS, effort: EFFORT, fewshot: FEWSHOT,

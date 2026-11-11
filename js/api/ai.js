@@ -47,7 +47,7 @@ export function pingAssistant() {
  * onEvent(event, data): 'sent' (subida terminada) · 'transcript' · 'proposal' · 'question' · 'reply' · 'done'
  * Resuelve con el evento 'done'. turn: { audio?: Blob, mimeType?, duration?, text?, state? }
  */
-export async function streamAssistant({ audio, mimeType, duration, text, state, mode, onEvent, signal }) {
+export async function streamAssistant({ audio, mimeType, duration, text, state, mode, expect, onEvent, signal }) {
   if (!navigator.onLine) throw offlineError();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
@@ -61,9 +61,10 @@ export async function streamAssistant({ audio, mimeType, duration, text, state, 
     body.append('duration', String(Math.max(0.5, Math.round((duration ?? 1) * 10) / 10)));
     if (state) body.append('state', state);
     if (mode) body.append('mode', mode); // 'amount': solo transcribir y extraer el monto (respuesta a una tarjeta pendiente)
+    if (expect) body.append('expect', expect); // 'amount,confirm': respuestas cortas que la función resuelve sin LLM
   } else {
     headers = { ...headers, 'Content-Type': 'application/json' };
-    body = JSON.stringify({ text, ...(state ? { state } : {}), ...(mode ? { mode } : {}) });
+    body = JSON.stringify({ text, ...(state ? { state } : {}), ...(mode ? { mode } : {}), ...(expect ? { expect } : {}) });
   }
   try {
     const res = await fetch(`${FUNCTIONS_URL}/ai-assistant`, { method: 'POST', headers, body, signal: ctrl.signal });

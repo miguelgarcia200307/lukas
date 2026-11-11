@@ -1,4 +1,7 @@
-// Flujo de voz: grabar → enviar → transcripción → propuestas en streaming (editables) / pregunta de aclaración → confirmar
+// Flujo de voz: grabar → enviar → transcripción → propuestas en streaming (editables) / pregunta de aclaración → confirmar.
+// Conversación manos libres: Lukas dice su respuesta (plantillas, cero tokens) y, si preguntó algo, al terminar de
+// hablar vuelve a escuchar solo. "Sí", "no", "cancela" y montos sueltos se resuelven en código en la función (sin LLM).
+// La voz es un complemento: todo sigue en pantalla.
 import { html, on, raw } from '../utils/dom.js';
 import { icon } from '../utils/icons.js';
 import { haptic } from '../utils/haptics.js';
@@ -13,6 +16,10 @@ import { Orb } from './orb.js';
 import { renderProposals, renderOne, bindProposals, pendingProposals, saveProposals, validateProposal, summarize, missingAmount } from './proposals.js';
 import { catIcon } from '../ui/common.js';
 import { showPermissionHelp } from '../permissions.js';
+import { unlockVoice, speak as speakText, stopSpeaking, chime, voicePrefs, isSpeaking } from './speech.js';
+import { summaryLine, afterAmountLine, savedLine, cancelledLine, pausedLine, notHeardAmountLine, stillMissingLine, speakable } from './talk.js';
+
+const NO_ANSWER_SECONDS = 8; // manos libres: si no habla en este tiempo, la conversación termina
 
 const RECORD_INTENTS = ['create_transactions', 'card_payment', 'debt_payment', 'add_subscription', 'goal_contribution'];
 export const SUGGESTIONS = ['Almorcé por 18 lucas', 'Recibí 200 mil de una venta', 'Tanqueé 80 mil con la tarjeta', '¿Cuánto llevo este mes?'];
@@ -38,6 +45,12 @@ export function openVoice(opts = {}) {
 
 class VoiceSession {
   constructor({ autoStart = false, text = '', hold = false } = {}) {
+    unlockVoice(); // se abre desde un toque: iOS deja hablar a partir de aquí
+    this.convo = false; // conversación manos libres activa
+    this.voiceTurn = false; // el último mensaje fue por voz (solo así se vuelve a escuchar solo)
+    this.autoListen = false; // la grabación actual la abrió Lukas, no un toque
+    this.talkToken = 0;
+    this.misses = 0;
     this.convState = null; // estado compacto del turno anterior (lo devuelve la función)
     this.proposals = [];
     this.transcript = '';
@@ -50,6 +63,7 @@ class VoiceSession {
         <div class="voice-stage">
           <div class="orb-wrap"><canvas class="orb-canvas" aria-hidden="true"></canvas>
             <button class="orb-hit" aria-label="Tocar para hablar"></button></div>
+          <div class="convo-pill" hidden aria-live="polite"><span class="cp-dot"></span><span class="cp-text"></span></div>
           <div class="voice-status" aria-live="polite">
             <div class="vs-title">Cuéntame qué gastaste</div>
             <div class="vs-sub muted">Toca el orbe para hablar · mantenlo presionado si prefieres</div>
@@ -89,7 +103,15 @@ class VoiceSession {
   bind() {
     const hit = this.root.querySelector('.orb-hit');
     let pressT = 0, holdTimer = null, holding = false;
+    // Tocar la pantalla o el orbe interrumpe la voz y la conversación en cualquier momento
+    this.root.addEventListener('pointerdown', (e) => {
+      if (!this.convo && !isSpeaking()) return;
+      const onOrb = !!e.target.closest?.('.orb-hit');
+      this.interrupt();
+      if (onOrb) e.stopPropagation(); // ese toque solo interrumpe: no abre otra grabación
+    }, true);
     hit.addEventListener('pointerdown', () => {
+      unlockVoice();
       if (this.phase !== 'idle' && this.phase !== 'result') return;
       pingAssistant();
       pressT = performance.now();
@@ -105,25 +127,27 @@ class VoiceSession {
     };
     hit.addEventListener('pointerup', release);
     hit.addEventListener('pointercancel', () => { clearTimeout(holdTimer); pressT = 0; });
-    hit.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pressT = 1; release(); } });
+    hit.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unlockVoice(); pressT = 1; release(); } });
 
     on(this.root, 'click', '[data-act="cancel"]', () => this.cancelRecording());
     on(this.root, 'click', '[data-act="send"]', () => this.stopAndSend());
-    on(this.root, 'click', '[data-suggest]', (e, b) => this.sendText(b.dataset.suggest));
+    on(this.root, 'click', '[data-suggest]', (e, b) => { unlockVoice(); this.sendText(b.dataset.suggest); });
     this.form.addEventListener('submit', (e) => {
       e.preventDefault();
+      unlockVoice();
       const v = this.input.value.trim();
       if (!v) return;
       this.input.value = '';
       this.input.blur();
+      this.voiceTurn = false;
       // Una sola tarjeta pendiente y escribió solo un monto: se completa aquí mismo
       const pend = this.proposals.filter(missingAmount);
       const n = pend.length === 1 ? typedAmount(v) : 0;
-      if (n && this.unbindProposals?.complete) { this.unbindProposals.complete(pend[0], n); return; }
+      if (n && this.unbindProposals?.complete) { this.completeAmount(pend[0], n); this.afterAmount(pend[0]); return; }
       this.sendText(v);
     });
-    on(this.root, 'click', '[data-act="confirm-all"]', () => this.confirm());
-    on(this.root, 'click', '[data-act="mic-answer"]', () => this.startRecording());
+    on(this.root, 'click', '[data-act="confirm-all"]', () => { unlockVoice(); this.confirm(); });
+    on(this.root, 'click', '[data-act="mic-answer"]', () => { unlockVoice(); this.startRecording(); });
     on(this.root, 'click', '[data-act="restart"]', () => this.reset());
     on(this.root, 'click', '[data-act="retry"]', () => { if (this.lastFailed && this.phase !== 'thinking') this.ask(this.lastFailed); });
     on(this.root, 'click', '[data-act="type-instead"]', () => this.input.focus());
@@ -148,14 +172,20 @@ class VoiceSession {
     this.root.querySelector('.voice-suggest').hidden = phase !== 'idle';
   }
 
-  async startRecording({ hold = false } = {}) {
+  /** auto: la abrió Lukas al terminar de hablar (manos libres): siempre auto-envía y se rinde tras ~8 s sin voz */
+  async startRecording({ hold = false, auto = false } = {}) {
     if (!navigator.onLine) { toast('Necesito internet para entenderte. Puedes registrarlo a mano en Movimientos.', { type: 'err' }); return; }
     if (!window.isSecureContext) { showPermissionHelp('mic', 'insecure'); return; }
     if (!canRecord()) { showPermissionHelp('mic', 'unavailable'); return; }
+    stopSpeaking(); // nunca grabar mientras Lukas habla
+    if (!auto) { this.endConversation(); this.voiceTurn = true; }
+    this.autoListen = auto;
     haptic.start();
     this.setPhase('recording');
-    const autosend = state.profile?.voice_autosend !== false;
-    this.setStatus('Te escucho…', hold ? 'Suelta para enviar' : autosend ? 'Envío cuando hagas una pausa · o toca la flecha' : 'Toca el orbe o la flecha para enviar');
+    this.showConvo(auto ? 'listening' : null);
+    const autosend = auto || state.profile?.voice_autosend !== false;
+    if (auto) this.setStatus('Te escucho…', 'Manos libres · toca la pantalla para terminar');
+    else this.setStatus('Te escucho…', hold ? 'Suelta para enviar' : autosend ? 'Envío cuando hagas una pausa · o toca la flecha' : 'Toca el orbe o la flecha para enviar');
     this.recorder = new Recorder({
       onSilence: () => { if (!hold && autosend && this.phase === 'recording') this.stopAndSend(); },
       onLevel: (lvl, freq) => this.orb.setLevel(lvl, freq),
@@ -163,6 +193,7 @@ class VoiceSession {
         const left = Math.max(0, MAX_RECORDING_SECONDS - s);
         this.timerEl.textContent = `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
         this.timerEl.classList.toggle('warn', left < 10);
+        if (this.autoListen && this.phase === 'recording' && !this.recorder?.hasSpeech && s > NO_ANSWER_SECONDS) this.convoTimeout();
       },
       onLimit: () => this.stopAndSend(),
       onInterrupted: () => { if (this.phase === 'recording') this.cancelRecording(); },
@@ -174,6 +205,7 @@ class VoiceSession {
     try {
       await this.recorder.start();
     } catch (err) {
+      this.endConversation();
       this.setPhase(this.proposals.length ? 'result' : 'idle');
       this.setStatus('No pude usar el micrófono', err.message);
       if (['denied', 'insecure', 'unavailable'].includes(err.code)) showPermissionHelp('mic', err.code);
@@ -181,22 +213,151 @@ class VoiceSession {
     }
   }
 
-  cancelRecording() {
+  cancelRecording({ title = 'Cuéntame qué gastaste', sub = 'Toca el orbe para hablar' } = {}) {
     this.answerTarget = null;
+    this.autoListen = false;
     this.recorder?.cancel();
     haptic.tap();
     this.setPhase(this.proposals.length || this.lastQuestion ? 'result' : 'idle');
-    this.setStatus('Cuéntame qué gastaste', 'Toca el orbe para hablar');
+    this.setStatus(title, sub);
+  }
+
+  // ───────────── conversación manos libres ─────────────
+  showConvo(mode) {
+    const pill = this.root.querySelector('.convo-pill');
+    if (!pill) return;
+    pill.hidden = !mode;
+    pill.dataset.mode = mode || '';
+    pill.querySelector('.cp-text').textContent = mode === 'speaking' ? 'Lukas está hablando · toca para interrumpir'
+      : mode === 'listening' ? 'Manos libres · te escucho' : '';
+  }
+
+  endConversation() {
+    this.convo = false;
+    this.misses = 0;
+    this.talkToken++;
+    this.showConvo(null);
+  }
+
+  /** Un toque en la pantalla: se calla y deja de escuchar sola (lo que esté en pantalla se conserva) */
+  interrupt() {
+    stopSpeaking();
+    const wasAuto = this.phase === 'recording' && this.autoListen;
+    this.endConversation();
+    if (wasAuto) this.cancelRecording({ title: 'Conversación pausada', sub: 'Toca el orbe para seguir' });
+    else this.orb.setMode(this.phase === 'recording' ? 'recording' : this.phase === 'thinking' ? 'thinking' : 'idle');
+  }
+
+  convoTimeout() {
+    this.endConversation();
+    this.cancelRecording({ title: 'Te espero cuando quieras', sub: 'Toca el orbe para seguir hablando' });
+  }
+
+  /**
+   * Dice el texto (si la respuesta hablada está activa) y, si es una pregunta y el usuario venía hablando con
+   * manos libres, al terminar suena una señal corta y vuelve a escuchar.
+   */
+  async talk(text, { listen = false } = {}) {
+    if (!text || !state.profile?.voice_reply) { this.endConversation(); return; }
+    const handsfree = listen && this.voiceTurn && voicePrefs().handsfree !== false && canRecord();
+    this.convo = handsfree;
+    const token = ++this.talkToken;
+    this.showConvo(handsfree ? 'speaking' : null);
+    this.orb.setMode('speaking');
+    const how = await speakText(text);
+    if (token !== this.talkToken || this.destroyed) return;
+    this.orb.setMode(this.phase === 'recording' ? 'recording' : this.phase === 'thinking' ? 'thinking' : 'idle');
+    if (how === 'interrupted' || !this.convo || this.phase !== 'result') { if (!this.convo) this.showConvo(null); return; }
+    this.showConvo('listening');
+    await chime();
+    if (token !== this.talkToken || !this.convo || this.phase !== 'result' || this.destroyed) return;
+    this.startRecording({ auto: true });
+  }
+
+  /** Lo que se le pregunta a la función para que resuelva en código las respuestas cortas */
+  expectFor() {
+    const act = pendingProposals(this.proposals);
+    if (!act.length) return '';
+    return [act.some(missingAmount) ? 'amount' : null, 'confirm'].filter(Boolean).join(',');
+  }
+
+  /** Completa una tarjeta pendiente y deja el estado de la conversación al día (para el próximo turno del LLM) */
+  completeAmount(p, amount) {
+    this.unbindProposals?.complete?.(p, amount);
+    try {
+      const st = JSON.parse(this.convState || 'null');
+      if (!st?.l) return;
+      const f = (x) => String(x ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      let hit = false;
+      st.l = st.l.map((line) => {
+        if (hit) return line;
+        try {
+          const o = JSON.parse(line);
+          if ((o.k === 'g' || o.k === 'i') && !o.a && f(o.d) === f(p.description)) { hit = true; o.a = amount; delete o.q; return JSON.stringify(o); }
+        } catch { /* línea no JSON */ }
+        return line;
+      });
+      st.s = [...(st.s ?? []), amount].slice(-20);
+      if (!this.proposals.some(missingAmount)) st.q = null;
+      this.convState = JSON.stringify(st);
+    } catch { /* estado ilegible: el próximo turno lo reconstruye */ }
+  }
+
+  afterAmount(p) {
+    this.misses = 0;
+    const still = this.proposals.some(missingAmount);
+    this.setStatus(still ? 'Me falta un detalle' : '¡Completo!', still ? 'Dime cuánto costó o escríbelo en la tarjeta' : 'Revisa y confirma');
+    this.talk(afterAmountLine(p, this.proposals), { listen: true });
+  }
+
+  missedAmount(transcript) {
+    this.setStatus('No te entendí el monto', transcript ? `Escuché «${transcript}». Escríbelo en la tarjeta` : 'Escríbelo en la tarjeta');
+    haptic.error();
+    if (this.voiceTurn && this.misses < 2) { this.misses++; this.talk(notHeardAmountLine(), { listen: true }); }
+    else this.endConversation();
+  }
+
+  /** Respuesta corta resuelta en código por la función (sin LLM): monto, confirmar, cancelar o pausar */
+  handleQuick(done, prev) {
+    this.proposals = prev;
+    const box = this.result.querySelector('.proposals');
+    box.classList.remove('stale');
+    box.innerHTML = String(renderProposals(prev));
+    this.bindList(box, prev);
+    this.setPhase('result');
+    this.updateFooter();
+    if (done.intent === 'amount') {
+      const p = this.proposals.find(missingAmount);
+      if (p && done.amount > 0) { this.completeAmount(p, done.amount); this.afterAmount(p); } else this.missedAmount(done.transcript);
+    } else if (done.intent === 'confirm') {
+      const m = this.proposals.find(missingAmount);
+      if (m) { this.setStatus('Me falta un detalle', 'Dime cuánto costó o escríbelo en la tarjeta'); this.talk(stillMissingLine(m), { listen: true }); }
+      else { this.setStatus('Guardando…'); this.confirm({ byVoice: true }); }
+    } else if (done.intent === 'cancel') {
+      this.endConversation();
+      this.reset();
+      this.setStatus('Cancelado', 'No guardé nada');
+      this.talk(cancelledLine());
+    } else {
+      this.endConversation();
+      this.setStatus('Lo dejo aquí', 'Revisa las tarjetas y confirma cuando quieras');
+      this.talk(pausedLine());
+    }
   }
 
   async stopAndSend() {
     if (this.phase !== 'recording') return;
     this.setPhase('thinking'); // evita un doble envío (auto-envío por silencio + toque manual)
+    const wasAuto = this.autoListen;
+    this.autoListen = false;
+    this.showConvo(null);
+    this.voiceTurn = true;
     const secs = this.recorder.seconds;
     const heard = this.recorder.heardVoice;
-    const blob = await this.recorder.stop();
+    const blob = await this.recorder.stop(); // detiene los tracks: el micrófono queda libre antes de que Lukas hable
     if (!blob || secs < 0.5 || blob.size < 1200 || !heard) {
       this.answerTarget = null;
+      if (wasAuto) { this.convoTimeout(); return; }
       this.setPhase(this.proposals.length || this.lastQuestion ? 'result' : 'idle');
       this.setStatus(heard ? 'Fue muy cortico' : 'No te escuché', heard ? 'Mantén presionado o toca y habla un poco más' : 'Intenta de nuevo, un poco más cerca del micrófono');
       haptic.error();
@@ -210,6 +371,7 @@ class VoiceSession {
 
   /** Respuesta hablada a una tarjeta pendiente ("8 lucas"): solo se transcribe y se extrae el monto */
   answerByVoice(p) {
+    unlockVoice();
     if (this.phase === 'thinking' || this.phase === 'recording') return;
     this.answerTarget = p;
     this.startRecording();
@@ -223,23 +385,20 @@ class VoiceSession {
     this.setStatus('Escuchando el monto…');
     try {
       const done = await streamAssistant({ audio, mimeType, duration, mode: 'amount' });
-      if (done.amount > 0 && this.unbindProposals?.complete) {
-        this.unbindProposals.complete(p, done.amount);
-        this.setStatus(missingAmount(p) ? 'Me falta un detalle' : 'Esto fue lo que entendí', '');
-      } else {
-        this.setStatus('No te entendí el monto', done.transcript ? `Escuché «${done.transcript}». Escríbelo en la tarjeta` : 'Escríbelo en la tarjeta');
-        haptic.error();
-      }
+      this.setPhase('result');
+      this.updateFooter();
+      if (done.amount > 0) { this.completeAmount(p, done.amount); this.afterAmount(p); } else this.missedAmount(done.transcript);
     } catch (err) {
+      this.setPhase('result');
+      this.updateFooter();
       this.setStatus('Uy, no pude escucharte', err.message);
       haptic.error();
     }
-    this.setPhase('result');
-    this.updateFooter();
   }
 
   sendText(text) {
     haptic.tap();
+    this.voiceTurn = false; // escrito: Lukas puede hablar, pero no vuelve a escuchar solo
     return this.ask({ text });
   }
 
@@ -251,7 +410,7 @@ class VoiceSession {
     this.beginTurnView(prev, text ?? '');
     try {
       const done = await streamAssistant({
-        audio, mimeType, duration, text, state: this.convState,
+        audio, mimeType, duration, text, state: this.convState, expect: this.expectFor(),
         onEvent: (ev, data) => {
           if (ev === 'sent') this.setStatus(audio ? 'Escuchando tu audio…' : 'Entendiendo…');
           else if (ev === 'transcript') { turn.transcript = data.text; this.showTranscript(data.text); this.setStatus('Entendiendo…'); }
@@ -270,8 +429,10 @@ class VoiceSession {
         },
       });
       await this.chain;
+      if (done.quick) { this.transcript = turn.transcript || this.transcript; this.handleQuick(done, prev); return; }
       this.finishTurn(done, turn, prev);
     } catch (err) {
+      this.endConversation();
       this.setPhase(this.proposals.length ? 'result' : 'idle');
       this.setStatus('Uy, no pude entenderte', err.message);
       this.showRetry(audio ? { audio, mimeType, duration } : { text });
@@ -377,8 +538,17 @@ class VoiceSession {
     this.input.placeholder = done.question || sum.pending ? 'Responde aquí…' : 'Corrige o agrega algo…';
     this.updateFooter();
     this.sheet.expand();
-    this.speak(done.question || done.reply);
+    this.respond(done);
     haptic.success();
+  }
+
+  /** Respuesta hablada del turno: plantillas en código (montos en palabras), máximo 1–2 frases */
+  respond(done) {
+    const isQuery = done.intent === 'query' || done.intent === 'unknown';
+    if (done.question) return this.talk(done.question, { listen: true });
+    if (!isQuery && pendingProposals(this.proposals).length) return this.talk(summaryLine(this.proposals), { listen: true });
+    if (done.empty) return this.talk(done.reply, { listen: true });
+    return this.talk(speakable(done.reply));
   }
 
   /** Error sin tecnicismos, con opción de reintentar o escribir */
@@ -462,9 +632,10 @@ class VoiceSession {
     } else bar.outerHTML = String(tpl);
   }
 
-  async confirm() {
+  async confirm({ byVoice = false } = {}) {
     const pending = pendingProposals(this.proposals);
     const missing = pending.find(missingAmount);
+    if (!byVoice) this.endConversation();
     if (missing) {
       const i = this.proposals.indexOf(missing);
       const card = this.result.querySelector(`.proposal[data-i="${i}"]`);
@@ -477,6 +648,7 @@ class VoiceSession {
       const err = validateProposal(p);
       if (err) {
         toast(err, { type: 'err' });
+        this.endConversation();
         const i = this.proposals.indexOf(p);
         this.result.querySelector(`.proposal[data-i="${i}"]`)?.classList.add('shake');
         return;
@@ -487,6 +659,8 @@ class VoiceSession {
     try {
       const { count, undo } = await saveProposals(this.proposals, { transcript: this.transcript });
       haptic.success();
+      this.endConversation();
+      if (byVoice && state.profile?.voice_reply) { this.keepTalking = true; speakText(savedLine(count)); } // sigue sonando aunque la hoja se cierre
       this.celebrate();
       setTimeout(() => {
         this.sheet.close();
@@ -494,6 +668,8 @@ class VoiceSession {
       }, 950);
     } catch (err) {
       btn?.classList.remove('loading');
+      this.endConversation();
+      this.setStatus('No pude guardar', 'Intenta de nuevo con el botón Confirmar');
       toast(err.message, { type: 'err' });
     }
   }
@@ -515,6 +691,8 @@ class VoiceSession {
   }
 
   reset() {
+    this.endConversation();
+    stopSpeaking();
     this.convState = null;
     this.answerTarget = null;
     this.shownTotal = 0;
@@ -530,24 +708,13 @@ class VoiceSession {
     this.setStatus('Cuéntame qué gastaste', 'Toca el orbe para hablar · mantenlo presionado si prefieres');
   }
 
-  speak(text) {
-    if (!text || !state.profile?.voice_reply || !('speechSynthesis' in window)) return;
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      const voices = speechSynthesis.getVoices();
-      u.voice = voices.find((v) => v.lang === 'es-CO') ?? voices.find((v) => v.lang?.startsWith('es-4')) ?? voices.find((v) => v.lang?.startsWith('es')) ?? null;
-      u.lang = u.voice?.lang ?? 'es-CO';
-      u.rate = 1.05;
-      speechSynthesis.speak(u);
-    } catch { /* sin voz */ }
-  }
-
   destroy() {
+    this.destroyed = true;
+    this.endConversation();
     this.recorder?.cancel();
     this.orb?.destroy();
     this.unbindProposals?.();
-    try { speechSynthesis?.cancel(); } catch { /* nada */ }
+    if (!this.keepTalking) stopSpeaking();
     if (active === this) active = null;
   }
 }

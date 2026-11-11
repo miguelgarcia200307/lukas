@@ -13,6 +13,7 @@ import { emptyState } from '../ui/empty.js';
 import { toast } from '../ui/toast.js';
 import { Orb } from '../voice/orb.js';
 import { SUGGESTIONS, openVoice } from '../voice/voice-sheet.js';
+import { unlockVoice } from '../voice/speech.js';
 import { maybePromptInstall } from '../install.js';
 import { openTransactionDetail } from './transaction-form.js';
 
@@ -139,6 +140,7 @@ export function mount(screen, { query, navigate }) {
   let holdTimer = null, held = false;
   const offs = [
     on(screen, 'pointerdown', '.orb-btn', () => {
+      unlockVoice(); // el desbloqueo de la voz tiene que nacer del toque (la grabación sostenida abre la hoja en un setTimeout)
       held = false;
       holdTimer = setTimeout(() => { held = true; haptic.start(); openVoice({ autoStart: true, hold: true }); }, 320);
     }),
@@ -147,14 +149,15 @@ export function mount(screen, { query, navigate }) {
       if (!held) { haptic.tap(); openVoice({ autoStart: true }); }
     }),
     on(screen, 'pointercancel', '.orb-btn', () => clearTimeout(holdTimer)),
-    on(screen, 'keydown', '.orb-btn', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openVoice({ autoStart: true }); } }),
-    on(screen, 'click', '[data-suggest]', (e, b) => openVoice({ text: b.dataset.suggest })),
+    on(screen, 'keydown', '.orb-btn', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unlockVoice(); openVoice({ autoStart: true }); } }),
+    on(screen, 'click', '[data-suggest]', (e, b) => { unlockVoice(); openVoice({ text: b.dataset.suggest }); }),
     on(screen, 'submit', '.home-compose', (e, f) => {
       e.preventDefault();
       const v = f.q.value.trim();
       if (!v) return;
       f.q.value = '';
       f.q.blur();
+      unlockVoice();
       openVoice({ text: v });
     }),
     on(screen, 'click', '[data-dismiss]', (e, b) => {
