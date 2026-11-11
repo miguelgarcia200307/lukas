@@ -122,6 +122,9 @@ function updateChrome(r) {
 }
 
 // ── Navegación inferior ─────────────────────────
+// iOS Safari no aplica :active (estado presionado) a menos que el documento escuche touchstart
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 function initTabbar() {
   $('.tabbar').addEventListener('click', async (e) => {
     const tab = e.target.closest('.tab');

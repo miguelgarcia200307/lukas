@@ -93,7 +93,9 @@ export function mount(screen) {
             <select class="input voice-select" data-voice-uri aria-label="Voz de ${APP_NAME}"><option value="">Automática</option></select></label>
           <label class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Velocidad</div><div class="row-sub" data-rate-label>${rateLabel(vp.rate)}</div></div>
             <input type="range" class="voice-rate" min="0.8" max="1.3" step="0.05" value="${vp.rate}" data-voice-rate aria-label="Velocidad de la voz"></label>
-          <button class="list-row tappable" data-voice-test><div class="grow" style="padding-left:52px"><div class="row-title">Probar voz</div><div class="row-sub">Escucha cómo suena ${APP_NAME}</div></div>${icon('sparkles', { size: 18, cls: 'chev' })}</button>
+          <div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Probar voz</div>
+              <div class="row-sub">${isIOS() ? 'Si no suena, quita el modo silencio y sube el volumen' : `Escucha cómo suena ${APP_NAME}`}</div></div>
+            <button type="button" class="btn btn-accent btn-sm voice-test" data-voice-test>${icon('sparkles', { size: 16 })}<span>Probar</span></button></div>
           <label class="list-row"><span class="cat-icon" style="--c:#12875A">${icon('repeat', { size: 20 })}</span>
             <div class="grow"><div class="row-title">Manos libres</div><div class="row-sub">Si ${APP_NAME} te pregunta algo, te vuelve a escuchar solo</div></div>
             ${sw('handsfree', vp.handsfree !== false, 'handsfree')}</label>
@@ -129,6 +131,24 @@ export function mount(screen) {
       <button class="btn btn-danger btn-block mt-8" data-logout>${icon('logout')}Cerrar sesión</button>
       <p class="center muted xsmall mt-6">${APP_NAME} ${APP_VERSION} · ${state.session?.user?.email ?? ''}</p>`);
     fillVoices();
+  };
+
+  /** "Probar voz": habla dentro del mismo toque y muestra si de verdad sonó (o por qué pudo no sonar) */
+  const testVoice = async (b) => {
+    if (b.classList.contains('playing')) { stopSpeaking(); return; } // segundo toque: detener
+    haptic.tap();
+    if (!canSpeak()) { toast('Este navegador no permite voz.', { type: 'err' }); return; }
+    const label = b.querySelector('span');
+    b.classList.add('playing');
+    label.textContent = 'Preparando…';
+    let started = false;
+    const result = await speak(testLine(), { onstart: () => { started = true; label.textContent = 'Hablando… · Parar'; } });
+    b.classList.remove('playing');
+    label.textContent = 'Probar';
+    if (result === 'interrupted') return;
+    if (!started) {
+      toast(isIOS() ? 'El iPhone no reprodujo la voz. Quita el modo silencio, sube el volumen y prueba otra voz.' : 'No se pudo reproducir la voz. Prueba otra voz o sube el volumen.', { type: 'err', duration: 6500 });
+    }
   };
 
   /** Voces en español disponibles en este dispositivo (cargan tarde) y ayuda si no hay una buena */
@@ -176,7 +196,7 @@ export function mount(screen) {
     on(screen, 'change', '[data-voice-uri]', (e, sel) => { unlockVoice(); setVoicePrefs({ voiceURI: sel.value }); fillVoices(); speak(testLine()); }),
     on(screen, 'input', '[data-voice-rate]', (e, inp) => { const l = screen.querySelector('[data-rate-label]'); if (l) l.textContent = rateLabel(inp.value); }),
     on(screen, 'change', '[data-voice-rate]', (e, inp) => { unlockVoice(); setVoicePrefs({ rate: Number(inp.value) }); speak(testLine()); }),
-    on(screen, 'click', '[data-voice-test]', () => { unlockVoice(); speak(testLine()); }),
+    on(screen, 'click', '[data-voice-test]', (e, b) => testVoice(b)),
     on(screen, 'change', '[data-handsfree]', (e, inp) => { setVoicePrefs({ handsfree: inp.checked }); haptic.select(); }),
     on(screen, 'change', '[data-autosend]', (e, inp) => savePrefs({ voice_autosend: inp.checked })),
     on(screen, 'change', '[data-reminder]', (e, inp) => inp.value && savePrefs({ reminder_time: `${inp.value.slice(0, 2)}:00` })),

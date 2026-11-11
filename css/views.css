@@ -540,3 +540,9 @@
 .voice-help ol { margin: 6px 0 0; padding-left: 18px; }
 .voice-help li + li { margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { .cp-dot { animation: none; } }
+.voice-test { flex-shrink: 0; min-height: 40px; gap: 6px; transition: transform 120ms var(--spring), background 200ms; }
+.voice-test:active { transform: scale(0.94); }
+.voice-test.playing { background: var(--income); box-shadow: 0 0 0 0 rgba(18, 135, 90, 0.4); animation: test-ring 1.2s ease-out infinite; }
+.voice-test.playing svg { animation: pulse 1s ease-in-out infinite; }
+@keyframes test-ring { 0% { box-shadow: 0 0 0 0 rgba(18, 135, 90, 0.45); } 100% { box-shadow: 0 0 0 12px rgba(18, 135, 90, 0); } }
+@media (prefers-reduced-motion: reduce) { .voice-test.playing, .voice-test.playing svg { animation: none; } }

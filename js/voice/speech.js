@@ -108,18 +108,23 @@ export const isSpeaking = () => !!current;
 
 /**
  * Dice el texto y resuelve al terminar: 'end' | 'interrupted' | 'error' | 'unsupported'.
+ * Llama a synth.speak() SIN esperas previas: si se invoca dentro de un toque, iOS lo acepta como gesto.
  * Si onend nunca llega (bug de Safari/Chrome), un temporizador lo da por terminado para no trabar la conversación.
+ * onstart: avisa cuando de verdad empezó a sonar (para mostrar si el teléfono no reprodujo nada).
  */
-export async function speak(text, { rate } = {}) {
-  if (!canSpeak() || !text?.trim()) return 'unsupported';
-  stopSpeaking(); // cancel() antes de cada respuesta
-  const voices = await loadVoices(1500);
+export function speak(text, { rate, onstart } = {}) {
+  if (!canSpeak() || !text?.trim()) return Promise.resolve('unsupported');
   const prefs = voicePrefs();
+  const voices = synth.getVoices();
+  if (!voices.length) loadVoices(); // la próxima frase ya tendrá la mejor voz; esta usa la del idioma
   const voice = pickVoice(voices, prefs.voiceURI);
   const r = Math.min(1.5, Math.max(0.7, Number(rate ?? prefs.rate) || 1));
+  // cancel() solo si hay una frase nuestra sonando: el ciclo cancel→speak inmediato a veces se "traga" la frase en Safari,
+  // y la frase silenciosa del desbloqueo no hace falta cancelarla (dura un instante)
+  if (current) stopSpeaking();
   audioSession('playback');
-  await sleep(isIOS() ? 120 : 40); // iOS: deja que cambie de modo grabación a reproducción y que cancel() se asiente
   if (synth.paused) synth.resume();
+  unlocked = true;
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
     try { if (voice) u.voice = voice; } catch { /* voz no válida: se usa el idioma */ }
@@ -136,18 +141,26 @@ export async function speak(text, { rate } = {}) {
       finishCurrent = null;
       resolve(how);
     };
-    u.onstart = () => { started = true; };
-    u.onend = () => finish('end');
-    u.onerror = (e) => finish(e?.error === 'interrupted' || e?.error === 'canceled' ? 'interrupted' : 'error');
+    u.onstart = () => { if (!started) { started = true; onstart?.(); } };
+    u.onend = () => { if (!started) onstart?.(); started = true; finish('end'); };
+    let retrying = false;
+    u.onerror = (e) => { if (!retrying) finish(e?.error === 'interrupted' || e?.error === 'canceled' ? 'interrupted' : 'error'); };
     current = u;
     finishCurrent = finish;
     try { synth.speak(u); } catch { finish('error'); return; }
-    // Safari a veces deja la síntesis en pausa: se reanuda; si nunca arrancó, se reintenta una vez
+    // Safari a veces deja la síntesis en pausa: se reanuda; si a los ~1,2 s no arrancó, se reintenta una vez
     let retried = false;
+    const t0 = Date.now();
     watch = setInterval(() => {
       if (synth.paused) synth.resume();
-      if (!started && !retried && !synth.speaking && !synth.pending) { retried = true; try { synth.speak(u); } catch { /* nada */ } }
-    }, 350);
+      if (!started && Date.now() - t0 > 3000) { finish('error'); return; } // nunca sonó: avisar sin hacer esperar
+      if (!started && !retried && Date.now() - t0 > 1200) {
+        retried = true;
+        retrying = true;
+        try { if (synth.speaking || synth.pending) synth.cancel(); synth.speak(u); } catch { /* nada */ }
+        setTimeout(() => { retrying = false; }, 0);
+      }
+    }, 300);
     guard = setTimeout(() => finish(started ? 'end' : 'error'), 3000 + (text.length * 85) / r);
   });
 }
