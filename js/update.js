@@ -2,8 +2,8 @@
 // cerrar: la única salida es "Actualizar ahora". Las novedades salen de version.json (siempre de la red).
 // Se busca actualización al abrir, al volver a la app y cada hora. Si el usuario está registrando algo (una hoja
 // abierta), el modal espera a que la cierre para no perder lo que estaba haciendo.
-import { el, html, raw } from './utils/dom.js';
-import { ORB_SPINNER } from './ui/orb-loader.js';
+import { el, html } from './utils/dom.js';
+import './ui/lukas-orb.js'; // <lukas-orb> en el modal
 import { icon } from './utils/icons.js';
 import { haptic } from './utils/haptics.js';
 import { toast } from './ui/toast.js';
@@ -81,7 +81,7 @@ function showModal(worker, info) {
   const wrap = el(html`<div class="update-wrap" role="alertdialog" aria-modal="true" aria-labelledby="upd-title" aria-describedby="upd-desc">
     <div class="update-backdrop"></div>
     <div class="update-card">
-      <div class="update-badge" aria-hidden="true">${icon('sparkles', { size: 32, stroke: 2 })}</div>
+      <div class="update-badge" aria-hidden="true"><lukas-orb size="56" state="intro"></lukas-orb></div>
       <div class="update-version">Versión ${version}</div>
       <h2 id="upd-title">¡Hay una nueva versión de Lukas!</h2>
       <p id="upd-desc">Seguimos mejorando la app para ti. Actualiza para seguir usándola.</p>
@@ -90,7 +90,7 @@ function showModal(worker, info) {
         <ul>${notes.map((n) => html`<li>${icon('check', { size: 16, stroke: 2.6 })}<span>${n}</span></li>`)}</ul>
       </div>` : ''}
       <button type="button" class="btn btn-accent btn-block update-go" data-update-now>
-        <span class="btn-label">${icon('refresh', { size: 20, stroke: 2.2 })}Actualizar ahora</span>${raw(ORB_SPINNER)}</button>
+        <span class="btn-label">${icon('refresh', { size: 20, stroke: 2.2 })}Actualizar ahora</span></button>
       <p class="update-foot">${icon('lock', { size: 13 })}Toma un segundo · tus datos están a salvo</p>
     </div>
   </div>`);
@@ -101,6 +101,9 @@ function showModal(worker, info) {
   document.body.append(wrap);
   document.documentElement.classList.add('update-lock');
   const btn = wrap.querySelector('[data-update-now]');
+  // Lukas aparece (intro) y celebra la nueva versión; al actualizar, procesa
+  const face = wrap.querySelector('.update-badge lukas-orb');
+  face.addEventListener('sequenceend', (e) => { if (e.detail.state === 'intro' && !updating) face.succeed(); });
   const keepFocus = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
     if (e.key === 'Tab') { e.preventDefault(); btn.focus(); }
@@ -113,8 +116,10 @@ function showModal(worker, info) {
     if (updating) return;
     updating = true;
     haptic.success?.();
-    btn.classList.add('loading');
+    face.think();
+    btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
+    btn.querySelector('.btn-label').textContent = 'Actualizando…';
     try { sessionStorage.setItem(DONE_KEY, version); } catch { /* nada */ }
     const w = reg?.waiting ?? worker;
     if (w && w.state !== 'redundant') w.postMessage({ type: 'SKIP_WAITING' });
