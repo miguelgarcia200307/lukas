@@ -1,0 +1,17 @@
+{
+  "name": "lukas",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Lukas — finanzas personales voice-first (PWA). Solo herramientas locales; el frontend no tiene build.",
+  "scripts": {
+    "dev": "npx --yes serve -l 5173 .",
+    "icons": "node scripts/generate-icons.mjs",
+    "user": "node scripts/create-user.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "test:ai": "node scripts/test-ai.mjs"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.4"
+  }
+}

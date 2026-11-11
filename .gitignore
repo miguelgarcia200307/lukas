@@ -1,0 +1,26 @@
+# Secretos y entornos (solo se versiona la plantilla .env.example)
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+
+# Dependencias y herramientas
+node_modules/
+supabase/.temp/
+supabase/.branches/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Pruebas con datos reales / artefactos locales
+test-results/
+playwright-report/
+e2e/shots/
+coverage/
+*.local.json
+.DS_Store
+Thumbs.db

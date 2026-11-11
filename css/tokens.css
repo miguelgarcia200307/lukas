@@ -1,0 +1,93 @@
+/* Lukas · tokens de diseño (solo modo claro) */
+:root {
+  color-scheme: light;
+
+  /* Superficies */
+  --bg: #F7F7F4;
+  --bg-deep: #EFEFEA;
+  --surface: #FFFFFF;
+  --surface-2: #F3F3EF;
+  --surface-3: #EAEAE4;
+  --scrim: rgba(18, 18, 16, 0.32);
+
+  /* Texto */
+  --ink: #141413;
+  --ink-2: #4E4E49;
+  --ink-3: #6F6F69;
+  --ink-4: #A3A39C;
+  --on-accent: #FFFFFF;
+
+  /* Acento: índigo iris */
+  --accent: #4B3BF5;
+  --accent-strong: #3A2BD9;
+  --accent-soft: #EEECFE;
+  --accent-softer: #F6F5FF;
+  --accent-glow: rgba(75, 59, 245, 0.28);
+
+  /* Semánticos */
+  --income: #12875A;
+  --income-soft: #E5F4EC;
+  --expense: #D9503E;
+  --expense-soft: #FCEDEA;
+  --warn: #B87600;
+  --warn-soft: #FFF4DC;
+  --danger: #C8382A;
+
+  /* Líneas */
+  --line: rgba(20, 20, 19, 0.07);
+  --line-2: rgba(20, 20, 19, 0.12);
+
+  /* Radios */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-full: 999px;
+
+  /* Sombras en capas, muy sutiles */
+  --sh-1: 0 1px 1px rgba(20, 20, 19, 0.03), 0 1px 3px rgba(20, 20, 19, 0.04);
+  --sh-2: 0 1px 2px rgba(20, 20, 19, 0.04), 0 4px 12px rgba(20, 20, 19, 0.05), 0 12px 32px rgba(20, 20, 19, 0.04);
+  --sh-3: 0 2px 4px rgba(20, 20, 19, 0.04), 0 12px 28px rgba(20, 20, 19, 0.08), 0 32px 64px rgba(20, 20, 19, 0.08);
+  --sh-accent: 0 6px 16px rgba(75, 59, 245, 0.28), 0 16px 40px rgba(75, 59, 245, 0.18);
+
+  /* Espaciado (base 4px) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --gutter: 20px;
+
+  /* Tipografía */
+  --font: "Plus Jakarta Sans", ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 30px;
+  --fs-4xl: 38px;
+  --fs-hero: 46px;
+
+  /* Movimiento */
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 160ms;
+  --t-med: 280ms;
+  --t-slow: 420ms;
+
+  /* Layout */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --tabbar-h: 64px;
+  --max-w: 560px;
+}

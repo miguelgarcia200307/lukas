@@ -1,0 +1,27 @@
+{
+  "name": "Lukas · Finanzas por voz",
+  "short_name": "Lukas",
+  "description": "Tus finanzas personales por voz. Dilo y queda registrado.",
+  "id": "./",
+  "start_url": "./#/inicio",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone"],
+  "orientation": "portrait",
+  "lang": "es-CO",
+  "dir": "ltr",
+  "theme_color": "#F7F7F4",
+  "background_color": "#F7F7F4",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "./assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Registrar con voz", "short_name": "Voz", "url": "./#/inicio?voz=1", "icons": [{ "src": "./assets/icons/shortcut-voice.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Nuevo gasto", "short_name": "Nuevo", "url": "./#/movimientos?nuevo=1", "icons": [{ "src": "./assets/icons/shortcut-add.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Reportes", "short_name": "Reportes", "url": "./#/reportes", "icons": [{ "src": "./assets/icons/shortcut-reports.png", "sizes": "96x96", "type": "image/png" }] }
+  ]
+}
