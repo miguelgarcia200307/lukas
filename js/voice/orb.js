@@ -1,4 +1,5 @@
 // Orbe de voz en canvas: respira (idle), reacciona a la voz (recording) y se convierte en partículas (thinking)
+import { createFace } from './orb-face.js'; // cara de Lukas (capa encima; FACE_ENABLED / ?face=0 la apagan)
 const TAU = Math.PI * 2;
 
 export class Orb {
@@ -16,6 +17,9 @@ export class Orb {
       size: 0.8 + Math.random() * 2.2, phase: Math.random() * TAU, hue: i % 3,
     }));
     this.morph = 0; // 0 = blob, 1 = partículas
+    // Geometría de cada frame en solo lectura para la cara (arreglos reutilizados: cero objetos nuevos por frame)
+    this.geo = { cx: 0, cy: 0, R: 0, n: 72, r: new Float32Array(73), px: new Float32Array(73), py: new Float32Array(73), blobScale: 1, level: 0, target: 0, lvl: 0, morph: 0, mode: 'idle', t: 0 };
+    this.face = createFace(this);
     this.resize = this.resize.bind(this);
     this.ro = new ResizeObserver(this.resize);
     this.ro.observe(canvas);
@@ -36,6 +40,8 @@ export class Orb {
 
   setMode(mode) { this.mode = mode; }
   setLevel(level, freq) { this.target = level; this.freq = freq; }
+  /** Eventos de la hoja de voz para la cara: 'ok' | 'error' | 'cancel' | 'denied' */
+  cue(name) { this.face?.cue(name); }
 
   loop(now) {
     const t = (now - this.t0) / 1000;
@@ -56,6 +62,8 @@ export class Orb {
     const R = Math.min(w, h) * (this.compact ? 0.36 : 0.3);
     const rec = this.mode === 'recording' || this.mode === 'speaking';
     const lvl = rec ? this.level : 0;
+    const geo = this.geo;
+    geo.cx = cx; geo.cy = cy; geo.R = R; geo.t = t; geo.mode = this.mode; geo.level = this.level; geo.target = this.target; geo.lvl = lvl; geo.morph = this.morph;
 
     // Halo
     const haloR = R * (1.55 + lvl * 0.5 + Math.sin(t * 1.4) * 0.04);
@@ -85,6 +93,7 @@ export class Orb {
 
     // Blob
     const blobScale = 1 - this.morph * 0.45;
+    geo.blobScale = blobScale;
     if (blobScale > 0.05) {
       const pts = 72;
       ctx.beginPath();
@@ -95,6 +104,7 @@ export class Orb {
         const breathe = this.mode === 'idle' ? Math.sin(t * 1.7) * 0.03 : 0;
         const r = R * blobScale * (1 + wob + breathe + lvl * 0.18);
         const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        geo.r[i] = r; geo.px[i] = x; geo.py[i] = y;
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       const g = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.45, R * 0.1, cx, cy, R * 1.25);
@@ -129,7 +139,7 @@ export class Orb {
     }
 
     // Ícono de micrófono en el centro (idle)
-    if (this.mode === 'idle' && !this.compact) {
+    if (this.mode === 'idle' && !this.compact && !this.face) {
       ctx.save();
       ctx.translate(cx, cy);
       const k = R / 60;
@@ -147,10 +157,14 @@ export class Orb {
       ctx.stroke();
       ctx.restore();
     }
+
+    // Cara de Lukas: encima de todo, en este mismo frame y contexto
+    if (this.face) this.face.frame(ctx, geo);
   }
 
   destroy() {
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
+    this.face?.destroy();
   }
 }

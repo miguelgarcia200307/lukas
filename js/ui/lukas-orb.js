@@ -1,8 +1,10 @@
 // Lukas, el personaje: orbe índigo con dos ojos (barras) y una moneda lima como boca.
 // 100 % código: SVG + requestAnimationFrame. Cada frame escribe atributos directo en el DOM (sin re-render).
 // Todo se mueve con PARÁMETROS SUAVIZADOS (v += (objetivo − v)·k·min(1, dt·60)): ningún cambio de estado salta.
-// Componente independiente del orbe de la pantalla de voz (solo comparte la familia de colores).
+// Componente independiente del orbe de la pantalla de voz (comparte colores y la geometría de la cara: face-geometry.js).
+import { clamp, lerp, smooth, spring, easeInOutCubic, easeOutCubic, eyePoints, mouthPoints } from './face-geometry.js';
 
+export { spring, easeInOutCubic, easeOutCubic };
 const TAU = Math.PI * 2;
 const NS = 'http://www.w3.org/2000/svg';
 export const ORB_COLORS = { light: '#ABA3FF', mid: '#5848EE', deep: '#3320C0', lime: '#C8F35A', alert: '#F0997B', halo: '#5B4BF0', paper: '#F6F5F2' };
@@ -13,13 +15,7 @@ export const SMALL_PX = 40; // por debajo: versión simplificada
 export const BODY_UNITS = 66;
 export const DURATIONS = { intro: 2.0, done: 2.2, error: 1.4 };
 
-// ── Curvas ────────────────────────────────────────────────
-export const spring = (x) => (x <= 0 ? 0 : 1 - Math.exp(-6.5 * x) * Math.cos(8 * x));
-export const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-export const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
-const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
-const lerp = (a, b, t) => a + (b - a) * t;
-const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+// ── Curvas (spring, easeInOutCubic, easeOutCubic, clamp, lerp, smooth: face-geometry.js) ──
 const r2 = (v) => Math.round(v * 100) / 100;
 /** Equivalente del ángulo de reposo más cercano al actual (termina la vuelta en vez de devolverse). */
 export const nearestRest = (a, rest = REST_ALPHA) => rest + TAU * Math.round((a - rest) / TAU);
@@ -55,28 +51,20 @@ export function contourPath(scale = 1, amp = 0, phase = 0, b = 0, phi = 0, cx = 
   return d + 'Z';
 }
 
-// Formas de ojo como 3 puntos relativos (P0, control, P2). Las expresiones interpolan estos puntos.
-const EYE_HAPPY = [-4.6, 2, 0, -5.5, 4.6, 2];
-const EYE_TIRED = [-4, 1, 0, 3, 4, 1];
-const EYE_CLOSED = [-4.2, 0.6, 0, 4.2, 4.2, 0.6]; // párpados cerrados en calma ("‿")
+// Formas de ojo (abierto, feliz, cansado, cerrado "‿"): face-geometry.js
 const E = new Float64Array(6);
 
 /** Ojo: un path cuadrático de 3 puntos. */
 export function eyePath(x, y, { h = 12, open = 1, grow = 1, happy = 0, tired = 0, closed = 0, gx = 0, gy = 0 } = {}) {
-  let s = happy + tired + closed;
-  if (s > 1) { happy /= s; tired /= s; closed /= s; s = 1; }
-  const wo = 1 - s;
-  const c = (h / 2) * (1 - grow); // crece desde abajo (homenaje a las barras del logo anterior)
-  const hh = Math.max(0.02, h * grow * open) / 2;
-  const O = [0, c - hh, 0, c, 0, c + hh];
-  for (let i = 0; i < 6; i++) E[i] = wo * O[i] + happy * EYE_HAPPY[i] + tired * EYE_TIRED[i] + closed * EYE_CLOSED[i];
+  eyePoints(E, h, open, grow, happy, tired, closed);
   return `M${r2(x + E[0] + gx)} ${r2(y + E[1] + gy)}Q${r2(x + E[2] + gx)} ${r2(y + E[3] + gy)} ${r2(x + E[4] + gx)} ${r2(y + E[5] + gy)}`;
 }
 
 /** Boca (la moneda): con hw = 0 es un punto perfecto del diámetro del trazo. */
+const M = new Float64Array(6);
 export function mouthPath(x, y, hw = 0, c = 0) {
-  hw = Math.max(0.01, hw);
-  return `M${r2(x - hw)} ${r2(y)}Q${r2(x)} ${r2(y + c)} ${r2(x + hw)} ${r2(y)}`;
+  mouthPoints(M, x, y, hw, c);
+  return `M${r2(M[0])} ${r2(M[1])}Q${r2(M[2])} ${r2(M[3])} ${r2(M[4])} ${r2(M[5])}`;
 }
 
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -240,6 +228,7 @@ export class LukasOrbEngine {
   // ── API ──
   play(state) {
     if (!state) return;
+    if (this.held) { this.heldPending = state; return; } // congelado: se aplica al soltar
     if (this.simple && (state === 'intro' || state === 'done' || state === 'error')) {
       // Versión pequeña: solo reposo y procesando
       const prev = state;
@@ -266,6 +255,27 @@ export class LukasOrbEngine {
   }
   /** Pull-to-refresh: 0..1 (estira y abre más los ojos). */
   setPull(p) { this.T.pull = clamp(p, 0, 1.2); this.wake(); }
+  /**
+   * Congela al personaje en reposo, sin parpadeo ni animación (mientras la hoja de voz está abierta: nunca reaccionan
+   * los dos a la vez). Los estados pedidos mientras tanto se aplican al soltar. Sin llamarlo, nada cambia.
+   */
+  hold(on = true) {
+    on = !!on;
+    if (on === !!this.held) return;
+    if (on) {
+      this.heldPending = this.state === 'thinking' ? 'thinking' : null;
+      if (this.state !== 'rest') this.setState('rest');
+      this.blink.start = -1;
+      this.held = true;
+    } else {
+      this.held = false;
+      const s = this.heldPending;
+      this.heldPending = null;
+      this.blink.next = this.t + 1.2 + Math.random() * 1.6;
+      if (s && s !== this.state) this.play(s);
+    }
+    this.wake();
+  }
   /** 0 = completo, 1 = cara simplificada (para viajar al header sin corte). */
   setSimplify(s) { this.T.simp = clamp(s); this.wake(); }
 
@@ -362,7 +372,7 @@ export class LukasOrbEngine {
     const dur = DURATIONS[this.state];
     if (dur && this.tau >= dur) this.endSequence(this.state);
     // Dormir cuando no hay nada que animar (iconos pequeños en reposo)
-    if (this.simple && this.state === 'rest' && !this.ghost) {
+    if ((this.simple || this.held) && this.state === 'rest' && !this.ghost) {
       let still = true;
       for (const k of KEYS) if (Math.abs(T[k] - v[k]) > 0.002) { still = false; break; }
       if (still) { this.running = false; schedule(this, false); }
@@ -397,7 +407,7 @@ export class LukasOrbEngine {
     const T = this.T, K = this.K;
     const t = this.t, tau = this.tau;
     const rm = !!this.rm;
-    const motion = rm ? 0 : 1;
+    const motion = rm || this.held ? 0 : 1;
     const full = 1 - T.simp; // detalle (halo, brillo, deformación) que se apaga en la versión simple
     for (const k in K) delete K[k];
     const keepSimp = T.simp, keepPull = T.pull, keepLx = T.lx, keepLy = T.ly;
@@ -418,7 +428,7 @@ export class LukasOrbEngine {
     T.my = 71 + 0.6 * Math.sin(t * 1.1 + 1) * motion * full;
     for (const k of FACE_KEYS) K[k] = K_FACE;
     let face = 'rest';
-    let blinkOn = !this.simple;
+    let blinkOn = !this.simple && !this.held;
 
     const mood = this.mood;
     const applyMood = () => {

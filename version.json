@@ -1,7 +1,10 @@
 {
-  "version": "1.7.1",
+  "version": "1.8.0",
   "date": "2026-11-11",
   "notes": [
-    "Desde ahora, Lukas en persona te avisará de cada nueva versión"
+    "Lukas ahora tiene cara en el orbe de voz: te mira, te escucha y asiente mientras hablas",
+    "Cuando entiende tu gasto sonríe; si algo falla, te lo dice con la mirada",
+    "Mientras piensa, sus ojos dan una vuelta: así sabes que está trabajando",
+    "El botón Confirmar ahora muestra a Lukas mientras guarda"
   ]
 }

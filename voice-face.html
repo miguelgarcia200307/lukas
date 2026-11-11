@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <script>/* Página interna: solo funciona en local (localhost o red privada). En producción vuelve a la app. */(function(){var h=location.hostname;if(!(h===''||h==='localhost'||h==='127.0.0.1'||h==='[::1]'||/^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(h)||/\.local$/.test(h))){document.documentElement.style.display='none';if(window.stop)window.stop();location.replace('./');}})();</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Lukas · Cara del orbe de voz</title>
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/views.css">
+  <style>
+    body { background: var(--bg); margin: 0; }
+    .lab { max-width: 430px; margin: 0 auto; padding: 12px 16px 64px; }
+    .lab h1 { font-size: 18px; margin: 4px 0 2px; }
+    .lab .hint { color: var(--ink-3); font-size: 12px; margin: 0 0 8px; }
+    .stage { display: grid; place-items: center; min-height: 300px; position: relative; }
+    .stage .voice-stage { display: grid; place-items: center; }
+    .meter { position: absolute; top: 4px; right: 0; font: 600 11px/1.3 ui-monospace, monospace; color: var(--ink-3); text-align: right; }
+    .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; align-items: center; }
+    .row b { font-size: 12px; color: var(--ink-2); width: 100%; margin-top: 4px; }
+    .row button { font: 600 13px var(--font); padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); }
+    .row button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .row label { font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+    .row input[type=range] { flex: 1; min-width: 140px; }
+    .status { font: 600 12px ui-monospace, monospace; color: var(--ink-2); min-height: 18px; }
+  </style>
+</head>
+<body>
+  <main class="lab">
+    <h1>Cara de Lukas · orbe de voz</h1>
+    <p class="hint">Interna, no enlazada. Orbe, grabadora y cara reales de la app.</p>
+    <div class="stage" id="stage"></div>
+    <div class="status" id="status">inactivo</div>
+    <div class="row" id="sizes"><b>Medida</b>
+      <button data-size="home" class="on">Inicio (192)</button><button data-size="sheet">Hoja (280)</button><button data-size="compact">Compacta (112)</button></div>
+    <div class="row" id="states"><b>Estado</b>
+      <button data-st="idle">Inactivo</button><button data-st="record">Grabar</button><button data-st="pause">Pausa</button>
+      <button data-st="thinking">Procesando</button><button data-st="ok">Éxito</button><button data-st="error">Error</button>
+      <button data-st="cancel">Cancelar</button><button data-st="denied">Sin permiso</button><button data-st="speaking">Lukas habla</button>
+      <button data-st="interrupt">Interrumpir a mitad</button></div>
+    <div class="row" id="sources"><b>Fuente de voz (al grabar)</b>
+      <button data-src="sim" class="on">Audio simulado</button><button data-src="mic">Micrófono real</button><button data-src="slider">Slider</button>
+      <label><input type="checkbox" id="autosend" checked> envío automático en pausa</label></div>
+    <div class="row"><label>Nivel <input type="range" id="level" min="0" max="1" step="0.01" value="0.4"></label><span id="levelv" class="status">0.40</span></div>
+    <div class="row"><b>Cara</b>
+      <label><input type="checkbox" id="face" checked> encendida</label>
+      <label><input type="checkbox" id="autoscale" checked> escala automática</label>
+      <label><input type="checkbox" id="rm"> movimiento reducido</label>
+      <label><input type="checkbox" id="low"> gama baja</label></div>
+    <div class="row"><label>FACE_SCALE <input type="range" id="scale" min="0.75" max="1" step="0.01" value="0.85"></label><span id="scalev" class="status">0.85</span></div>
+    <div class="row"><label>Velocidad <input type="range" id="speed" min="0.25" max="1" step="0.05" value="1"></label><span id="speedv" class="status">1×</span></div>
+  </main>
+<script type="module">
+import { Orb } from './js/voice/orb.js';
+import { OrbFace, FaceSettings, faceAllowed } from './js/voice/orb-face.js';
+import { Recorder } from './js/voice/recorder.js';
+
+const $ = (s) => document.querySelector(s);
+const stage = $('#stage');
+let orb = null, size = 'home', source = 'sim', rec = null, simStop = null, feedRaf = 0, timers = [];
+const FREQ = new Uint8Array(256);
+
+// ── Montaje del orbe en cada medida (mismas clases que la app) ──
+const layouts = {
+  home: '<div class="orb-ring" style="margin:0 auto"><canvas class="home-orb" aria-hidden="true"></canvas></div>',
+  sheet: '<div class="voice-stage"><div class="orb-wrap"><canvas class="orb-canvas" aria-hidden="true"></canvas></div></div>',
+  compact: '<div class="voice-stage compact"><div class="orb-wrap"><canvas class="orb-canvas" aria-hidden="true"></canvas></div></div>',
+};
+function mount(next = size) {
+  stopAll();
+  orb?.destroy();
+  size = next;
+  stage.innerHTML = `<section class="hero" style="width:100%;display:grid;place-items:center">${layouts[size]}<form class="home-compose" autocomplete="off" onsubmit="return false" style="margin-top:12px"><input class="input" name="q" placeholder="O escríbelo aquí…" aria-label="Escribe un gasto"></form></section>`;
+  orb = new Orb(stage.querySelector('canvas'));
+  if (!$('#face').checked && orb.face) { orb.face.destroy(); orb.face = null; }
+  if (FaceSettings.reduced) orb.reduce = true; // simulado; si no, el del sistema
+  window.vf.orb = orb;
+  setStatus('inactivo');
+}
+
+// ── Audio simulado: voz sintética (sílabas, pausas, gritos y silencio) que entra al Recorder REAL de la app ──
+const SCRIPT_SPEECH = [['talk', 1.6], ['gap', 0.25], ['talk', 1.1], ['gap', 0.6], ['talk', 0.9], ['shout', 0.6], ['talk', 0.8], ['silence', 4]];
+let script = SCRIPT_SPEECH;
+function simStream() {
+  const ac = new AudioContext();
+  const dest = ac.createMediaStreamDestination();
+  const osc = ac.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 150;
+  const vib = ac.createOscillator(); vib.frequency.value = 3.1; const vibG = ac.createGain(); vibG.gain.value = 22; vib.connect(vibG).connect(osc.frequency);
+  const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.8;
+  const g = ac.createGain(); g.gain.value = 0;
+  osc.connect(bp).connect(g).connect(dest);
+  osc.start(); vib.start();
+  let t = ac.currentTime + 0.4; // calibración del ruido de fondo
+  for (const [kind, dur] of script) {
+    if (kind === 'talk' || kind === 'shout') {
+      const peak = kind === 'shout' ? 1.6 : 0.55;
+      for (let s = 0; s < dur; s += 0.2) {
+        const p = peak * (0.6 + Math.random() * 0.4);
+        g.gain.setValueAtTime(0.02, t + s); g.gain.linearRampToValueAtTime(p, t + s + 0.05); g.gain.linearRampToValueAtTime(p * 0.35, t + s + 0.17);
+      }
+      g.gain.setValueAtTime(0, t + dur);
+    }
+    t += dur;
+  }
+  simStop = () => { try { ac.close(); } catch { /* nada */ } };
+  return dest.stream;
+}
+const realGUM = navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
+if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async (c) => (source === 'sim' ? simStream() : realGUM(c));
+
+// ── Flujo como el de la hoja de voz: grabar → pausa → envío automático → procesando → propuestas ──
+async function record({ autosend = $('#autosend').checked } = {}) {
+  stopAll();
+  orb.setMode('recording');
+  setStatus('escuchando');
+  if (source === 'slider') { feedSlider(); return; }
+  rec = new Recorder({
+    onLevel: (l, f) => orb.setLevel(l, f),
+    onSilence: () => { if (autosend) send(); else setStatus('pausa detectada (sin envío automático)'); },
+    onTick: () => {},
+    onLimit: () => send(),
+  });
+  try { await rec.start(); }
+  catch (err) { rec = null; orb.setMode('idle'); orb.cue('denied'); setStatus(`sin permiso: ${err.message}`); }
+}
+function send() {
+  rec?.cancel(); rec = null; simStop?.();
+  orb.setMode('thinking');
+  setStatus('procesando');
+  timers.push(setTimeout(() => { orb.setMode('idle'); orb.cue('ok'); setStatus('propuestas (éxito)'); }, 2400 / FaceSettings.speed));
+}
+function feedSlider() {
+  cancelAnimationFrame(feedRaf);
+  const step = () => {
+    const l = +$('#level').value;
+    for (let i = 0; i < FREQ.length; i++) FREQ[i] = Math.max(0, Math.min(255, l * 255 * (1 - i / FREQ.length) * (0.7 + 0.3 * Math.sin(i * 0.7 + performance.now() / 90))));
+    orb.setLevel(l, FREQ);
+    feedRaf = requestAnimationFrame(step);
+  };
+  step();
+}
+function stopAll() {
+  rec?.cancel(); rec = null; simStop?.(); simStop = null;
+  cancelAnimationFrame(feedRaf); feedRaf = 0;
+  timers.forEach(clearTimeout); timers = [];
+  orb?.setLevel(0, null);
+}
+
+const states = {
+  idle: () => { stopAll(); orb.setMode('idle'); setStatus('inactivo'); },
+  record: () => { script = SCRIPT_SPEECH; record(); },
+  pause: () => { script = [['talk', 1.4], ['silence', 6]]; record({ autosend: false }); },
+  thinking: () => { stopAll(); orb.setMode('thinking'); setStatus('procesando'); },
+  ok: () => { stopAll(); orb.setMode('idle'); orb.cue('ok'); setStatus('éxito'); },
+  error: () => { stopAll(); orb.setMode('idle'); orb.cue('error'); setStatus('error'); },
+  cancel: () => { stopAll(); orb.cue('cancel'); orb.setMode('idle'); setStatus('cancelado'); },
+  denied: () => { stopAll(); orb.setMode('idle'); orb.cue('denied'); setStatus('sin permiso'); },
+  speaking: () => { stopAll(); orb.setMode('speaking'); setStatus('Lukas habla'); },
+  interrupt: () => {
+    // Éxito interrumpido por una grabación, interrumpida por error, interrumpido por procesando
+    states.ok();
+    timers.push(setTimeout(() => { orb.setMode('recording'); setStatus('interrumpido → escuchando'); feedSlider(); }, 400));
+    timers.push(setTimeout(() => { stopAll(); orb.setMode('idle'); orb.cue('error'); setStatus('interrumpido → error'); }, 900));
+    timers.push(setTimeout(() => { orb.setMode('thinking'); setStatus('interrumpido → procesando'); }, 1250));
+  },
+};
+function setStatus(s) { $('#status').textContent = s; }
+
+// ── Controles ──
+const group = (sel, attr, fn) => document.querySelectorAll(`${sel} [${attr}]`).forEach((b) => b.addEventListener('click', () => {
+  if (attr !== 'data-st') document.querySelectorAll(`${sel} [${attr}]`).forEach((x) => x.classList.toggle('on', x === b));
+  fn(b.getAttribute(attr));
+}));
+group('#sizes', 'data-size', (s) => mount(s));
+group('#sources', 'data-src', (s) => { source = s; });
+group('#states', 'data-st', (s) => states[s]());
+$('#level').addEventListener('input', (e) => { $('#levelv').textContent = (+e.target.value).toFixed(2); });
+$('#face').addEventListener('change', (e) => {
+  if (e.target.checked && !orb.face) orb.face = new OrbFace(orb);
+  else if (!e.target.checked && orb.face) { orb.face.destroy(); orb.face = null; }
+});
+const applyScale = () => { FaceSettings.scale = $('#autoscale').checked ? null : +$('#scale').value; $('#scalev').textContent = $('#autoscale').checked ? 'auto' : (+$('#scale').value).toFixed(2); };
+$('#scale').addEventListener('input', () => { $('#autoscale').checked = false; applyScale(); });
+$('#autoscale').addEventListener('change', applyScale);
+$('#speed').addEventListener('input', (e) => { FaceSettings.speed = +e.target.value; $('#speedv').textContent = `${(+e.target.value).toFixed(2)}×`; });
+$('#rm').addEventListener('change', (e) => { FaceSettings.reduced = e.target.checked ? true : null; if (orb) orb.reduce = e.target.checked || matchMedia('(prefers-reduced-motion: reduce)').matches; });
+$('#low').addEventListener('change', (e) => { FaceSettings.lowEnd = e.target.checked ? true : null; });
+
+// ── Medidor: costo de la cara por frame ──
+const meter = document.createElement('div');
+meter.className = 'meter';
+let frames = 0, lastT = performance.now(), worst = 0;
+FaceSettings.onFrame = (f) => {
+  frames++; worst = Math.max(worst, f.ms);
+  const now = performance.now();
+  if (now - lastT > 500) {
+    meter.innerHTML = `cara ${f.ms.toFixed(3)} ms<br>peor ${worst.toFixed(3)} ms<br>${Math.round((frames * 1000) / (now - lastT))} fps${f.lowEnd ? '<br>gama baja' : ''}`;
+    frames = 0; lastT = now; worst = 0;
+  }
+};
+
+window.vf = { orb: null, mount, states, FaceSettings, setSource: (s) => { source = s; }, setScript: (s) => { script = s; }, record, faceAllowed };
+mount('home');
+stage.after(meter);
+stage.parentElement.style.position = 'relative';
+// ?size=sheet&st=thinking&scale=0.9 para capturas automáticas
+const q = new URLSearchParams(location.search);
+if (q.get('size')) mount(q.get('size'));
+if (q.get('scale')) { $('#autoscale').checked = false; $('#scale').value = q.get('scale'); applyScale(); }
+if (q.get('src')) source = q.get('src');
+if (q.get('st')) states[q.get('st')]();
+</script>
+</body>
+</html>

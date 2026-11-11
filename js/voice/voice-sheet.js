@@ -17,6 +17,7 @@ import { renderProposals, renderOne, bindProposals, pendingProposals, savePropos
 import { catIcon } from '../ui/common.js';
 import { showPermissionHelp } from '../permissions.js';
 import { runSave } from '../ui/submit.js';
+import { ORB_SPINNER } from '../ui/orb-loader.js';
 import { unlockVoice, speak as speakText, stopSpeaking, chime, voicePrefs, isSpeaking } from './speech.js';
 import { summaryLine, afterAmountLine, savedLine, cancelledLine, pausedLine, notHeardAmountLine, stillMissingLine, speakable } from './talk.js';
 
@@ -176,8 +177,8 @@ class VoiceSession {
   /** auto: la abrió Lukas al terminar de hablar (manos libres): siempre auto-envía y se rinde tras ~8 s sin voz */
   async startRecording({ hold = false, auto = false } = {}) {
     if (!navigator.onLine) { toast('Necesito internet para entenderte. Puedes registrarlo a mano en Movimientos.', { type: 'err' }); return; }
-    if (!window.isSecureContext) { showPermissionHelp('mic', 'insecure'); return; }
-    if (!canRecord()) { showPermissionHelp('mic', 'unavailable'); return; }
+    if (!window.isSecureContext) { showPermissionHelp('mic', 'insecure'); this.orb.cue?.('denied'); return; }
+    if (!canRecord()) { showPermissionHelp('mic', 'unavailable'); this.orb.cue?.('denied'); return; }
     stopSpeaking(); // nunca grabar mientras Lukas habla
     if (!auto) { this.endConversation(); this.voiceTurn = true; }
     this.autoListen = auto;
@@ -209,6 +210,7 @@ class VoiceSession {
       this.endConversation();
       this.setPhase(this.proposals.length ? 'result' : 'idle');
       this.setStatus('No pude usar el micrófono', err.message);
+      this.orb.cue?.(['denied', 'insecure', 'unavailable'].includes(err.code) ? 'denied' : 'error');
       if (['denied', 'insecure', 'unavailable'].includes(err.code)) showPermissionHelp('mic', err.code);
       else toast(err.message, { type: 'err' });
     }
@@ -219,6 +221,7 @@ class VoiceSession {
     this.autoListen = false;
     this.recorder?.cancel();
     haptic.tap();
+    this.orb.cue?.('cancel');
     this.setPhase(this.proposals.length || this.lastQuestion ? 'result' : 'idle');
     this.setStatus(title, sub);
   }
@@ -314,6 +317,7 @@ class VoiceSession {
   missedAmount(transcript) {
     this.setStatus('No te entendí el monto', transcript ? `Escuché «${transcript}». Escríbelo en la tarjeta` : 'Escríbelo en la tarjeta');
     haptic.error();
+    this.orb.cue?.('error');
     if (this.voiceTurn && this.misses < 2) { this.misses++; this.talk(notHeardAmountLine(), { listen: true }); }
     else this.endConversation();
   }
@@ -362,6 +366,7 @@ class VoiceSession {
       this.setPhase(this.proposals.length || this.lastQuestion ? 'result' : 'idle');
       this.setStatus(heard ? 'Fue muy cortico' : 'No te escuché', heard ? 'Mantén presionado o toca y habla un poco más' : 'Intenta de nuevo, un poco más cerca del micrófono');
       haptic.error();
+      this.orb.cue?.('error');
       return;
     }
     haptic.tap();
@@ -394,6 +399,7 @@ class VoiceSession {
       this.updateFooter();
       this.setStatus('Uy, no pude escucharte', err.message);
       haptic.error();
+      this.orb.cue?.('error');
     }
   }
 
@@ -438,6 +444,7 @@ class VoiceSession {
       this.setStatus('Uy, no pude entenderte', err.message);
       this.showRetry(audio ? { audio, mimeType, duration } : { text });
       haptic.error();
+      this.orb.cue?.('error');
     }
   }
 
@@ -541,6 +548,7 @@ class VoiceSession {
     this.sheet.expand();
     this.respond(done);
     haptic.success();
+    this.orb.cue?.('ok');
   }
 
   /** Respuesta hablada del turno: plantillas en código (montos en palabras), máximo 1–2 frases */
@@ -626,7 +634,7 @@ class VoiceSession {
     const label = missing ? `Falta ${missing} ${missing === 1 ? 'monto' : 'montos'}` : pending.length === 1 ? 'Confirmar' : `Confirmar todo (${pending.length})`;
     const tpl = html`<div class="confirm-bar">
       <button class="btn btn-ghost btn-sm" data-act="restart">Cancelar</button>
-      <button class="btn btn-accent grow" data-act="confirm-all" ${missing ? 'disabled aria-disabled="true"' : ''}>${icon(missing ? 'clock' : 'check', { stroke: 2.4 })}<span class="btn-label">${label}${total && !missing ? ` · ${money(total)}` : ''}</span><span class="spinner"></span></button>
+      <button class="btn btn-accent grow" data-act="confirm-all" ${missing ? 'disabled aria-disabled="true"' : ''}>${icon(missing ? 'clock' : 'check', { stroke: 2.4 })}<span class="btn-label">${label}${total && !missing ? ` · ${money(total)}` : ''}</span>${raw(ORB_SPINNER)}</button>
     </div>`;
     if (!bar) {
       this.sheet.foot.insertAdjacentHTML('afterbegin', String(tpl));

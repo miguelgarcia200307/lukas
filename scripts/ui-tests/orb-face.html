@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba · cara del orbe de voz</title>
+<style>body { margin: 0; } canvas { display: block; }</style>
+</head><body><div id="box"></div><pre id="results"></pre>
+<script type="module">
+// Prueba de navegador de la cara de Lukas sobre el orbe de voz (la corre scripts/ui-tests/run.mjs en Chrome sin interfaz).
+// 1. Con la cara apagada (?face=0) el orbe es IDÉNTICO píxel por píxel a la v1.7.1 (copia congelada en fixtures/).
+// 2. Con la cara encendida, nada de la cara cae a menos de 0.18 R del borde, ni con deformaciones extremas.
+// 3. Costo de la cara < 0.5 ms por frame.
+// 4. lukas-orb.js (después de extraer face-geometry.js y agregar hold) se comporta igual que la v1.7.1, frame a frame.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+
+// Azar con semilla (las partículas y el parpadeo usan Math.random)
+const realRandom = Math.random;
+const seed = (s) => { let a = s >>> 0; Math.random = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const box = document.getElementById('box');
+const canvas = (px) => { const c = document.createElement('canvas'); c.style.width = c.style.height = `${px}px`; box.appendChild(c); return c; };
+const FREQ = new Uint8Array(256).map((_, i) => Math.round(255 * Math.abs(Math.sin(i * 0.37)) * (1 - i / 300)));
+const pixels = (orb) => orb.ctx.getImageData(0, 0, orb.canvas.width, orb.canvas.height).data;
+function setup(orb, { mode, level, morph }) {
+  cancelAnimationFrame(orb.raf);
+  orb.resize();
+  orb.mode = mode; orb.level = level; orb.target = level; orb.morph = morph; orb.freq = FREQ;
+}
+
+try {
+  // ── 1. Cara apagada: píxel por píxel igual a la v1.7.1 ──
+  history.replaceState(null, '', '?face=0');
+  const { Orb: Old } = await import('./fixtures/orb-v1.7.1.js');
+  const { Orb: New } = await import('../../js/voice/orb.js');
+  const { faceAllowed, FaceSettings } = await import('../../js/voice/orb-face.js');
+  check('?face=0 apaga la cara', !faceAllowed());
+  let cases = 0, diffs = [];
+  const combos = [];
+  for (const [px, compact] of [[192, false], [280, false], [112, false], [120, true]])
+    for (const mode of ['idle', 'recording', 'thinking', 'speaking'])
+      for (const level of [0, 0.35, 1])
+        for (const morph of [0, 0.5, 1]) combos.push({ px, compact, mode, level, morph });
+  for (const c of combos) {
+    for (const t of [0, 1.3, 7.77]) {
+      seed(42); const a = new Old(canvas(c.px), { compact: c.compact }); setup(a, c);
+      seed(42); const b = new New(canvas(c.px), { compact: c.compact }); setup(b, c);
+      if (b.face) { diffs.push('la cara no se apagó'); break; }
+      // Varios frames seguidos (las partículas avanzan y acumulan estado)
+      for (let f = 0; f < 3; f++) {
+        a.draw(t + f / 60); b.draw(t + f / 60);
+        const pa = pixels(a), pb = pixels(b);
+        cases++;
+        let same = pa.length === pb.length;
+        for (let i = 0; same && i < pa.length; i++) if (pa[i] !== pb[i]) same = false;
+        if (!same) diffs.push(`${c.px}px ${c.compact ? 'compacto ' : ''}${c.mode} nivel ${c.level} morph ${c.morph} t ${t}`);
+      }
+      a.destroy(); b.destroy(); box.innerHTML = '';
+    }
+  }
+  check(`cara apagada: ${cases} frames idénticos a la v1.7.1 (todos los modos, niveles, morph y medidas)`, !diffs.length, diffs.slice(0, 3).join(' | '));
+
+  // ── 2 y 3. Cara encendida: siempre dentro del orbe con margen; costo por frame ──
+  history.replaceState(null, '', location.pathname);
+  check('sin ?face=0 la cara está activa', faceAllowed());
+  let outside = [], costs = [], faceFrames = 0, changed = 0;
+  for (const px of [192, 280, 112]) {
+    for (const scenario of ['idle', 'recording', 'thinking', 'speaking', 'ok', 'error']) {
+      seed(7); const on = new New(canvas(px));
+      seed(7); history.replaceState(null, '', '?face=0'); const off = new New(canvas(px)); history.replaceState(null, '', location.pathname);
+      const mode = ['ok', 'error'].includes(scenario) ? 'idle' : scenario;
+      for (const o of [on, off]) setup(o, { mode, level: 0, morph: scenario === 'thinking' ? 1 : 0 });
+      if (scenario === 'ok' || scenario === 'error') on.cue(scenario);
+      for (let f = 0; f < 150; f++) {
+        // Voz extrema: picos, sílabas y silencios (asentimientos, ojos y boca al máximo)
+        const lvl = mode === 'recording' ? (f % 24 < 12 ? 1 : 0.02) : mode === 'speaking' ? 0.5 : 0;
+        for (const o of [on, off]) { o.target = lvl; o.level += (o.target - o.level) * 0.25; }
+        on.face.last = performance.now() - 1000 / 60; // 60 fps simulados
+        const t = f / 60 + 3.1;
+        on.draw(t); off.draw(t);
+        faceFrames++;
+        costs.push(on.face.ms);
+        if (f % 10 !== 9) continue;
+        const pa = pixels(on), pb = pixels(off), W = on.canvas.width, dpr = W / px, g = on.geo;
+        const lim = (rc) => rc - 0.18 * g.R * 0.92; // tolerancia de antialias
+        for (let i = 0; i < pa.length; i += 4) {
+          if (pa[i] === pb[i] && pa[i + 1] === pb[i + 1] && pa[i + 2] === pb[i + 2]) continue;
+          changed++;
+          const x = ((i / 4) % W) / dpr - g.cx, y = Math.floor(i / 4 / W) / dpr - g.cy;
+          let a = Math.atan2(y, x); if (a < 0) a += Math.PI * 2;
+          const idx = (a / (Math.PI * 2)) * g.n, i0 = Math.floor(idx) % g.n, fr = idx - Math.floor(idx);
+          const rc = g.r[i0] * (1 - fr) + g.r[i0 + 1] * fr;
+          if (Math.hypot(x, y) > lim(rc)) { outside.push(`${px}px ${scenario} f${f}`); break; }
+        }
+      }
+      on.destroy(); off.destroy(); box.innerHTML = '';
+    }
+  }
+  check('la cara se dibuja (hay píxeles de cara)', changed > 1000, changed);
+  check('la cara nunca queda a menos de 0.18 R del borde (3 medidas, 6 estados, voz extrema)', !outside.length, [...new Set(outside)].slice(0, 4).join(' | '));
+  costs.sort((a, b) => a - b);
+  const p95 = costs[Math.floor(costs.length * 0.95)];
+  check('costo de la cara < 0.5 ms por frame (p95)', p95 < 0.5, `${p95.toFixed(3)} ms en ${faceFrames} frames`);
+
+  // ── 4. lukas-orb.js idéntico a la v1.7.1, frame a frame ──
+  const NewL = (await import('../../js/ui/lukas-orb.js')).LukasOrbEngine;
+  const OldL = (await import('./fixtures/lukas-orb-v1.7.1.js')).LukasOrbEngine;
+  const script = [['rest', 90], ['intro', 140], ['thinking', 100], ['done', 150], ['error', 100], ['mood:tired', 60], ['mood:closed', 40], ['look', 40], ['pull', 30], ['rest', 300]];
+  const run = (E) => {
+    seed(99);
+    const host = document.createElement('div'); host.style.cssText = 'position:relative;width:96px;height:96px'; box.appendChild(host);
+    const e = new E(host, { size: 96 });
+    e.io?.disconnect(); e.visible = false; e.wake(); // frames manuales con dt fijo
+    const out = [];
+    for (const [step, n] of script) {
+      if (step.startsWith('mood:')) e.setMood(step.slice(5)); else if (step === 'look') e.lookAt(0.7, -0.4); else if (step === 'pull') e.setPull(0.8); else e.play(step);
+      for (let f = 0; f < n; f++) { e.frame(1 / 60); if (f % 5 === 0) out.push(e.n.svg.innerHTML); }
+    }
+    e.destroy(); host.remove();
+    return out;
+  };
+  const A = run(OldL), B = run(NewL);
+  let firstDiff = -1;
+  for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) { firstDiff = i; break; }
+  check(`lukas-orb idéntico a la v1.7.1 en ${A.length} frames (reposo, intro, procesando, éxito, error, humores, mirada, pull)`, A.length === B.length && firstDiff < 0, firstDiff);
+  // hold(): congela en reposo y retoma lo pedido al soltar
+  seed(5);
+  const host = document.createElement('div'); box.appendChild(host);
+  const e = new NewL(host, { size: 28 });
+  e.io?.disconnect(); e.visible = false; e.wake();
+  e.hold(true); e.think();
+  for (let f = 0; f < 400; f++) e.frame(1 / 60);
+  check('hold(true): sigue en reposo aunque le pidan procesar', e.state === 'rest' && e.held);
+  check('hold(true): sin parpadeo', e.blink.start < 0);
+  e.hold(false);
+  check('hold(false): retoma lo que se pidió mientras estaba congelado', e.state === 'thinking' && !e.held);
+  e.destroy();
+  Math.random = realRandom;
+} catch (err) {
+  check('la prueba corrió completa', false, err?.stack || err);
+}
+done();
+</script>
+</body></html>

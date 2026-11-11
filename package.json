@@ -9,7 +9,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "user": "node scripts/create-user.mjs",
     "deploy": "node scripts/deploy.mjs",
-    "test": "node --test scripts/ai-eval/normalize.test.mjs scripts/tests/privacy.test.mjs scripts/tests/version.test.mjs scripts/tests/boot.test.mjs scripts/tests/submit.test.mjs",
+    "test": "node --test scripts/ai-eval/normalize.test.mjs scripts/tests/privacy.test.mjs scripts/tests/version.test.mjs scripts/tests/boot.test.mjs scripts/tests/submit.test.mjs scripts/tests/face-geometry.test.mjs",
     "eval": "node --use-system-ca scripts/ai-eval/run.mjs",
     "eval:whisper": "node --use-system-ca scripts/ai-eval/whisper.mjs",
     "verify": "node --use-system-ca scripts/verify.mjs",
