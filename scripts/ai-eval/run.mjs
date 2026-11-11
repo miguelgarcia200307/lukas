@@ -5,7 +5,9 @@
 //   node --use-system-ca scripts/ai-eval/run.mjs --label final                 # función desplegada (ai-assistant)
 //   node --use-system-ca scripts/ai-eval/run.mjs --label x --fn ai-assistant-next
 //   node --use-system-ca scripts/ai-eval/run.mjs --label m --local --model openai/gpt-oss-20b --effort low
-//   Filtros: --only spec-01,q-02   --group audio   --text-only   --audio-only   --pause 4000   --repeat-audio 2
+//   El banco gasta la misma cuota de Groq que la app: por defecto corre solo los casos que fallaron en la última
+//   corrida más los casos nuevos. --all corre todo (úsalo poco). --sample 10 toma una muestra.
+//   Filtros: --only spec-01,q-02   --group audio   --text-only   --audio-only   --pause 4000
 //   node --use-system-ca scripts/ai-eval/run.mjs --report        # solo regenera report.md
 //   node --use-system-ca scripts/ai-eval/run.mjs --cleanup       # borra los datos de prueba
 import fs from 'node:fs';
@@ -147,6 +149,7 @@ async function callDeployed(fn, turn, prev) {
         out.events.push([ev, Math.round(ms)]);
         if (ev === 'transcript') { out.transcript = data.text; timing.transcript_ms ??= ms; }
         else if (ev === 'proposal') { out.proposals.push(data); timing.first_proposal_ms ??= ms; }
+        else if (ev === 'replace') { out.proposals = [...data.proposals]; }
         else if (ev === 'question') { out.question = data.text; timing.first_proposal_ms ??= ms; }
         else if (ev === 'reply') { out.reply = data.text; }
         else if (ev === 'done') { Object.assign(out, data); timing.done_ms = ms; }
@@ -286,6 +289,19 @@ async function main() {
   let cases = bank.cases;
   if (opt('only')) { const ids = opt('only').split(','); cases = cases.filter((c) => ids.includes(c.id)); }
   if (opt('group')) cases = cases.filter((c) => c.group === opt('group'));
+  if (!flag('all') && !opt('only') && !opt('group')) {
+    const runs = fs.existsSync(RESULTS) ? fs.readdirSync(RESULTS).filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(fs.readFileSync(path.join(RESULTS, f), 'utf8'))).filter((r) => !r.meta.label.startsWith('0-'))
+      .sort((a, b) => b.meta.at.localeCompare(a.meta.at)) : [];
+    const last = runs[0];
+    if (last) {
+      const failed = new Set(last.results.filter((r) => !r.pass).map((r) => r.id));
+      const seen = new Set(last.results.map((r) => r.id));
+      cases = cases.filter((c) => failed.has(c.id) || !seen.has(c.id));
+      console.log(`Solo fallidos de "${last.meta.label}" + casos nuevos (${cases.length}). Usa --all para el banco completo.`);
+    } else cases = cases.sort(() => Math.random() - 0.5).slice(0, 12);
+  }
+  if (opt('sample')) cases = cases.sort(() => Math.random() - 0.5).slice(0, Number(opt('sample')));
   if (flag('text-only')) cases = cases.filter((c) => !c.audio);
   if (flag('audio-only')) cases = cases.filter((c) => c.audio);
 
@@ -301,6 +317,7 @@ async function main() {
   for (const c of cases) {
     const turns = c.turns ? c.turns.map((t) => ({ text: t })) : [c.audio ? { audio: c.audio } : { text: c.text }];
     let prev = null, r = null, err = null;
+    const turnUsage = [];
     for (const turn of turns) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -314,6 +331,7 @@ async function main() {
         }
       }
       if (err) break;
+      turnUsage.push(r.usage);
       prev = r.next;
       if (turns.length > 1) await sleep(pause);
     }
@@ -323,7 +341,7 @@ async function main() {
       const g = grade(c, r, names);
       row = {
         id: c.id, group: c.group, audio: !!c.audio, pass: g.pass, checks: g.checks, transcript: r.transcript, intent: r.intent,
-        reply: r.reply, question: r.question, model: r.model, timing: r.timing, server: r.server, usage: r.usage,
+        reply: r.reply, question: r.question, model: r.model, timing: r.timing, server: r.server, usage: r.usage, usage_turns: turnUsage,
         proposals: r.proposals.map((p) => ({
           kind: p.kind, type: p.type, amount: p.amount, category: names.cat[p.category_id] ?? null,
           alts: (p.category_alternatives ?? []).map((id) => names.cat[id]), items: p.items?.length ?? 0,

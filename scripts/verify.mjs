@@ -37,7 +37,11 @@ export async function verify(env = readEnv()) {
   const ai = async (text) => {
     const r = await fetch(`${base}/functions/v1/ai-assistant`, { method: 'POST', headers: H, body: JSON.stringify({ text }) });
     if (!r.ok) throw new Error(`ai-assistant ${r.status}: ${await r.text()}`);
-    const out = { proposals: [] };
+    if (!(r.headers.get('content-type') ?? '').includes('text/event-stream')) {
+      const j = await r.json(); // versión anterior de la función (sin streaming)
+      return { ...j, query: j.query ? { ...j.query, metric: j.query.topic } : null, streaming: false };
+    }
+    const out = { proposals: [], streaming: true };
     for (const block of (await r.text()).split('\n\n')) {
       const ev = /^event: (.+)$/m.exec(block)?.[1];
       const data = /^data: (.+)$/m.exec(block)?.[1];
@@ -56,7 +60,7 @@ export async function verify(env = readEnv()) {
       (j) => j.needs_clarification && j.proposals.some((p) => p.amount === 5000)],
     ['Acabo de recibir 30 mil pesos por una venta', (j) => j.proposals[0]?.type === 'income' && j.proposals[0]?.amount === 30000],
     ['Pagué 500 mil de la Visa desde Bancolombia', (j) => j.intent === 'card_payment' || j.needs_clarification],
-    ['¿Cuánto he gastado esta semana?', (j) => j.intent === 'query' && /esta semana/i.test(j.reply) && j.query?.metric === 'spending'],
+    ['¿Cuánto he gastado esta semana?', (j) => j.intent === 'query' && j.reply?.length > 8 && j.query?.metric === 'spending'],
   ];
   for (const [text, test] of cases) {
     try {

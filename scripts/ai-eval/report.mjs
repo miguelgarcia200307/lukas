@@ -17,7 +17,8 @@ export function summarize(run) {
   const col = (k) => R.filter((r) => r.error || k in r.checks).map((r) => !r.error && r.checks[k]);
   const text = ok.filter((r) => !r.audio), audio = ok.filter((r) => r.audio);
   const stage = (k) => q(ok.map((r) => r.server?.[k]), 50);
-  const usage = ok.map((r) => r.usage).filter(Boolean);
+  // promedio por solicitud (cada turno de una conversación es una solicitud)
+  const usage = ok.flatMap((r) => (r.usage_turns?.length ? r.usage_turns : [r.usage])).filter(Boolean);
   const models = {};
   ok.forEach((r) => { if (r.model) models[r.model] = (models[r.model] ?? 0) + 1; });
   return {

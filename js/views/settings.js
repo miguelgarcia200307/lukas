@@ -166,6 +166,6 @@ export function mount(screen) {
   render();
   hasPushSubscription().then((v) => { pushOn = v; render(); if (v) syncPushSubscription(); });
   micStatus().then((v) => { mic = v; render(); });
-  aiUsage().then((u) => { usage = u?.quota_day ? u : null; render(); }).catch(() => {});
+  aiUsage().then((u) => { usage = u?.quota_day ? u : null; render(); }).catch(() => { usage = null; render(); });
   return () => offs.forEach((f) => f());
 }

@@ -209,6 +209,12 @@ class VoiceSession {
             turn.proposals.push({ ...data, _status: 'pending' });
             this.appendProposal(turn.proposals.length - 1);
             this.setStatus('Esto fue lo que entendí');
+          } else if (ev === 'replace') {
+            // la función fusionó transacciones del mismo evento: se reemplazan las tarjetas
+            if (!turn.started) { turn.started = true; this.startProposals(turn.proposals); }
+            turn.proposals.splice(0, turn.proposals.length, ...data.proposals.map((p) => ({ ...p, _status: 'pending' })));
+            this.result.querySelector('.proposals').innerHTML = String(renderProposals(turn.proposals));
+            this.updateFooter();
           } else if (ev === 'question') this.showBubble(data.text, true);
         },
       });

@@ -83,3 +83,22 @@ test('resolveWhen', () => {
   assert.deepEqual(resolveWhen('2026-11-01', now), { date: '2026-11-01', time: null });
   assert.deepEqual(resolveWhen('mañana', now), { date: '2026-11-11', time: null });
 });
+
+test('agrupación e ingresos explícitos', async () => {
+  const { buildContext, mergeKey, mergeTransactions, incomeFallback } = await import('../../supabase/functions/_shared/brain.ts');
+  const b = buildContext({ name: null, def: 'acc', cats: [['food', 'Comida', 'expense', null, 'food'], ['oi', 'Otros ingresos', 'income', null, 'other_income'], ['tr', 'Transferencias recibidas', 'income', null, 'transfers_in'], ['sal', 'Salario', 'income', null, 'salary']],
+    accs: [['acc', 'Efectivo', 'cash']], cards: [], debts: [], subs: [], goals: [], hints: [] }, 'v');
+  const tx = (d, a, items = []) => ({ kind: 'transaction', type: 'expense', amount: a, date: '2026-11-11T14:00:00-05:00', description: d, category_id: 'food',
+    category_alternatives: [], payment: { kind: 'account', id: 'acc', inferred: true }, items, group_id: 'temp-1', confidence: 0.9 });
+  let m = mergeTransactions(tx('Salchipapa', 30000), tx('Hamburguesa', 22000));
+  m = mergeTransactions(m, tx('Gaseosas', 10000, [{ name: 'Gaseosa', qty: 2, unit_amount: 5000 }]));
+  assert.equal(m.amount, 62000);
+  assert.equal(m.items.length, 3);
+  assert.equal(mergeKey(tx('a', 1)), mergeKey(tx('b', 2)));
+  const now = new Date('2026-11-11T19:30:00Z');
+  assert.equal(incomeFallback('Me entraron $50000', [50000], b, now)?.category_id, 'oi');
+  assert.equal(incomeFallback('Me consignaron $120000', [120000], b, now)?.category_id, 'tr');
+  assert.equal(incomeFallback('Recibí $45000', [45000], b, now)?.type, 'income');
+  assert.equal(incomeFallback('Me pagaron la quincena, $1200000', [1200000], b, now)?.category_id, 'sal');
+  assert.equal(incomeFallback('Pagué $25000', [25000], b, now), null);
+});

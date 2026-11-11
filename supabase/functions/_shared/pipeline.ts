@@ -2,7 +2,8 @@
 // Sin APIs de Deno: lo usan la Edge Function y el banco de pruebas en Node.
 import { amountSupported, normalizeText } from "./normalize.ts";
 import {
-  type Built, buildMessages, OUT_OF_SCOPE, parseState, type Proposal, type QuerySpec, queryReply, recordReply, validateLine,
+  type Built, buildMessages, incomeFallback, mergeKey, mergeTransactions, OUT_OF_SCOPE, parseState, type Proposal, type QuerySpec,
+  queryReply, recordReply, validateLine,
 } from "./brain.ts";
 import { type ChatMsg, GroqError, orderModels, shouldFallback, streamChat, type Usage } from "./llm.ts";
 
@@ -61,6 +62,19 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   let reply: string | null = null;
   let query: QuerySpec | null = null;
 
+  // Agrupación determinística: una transacción se retiene hasta saber si la siguiente es del mismo evento
+  // (mismo tipo, categoría, día y medio de pago); si lo es, se fusionan con sus ítems y el total sumado en código.
+  let held: Proposal | null = null;
+  const emitProposal = (p: Proposal) => { proposals.push(p); o.emit("proposal", p); };
+  const flush = () => { if (held) { emitProposal(held); held = null; } };
+  const accept = (p: Proposal) => {
+    const key = mergeKey(p);
+    if (!key) { flush(); emitProposal(p); return; }
+    if (held && mergeKey(held) === key) { held = mergeTransactions(held, p); return; }
+    flush();
+    held = p;
+  };
+
   const handle = (raw: string, final: boolean) => {
     // A veces el modelo junta dos objetos en una línea: {...}{...}
     const parts = raw.split(/(?<=})\s*(?=\{"k")/);
@@ -73,9 +87,8 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       if (final && !amountOk(r.proposal.amount, r.proposal.kind === "transaction" ? r.proposal.items.reduce((s, i) => s + Math.round(i.qty * i.unit_amount), 0) || undefined : undefined) && r.proposal.kind === "transaction") {
         r.proposal.confidence = Math.min(r.proposal.confidence, 0.4); // no se pudo verificar: la tarjeta pide revisar
       }
-      proposals.push(r.proposal);
       goodLines.push(r.line);
-      o.emit("proposal", r.proposal);
+      accept(r.proposal);
     } else if (r.type === "question") { if (!question) { question = r.text; goodLines.push(r.line); o.emit("question", { text: r.text }); } }
     else if (r.type === "query") { query = r.query; goodLines.push(r.line); }
     else if (r.type === "reply") reply = r.text;
@@ -134,6 +147,25 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       console.error("retry", String(err).slice(0, 200));
       for (const f of failed) handle(f.line, true);
     }
+  }
+
+  flush();
+  // Fusión final de transacciones del mismo evento que no llegaron seguidas
+  const merged: Proposal[] = [];
+  for (const p of proposals) {
+    const key = mergeKey(p);
+    const same = key ? merged.find((m) => mergeKey(m) === key) : null;
+    if (same) merged[merged.indexOf(same)] = mergeTransactions(same, p); else merged.push(p);
+  }
+  if (merged.length !== proposals.length) {
+    proposals.splice(0, proposals.length, ...merged);
+    o.emit("replace", { proposals });
+  }
+
+  // Ingresos explícitos ("me entraron 50 mil", "me consignaron…") se registran sin preguntar
+  if (!query && !proposals.length && question) {
+    const inc = incomeFallback(norm.text, norm.amounts, o.built, now);
+    if (inc) { question = null; emitProposal(inc); }
   }
 
   // ── Consulta: SQL + plantilla (sin segunda llamada al LLM)

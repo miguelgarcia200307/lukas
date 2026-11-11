@@ -1,0 +1,1208 @@
+{
+  "meta": {
+    "label": "2-fix-qwen-muestra",
+    "fn": null,
+    "local": true,
+    "model": "qwen/qwen3.8-27b,openai/gpt-oss-120b",
+    "effort": null,
+    "fewshot": null,
+    "at": "2026-11-11T11:03:29.719Z",
+    "cases": 17
+  },
+  "results": [
+    {
+      "id": "spec-01",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos dos gaseosas de 5.000 cada una",
+      "intent": "create_transactions",
+      "reply": "Anotado: salchipapa, hamburguesa de mi novia y gaseosa por $62.000. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 810.7991000000002,
+        "first_proposal_ms": 810.2916999999998
+      },
+      "server": {
+        "llm_ms": 809,
+        "llm_first_ms": 553,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1582,
+          "out": 135,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Salí a comer con mi novia y me gasté $30000 en una salchipapa, ella se pidió una hamburguesa de $22000 y compramos 2 gaseosas de $5000 cada una"
+      },
+      "usage": {
+        "in": 1582,
+        "out": 135,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1582,
+          "out": 135,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 62000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-02b",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Los clavos me costaron 8 lucas",
+      "intent": "create_transactions",
+      "reply": "Anotado: 2 registros. Revísalos y confirma.",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 767.6294000000016,
+        "first_proposal_ms": 767.4419999999991
+      },
+      "server": {
+        "llm_ms": 767,
+        "llm_first_ms": 476,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1639,
+          "out": 66,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Los clavos me costaron $8000"
+      },
+      "usage": {
+        "in": 1639,
+        "out": 66,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1561,
+          "out": 52,
+          "reasoning": 0,
+          "cached": 0
+        },
+        {
+          "in": 1639,
+          "out": 66,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 5000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 8000,
+          "category": "Hogar",
+          "alts": [
+            "Mercado",
+            "Tecnología"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-04",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Pagué 500 mil de la Visa desde Bancolombia",
+      "intent": "card_payment",
+      "reply": "Listo, pago de $500.000 a la Visa. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 885.4507000000012,
+        "first_proposal_ms": 885.2792999999947
+      },
+      "server": {
+        "llm_ms": 885,
+        "llm_first_ms": 646,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1547,
+          "out": 25,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Pagué $500000 de la Visa desde Bancolombia"
+      },
+      "usage": {
+        "in": 1547,
+        "out": 25,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1547,
+          "out": 25,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "card_payment",
+          "amount": 500000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "card": "Visa",
+          "account": "Bancolombia"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-04",
+      "group": "jerga",
+      "audio": false,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": false,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto",
+      "intent": "create_transactions",
+      "reply": "Listo, ¿guardo mecánico moto por $500.000?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 732.7599000000046,
+        "first_proposal_ms": 732.7023000000045
+      },
+      "server": {
+        "llm_ms": 732,
+        "llm_first_ms": 619,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1548,
+          "out": 41,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Le pagué $500000 al mecánico por arreglar la moto"
+      },
+      "usage": {
+        "in": 1548,
+        "out": 41,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1548,
+          "out": 41,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Otros",
+          "alts": [
+            "Hogar",
+            "Transporte"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-01",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Compré tres cervezas de 4.500 y una bolsa de papas de 3 mil en la tienda",
+      "intent": "create_transactions",
+      "reply": "Listo, ¿guardo cervezas y papas en la tienda por $16.500?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 817.722099999999,
+        "first_proposal_ms": 817.6291000000056
+      },
+      "server": {
+        "llm_ms": 818,
+        "llm_first_ms": 463,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1557,
+          "out": 70,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Compré 3 cervezas de $4500 y una bolsa de papas de $3000 en la tienda"
+      },
+      "usage": {
+        "in": 1557,
+        "out": 70,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1557,
+          "out": 70,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 16500,
+          "category": "Mercado",
+          "alts": [
+            "Comida y restaurantes",
+            "Otros"
+          ],
+          "items": 2,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-02",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En el D1 compré arroz por 4.200, dos litros de leche a 3.800 cada uno y huevos por 14 mil",
+      "intent": "create_transactions",
+      "reply": "Anotado: arroz, leche y huevos en d1 por $25.800. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 921.2233000000124,
+        "first_proposal_ms": 921.1581000000006
+      },
+      "server": {
+        "llm_ms": 920,
+        "llm_first_ms": 573,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1566,
+          "out": 82,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "En el D1 compré arroz por $4200, 2 litros de leche a $3800 cada uno y huevos por $14000"
+      },
+      "usage": {
+        "in": 1566,
+        "out": 82,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1566,
+          "out": 82,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 25800,
+          "category": "Mercado",
+          "alts": [
+            "Comida y restaurantes",
+            "Hogar"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-03",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué el Uber de 15 lucas y almorcé por 22 mil",
+      "intent": "create_transactions",
+      "reply": "Perfecto, son 2 movimientos. ¿Los guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 1096.4216000000015,
+        "first_proposal_ms": 1096.3506000000052
+      },
+      "server": {
+        "llm_ms": 1096,
+        "llm_first_ms": 963,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1552,
+          "out": 65,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Pagué el Uber de $15000 y almorcé por $22000"
+      },
+      "usage": {
+        "in": 1552,
+        "out": 65,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1552,
+          "out": 65,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 15000,
+          "category": "Taxi",
+          "alts": [
+            "Transporte",
+            "Parqueadero"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 22000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-04",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En la droguería gasté 35 mil en medicamentos y después compré comida para el perro por 60 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, te separé 2 movimientos por $95.000. ¿Los guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 967.231500000009,
+        "first_proposal_ms": 967.1624000000011
+      },
+      "server": {
+        "llm_ms": 967,
+        "llm_first_ms": 862,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1560,
+          "out": 54,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "En la droguería gasté $35000 en medicamentos y después compré comida para el perro por $60000"
+      },
+      "usage": {
+        "in": 1560,
+        "out": 54,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1560,
+          "out": 54,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 35000,
+          "category": "Salud",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 60000,
+          "category": "Mascotas",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-05",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Hoy pagué la luz, 98 mil, y el internet de Claro, 75 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, $173.000 en Servicios públicos. ¿Lo guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 1963.3793999999762,
+        "first_proposal_ms": 1963.2284999999974
+      },
+      "server": {
+        "llm_ms": 1963,
+        "llm_first_ms": 1426,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1555,
+          "out": 76,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Hoy pagué la luz, $98000, y el internet de Claro, $75000"
+      },
+      "usage": {
+        "in": 1555,
+        "out": 76,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1555,
+          "out": 76,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 173000,
+          "category": "Servicios públicos",
+          "alts": [
+            "Otros"
+          ],
+          "items": 2,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-03",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me entraron 50 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, entraron $50.000 en Transferencias recibidas. ¿Lo guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 2120.710400000011,
+        "first_proposal_ms": 2120.670299999998
+      },
+      "server": {
+        "llm_ms": 2121,
+        "llm_first_ms": 2119,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1539,
+          "out": 27,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Me entraron $50000"
+      },
+      "usage": {
+        "in": 1539,
+        "out": 27,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1539,
+          "out": 27,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 50000,
+          "category": "Transferencias recibidas",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-04",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me cayeron 80 mil",
+      "intent": "create_transactions",
+      "reply": "Anotado: ingreso de $80.000. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 820.5216000000073,
+        "first_proposal_ms": 820.4849000000104
+      },
+      "server": {
+        "llm_ms": 820,
+        "llm_first_ms": 698,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1540,
+          "out": 27,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Me cayeron $80000"
+      },
+      "usage": {
+        "in": 1540,
+        "out": 27,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1540,
+          "out": 27,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 80000,
+          "category": "Transferencias recibidas",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-05",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me consignaron 120 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, entraron $120.000 en Transferencias recibidas. ¿Lo guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 731.0384999999951,
+        "first_proposal_ms": 731.0087000000058
+      },
+      "server": {
+        "llm_ms": 731,
+        "llm_first_ms": 671,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1540,
+          "out": 32,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Me consignaron $120000"
+      },
+      "usage": {
+        "in": 1540,
+        "out": 32,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1540,
+          "out": 32,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 120000,
+          "category": "Transferencias recibidas",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Bancolombia",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-06",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me pagaron 300 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, entraron $300.000 en Otros ingresos. ¿Lo guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 829.8314000000246,
+        "first_proposal_ms": 829.707699999999
+      },
+      "server": {
+        "llm_ms": 829,
+        "llm_first_ms": 827,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1540,
+          "out": 26,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Me pagaron $300000"
+      },
+      "usage": {
+        "in": 1540,
+        "out": 26,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1540,
+          "out": 26,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 300000,
+          "category": "Otros ingresos",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-07",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Recibí 45 lucas",
+      "intent": "create_transactions",
+      "reply": "Listo, entraron $45.000 en Transferencias recibidas. ¿Lo guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 960.4658000000054,
+        "first_proposal_ms": 960.4047999999893
+      },
+      "server": {
+        "llm_ms": 960,
+        "llm_first_ms": 960,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1539,
+          "out": 27,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Recibí $45000"
+      },
+      "usage": {
+        "in": 1539,
+        "out": 27,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1539,
+          "out": 27,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 45000,
+          "category": "Transferencias recibidas",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-01",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos 2 gaseosas de 5.000 cada una.",
+      "intent": "create_transactions",
+      "reply": "Anotado: comida con mi novia por $62.000. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 1764.1140000000014,
+        "first_proposal_ms": 1764.0487999999896,
+        "transcript_ms": 1134.201000000001
+      },
+      "server": {
+        "llm_ms": 629,
+        "llm_first_ms": 436,
+        "retry": false,
+        "stt_ms": 1129,
+        "stt_model": "whisper-large-v3-turbo",
+        "usage": {
+          "in": 1583,
+          "out": 78,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Salí a comer con mi novia y me gasté $30000 en una salchipapa, ella se pidió una hamburguesa de $22000 y compramos 2 gaseosas de $5000 cada una."
+      },
+      "usage": {
+        "in": 1583,
+        "out": 78,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1583,
+          "out": 78,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 62000,
+          "category": "Pareja",
+          "alts": [
+            "Comida y restaurantes",
+            "Entretenimiento"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-09",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En el D1 compré arroz por 4200, 2 litros de leche a 3800 cada uno y huevos por 14000.",
+      "intent": "create_transactions",
+      "reply": "Anotado: arroz, leche y huevos en d1 por $25.800. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 2987.169599999994,
+        "first_proposal_ms": 2987.1135000000068,
+        "transcript_ms": 1497.7415000000037
+      },
+      "server": {
+        "llm_ms": 1490,
+        "llm_first_ms": 1143,
+        "retry": false,
+        "stt_ms": 1496,
+        "stt_model": "whisper-large-v3-turbo",
+        "usage": {
+          "in": 1567,
+          "out": 77,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "En el D1 compré arroz por $4200, 2 litros de leche a $3800 cada uno y huevos por $14000."
+      },
+      "usage": {
+        "in": 1567,
+        "out": 77,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1567,
+          "out": 77,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 25800,
+          "category": "Mercado",
+          "alts": [
+            "Comida y restaurantes",
+            "Hogar"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-10",
+      "group": "audio",
+      "audio": true,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": false,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "intent": "create_transactions",
+      "reply": "Anotado: 2 registros. Revísalos y confirma.",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 1900.7804999999935,
+        "first_proposal_ms": 1900.733200000017,
+        "transcript_ms": 726.4517000000051
+      },
+      "server": {
+        "llm_ms": 1174,
+        "llm_first_ms": 770,
+        "retry": false,
+        "stt_ms": 725,
+        "stt_model": "whisper-large-v3-turbo",
+        "usage": {
+          "in": 1569,
+          "out": 83,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Le pagué $500000 al mecánico por arreglar la moto, y ayer eché gasolina por $70000 con la de Bancolombia."
+      },
+      "usage": {
+        "in": 1569,
+        "out": 83,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1569,
+          "out": 83,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Hogar",
+          "alts": [
+            "Otros",
+            "Transporte"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 70000,
+          "category": "Gasolina",
+          "alts": [
+            "Transporte",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Bancolombia",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    }
+  ]
+}

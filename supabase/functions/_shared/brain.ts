@@ -225,6 +225,7 @@ REGLAS
 5. "p": solo si dice cómo pagó o de dónde salió la plata ("con la Visa", "por Nequi", "en efectivo", "con la de Bancolombia" = su tarjeta de ese banco si tiene una). Si no lo dice, omítelo. Ingresos: solo cuentas.
 6. "f": solo si no fue hoy; copia la expresión de tiempo tal como la dijo ("ayer", "anoche", "antier", "el sábado", "la semana pasada", "hace 3 días", "el 5 de noviembre", "esta mañana").
 7. Si a algo le falta el monto, o no se entiende en qué gastó, o si entró o salió plata, no lo registres: emite "?" preguntando solo eso (ej. "¿Y cuánto te costaron los clavos?") y registra lo que sí está completo. No preguntes por pago, fecha ni categoría.
+   Plata que le entró ("me entraron", "me cayeron", "me consignaron", "me pagaron", "recibí") con monto es un ingreso: regístralo sin preguntar (si no dice de qué, Otros ingresos).
 8. Varias cosas en una frase → una línea por cada una. Primero los registros; la "?" al final.
 9. Preguntas como "¿cuánto llevo?" o "¿cuánto debo en la Visa?" son consultas "q": no calcules cifras.
 10. Saludo o algo ajeno a finanzas → solo "x" diciendo, amable y breve, qué puedes hacer.
@@ -393,6 +394,49 @@ export function validateLine(rawLine: string, b: Built, o: ValidateOpts, amountO
     }
   }
   return { type: "invalid", line, error: `tipo "k" desconocido: ${x.k}` };
+}
+
+// ───────────────────────── agrupación determinística ─────────────────────────
+type Tx = Extract<Proposal, { kind: "transaction" }>;
+/** Mismo evento = mismo tipo, categoría, día y medio de pago */
+export function mergeKey(p: Proposal): string | null {
+  if (p.kind !== "transaction") return null;
+  return [p.type, p.category_id, p.date.slice(0, 10), p.payment.kind, p.payment.id].join("|");
+}
+const asItems = (p: Tx): Item[] => (p.items.length ? p.items : [{ name: p.description, qty: 1, unit_amount: p.amount }]);
+function joinNames(names: string[]): string {
+  const n = [...new Set(names.map((x) => x.trim()).filter(Boolean))];
+  const s = n.length <= 1 ? n[0] ?? "" : n.length <= 3 ? `${n.slice(0, -1).join(", ")} y ${n[n.length - 1].toLowerCase()}` : `${n.slice(0, 2).join(", ")} y más`;
+  return cap(s.length > 120 ? s.slice(0, 117) + "…" : s);
+}
+/** Fusiona dos transacciones del mismo evento: ítems de ambas y total sumado en código */
+export function mergeTransactions(a: Proposal, b: Proposal): Proposal {
+  const x = a as Tx, y = b as Tx;
+  const items = [...asItems(x), ...asItems(y)];
+  const amount = items.reduce((s, it) => s + Math.round(it.qty * it.unit_amount), 0);
+  const alts = [...new Set([...x.category_alternatives, ...y.category_alternatives])].filter((id) => id !== x.category_id).slice(0, 2);
+  return { ...x, amount, items, description: joinNames(items.map((it) => it.name)), category_alternatives: alts, confidence: Math.min(x.confidence, y.confidence) };
+}
+
+// ───────────────────────── ingresos explícitos ─────────────────────────
+const W = "[a-záéíóúüñ]";
+const INCOME_RE = new RegExp(`(?<!${W})(me (entraron|entr[oó]|cayeron|cay[oó]|consignaron|transfirieron|depositaron|pagaron|giraron|llegaron|lleg[oó]|mandaron)|recib[ií]|me hicieron una (consignaci[oó]n|transferencia))(?!${W})`, "i");
+const EXPENSE_RE = new RegExp(`(?<!${W})(gast[eé]|pagu[eé]|compr[eé]|me cobraron|le (pagu[eé]|di|mand[eé]|transfer[ií]))(?!${W})`, "i");
+/** "Me entraron $50000" sin más: ingreso con la categoría más probable, sin preguntar */
+export function incomeFallback(text: string, amounts: number[], b: Built, now: Date): Proposal | null {
+  if (!INCOME_RE.test(text) || EXPENSE_RE.test(text) || amounts.length !== 1) return null;
+  const f = fold(text);
+  const key = /quincena|sueldo|nomina|salario/.test(f) ? "salary" : /vend|venta/.test(f) ? "sales"
+    : /devolv|reembols/.test(f) ? "refunds" : /cliente|proyecto|trabajo/.test(f) ? "freelance"
+    : /consign|transfir|transferencia|deposit|giraron|mandaron/.test(f) ? "transfers_in" : "other_income";
+  const byKey = (k: string) => [...b.cats.values()].find((c) => c.key === k && c.kind === "income")?.id ?? null;
+  const category_id = byKey(key) ?? byKey("other_income");
+  const alts = ["other_income", "transfers_in", "salary"].map(byKey).filter((id): id is string => !!id && id !== category_id).slice(0, 2);
+  return {
+    kind: "transaction", type: "income", amount: amounts[0], date: toTimestamp(bogota(now).date, null, now), description: "Ingreso",
+    category_id, category_alternatives: alts, payment: { kind: "account", id: b.defAccount ?? b.accounts[0]?.id ?? null, inferred: true },
+    items: [], group_id: "temp-1", confidence: 0.8,
+  };
 }
 
 // ───────────────────────── respuestas con plantillas ─────────────────────────
