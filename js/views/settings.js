@@ -34,7 +34,7 @@ const sw = (name, checked, attrs = '') => html`<span class="switch"><input type=
 export function mount(screen) {
   let pushOn = false;
   let mic = 'prompt';
-  let usage = null; // Uso de IA de hoy
+  let usage; // Uso de IA de hoy (undefined = cargando, null = no disponible)
   const render = () => {
     const p = state.profile ?? {};
     const prefs = p.notification_prefs ?? {};
@@ -92,7 +92,7 @@ export function mount(screen) {
       <div class="list ai-usage">
         <div class="list-row"><span class="cat-icon" style="--c:#4B3BF5">${icon('sparkles', { size: 20 })}</span>
           <div class="grow"><div class="row-title">Hoy</div>
-            <div class="row-sub">${usage ? `${usage.audio_today} ${usage.audio_today === 1 ? 'audio' : 'audios'} · ${usage.text_today} por texto` : 'Cargando…'}</div>
+            <div class="row-sub">${usage ? `${usage.audio_today} ${usage.audio_today === 1 ? 'audio' : 'audios'} · ${usage.text_today} por texto` : usage === null ? 'No disponible por ahora' : 'Cargando…'}</div>
             ${usage ? html`<div class="usage-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${usage.pct}" aria-label="Cuota personal usada"><span style="width:${Math.max(2, usage.pct)}%" class="${usage.pct >= 90 ? 'hot' : usage.pct >= 70 ? 'warm' : ''}"></span></div>` : ''}</div>
           ${usage ? html`<div class="usage-pct num">${usage.pct}%</div>` : ''}</div>
         ${usage ? html`<div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Cuota personal</div>
@@ -166,6 +166,6 @@ export function mount(screen) {
   render();
   hasPushSubscription().then((v) => { pushOn = v; render(); if (v) syncPushSubscription(); });
   micStatus().then((v) => { mic = v; render(); });
-  aiUsage().then((u) => { usage = u; render(); }).catch(() => {});
+  aiUsage().then((u) => { usage = u?.quota_day ? u : null; render(); }).catch(() => {});
   return () => offs.forEach((f) => f());
 }

@@ -71,6 +71,17 @@ export async function streamAssistant({ audio, mimeType, duration, text, state, 
       throw new AppError(data?.error?.message ?? 'No pude procesarlo. Intenta de nuevo.', data, data?.error?.code);
     }
     onEvent?.('sent', {});
+    // Compatibilidad: una versión anterior de la función responde un solo JSON (sin streaming)
+    if (!(res.headers.get('content-type') ?? '').includes('text/event-stream')) {
+      const j = await res.json();
+      onEvent?.('transcript', { text: j.transcript ?? text ?? '' });
+      for (const p of j.proposals ?? []) onEvent?.('proposal', p);
+      const question = j.needs_clarification ? j.question : null;
+      if (question) onEvent?.('question', { text: question });
+      const done = { intent: j.intent, reply: j.reply, question, query: j.query ?? null, state: null };
+      onEvent?.('done', done);
+      return done;
+    }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = '', done = null;
