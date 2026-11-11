@@ -30,6 +30,8 @@ Flujo por solicitud: el audio se sube apenas se detiene la grabación (o tras 1,
   - Contra la función desplegada: `npm run eval -- --label nombre`
   - Pipeline local con otro modelo: `npm run eval -- --label x --local --model openai/gpt-oss-20b --effort low`
   - Whisper turbo vs large-v3: `npm run eval:whisper` · pruebas unitarias de la normalización: `npm test`
+  - Salida cruda del modelo para una frase: `node --use-system-ca scripts/ai-eval/raw.mjs "frase"` (en producción queda en `ai_logs.response.raw`)
+  - Varias categorías en una frase: solo se fusiona lo de la misma categoría y el mismo lugar; un ítem sin monto queda como tarjeta pendiente con su pregunta
   - Borrar las cuentas y tarjetas de prueba que crea el banco: `npm run eval -- --cleanup`
 
 ## Activar GitHub Pages

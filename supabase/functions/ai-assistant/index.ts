@@ -6,6 +6,7 @@ import { insertRow, rpc, verifyUser, warmJwks } from "../_shared/jwt.ts";
 import { type Built, buildContext, type RawCtx } from "../_shared/brain.ts";
 import { GroqError, orderModels, quotaSnapshot, shouldFallback, transcribe } from "../_shared/llm.ts";
 import { runTurn } from "../_shared/pipeline.ts";
+import { normalizeText } from "../_shared/normalize.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) || d;
 const GROQ_API_KEY = env("GROQ_API_KEY");
@@ -99,9 +100,10 @@ Deno.serve(async (req) => {
     }
 
     // ── Entrada
-    let text = "", state: string | null = null, audio: File | null = null;
+    let text = "", state: string | null = null, audio: File | null = null, mode = "turn";
     if (body) {
       text = String(body.text ?? "").trim();
+      if (body.mode === "amount") mode = "amount";
       state = typeof body.state === "string" ? body.state : null;
       if (text.length > MAX_TEXT_CHARS) throw new HttpError(413, "El texto es muy largo. Cuéntamelo en pocas frases.", "too_long");
       if (!text) throw new HttpError(400, "Cuéntame qué gastaste o qué quieres saber.", "empty");
@@ -111,6 +113,7 @@ Deno.serve(async (req) => {
       const a = form.get("audio");
       if (a instanceof File && a.size > 0) audio = a;
       state = typeof form.get("state") === "string" ? String(form.get("state")) : null;
+      if (form.get("mode") === "amount") mode = "amount";
       text = String(form.get("text") ?? "").trim();
       if (audio) {
         const mime = (audio.type || "").split(";")[0].trim().toLowerCase();
@@ -174,6 +177,14 @@ Deno.serve(async (req) => {
             metrics: { upload_ms: tParsed - t0, ctx_ms: tCtx - tParsed, stt_ms: sttMs, total_ms: Date.now() - t0, stt_model: sttModel } });
           return;
         }
+        // Respuesta a una tarjeta pendiente ("8 lucas"): solo se extrae el monto, sin llamar al LLM
+        if (mode === "amount") {
+          const amount = normalizeText(transcript).amounts[0] ?? null;
+          send("done", { intent: "amount", amount, transcript, reply: "", question: null, state: state ?? "",
+            metrics: { upload_ms: tParsed - t0, ctx_ms: tCtx - tParsed, stt_ms: sttMs, stt_model: sttModel, total_ms: Date.now() - t0 } });
+          await insertRow(user.token, "ai_logs", { transcript, model: sttModel, latency_ms: Date.now() - t0, response: { intent: "amount", amount } });
+          return;
+        }
         const out = await runTurn({
           text: transcript, state, built, apiKey: GROQ_API_KEY, models: CHAT_MODELS, effort: EFFORT, fewshot: FEWSHOT,
           llmTimeoutMs: Math.min(LLM_TIMEOUT, TOTAL_TIMEOUT - (Date.now() - t0) - 500), signal: turnAbort.signal,
@@ -183,10 +194,10 @@ Deno.serve(async (req) => {
           upload_ms: tParsed - t0, ctx_ms: tCtx - tParsed, ctx_cached: !begin.ctx, stt_ms: sttMs, stt_model: sttModel,
           ...out.metrics, total_ms: Date.now() - t0, usage: out.usage, quota: { used: begin.quota.used, limit: begin.quota.limit },
         };
-        send("done", { intent: out.intent, reply: out.reply, question: out.question, query: out.query, state: out.state, model: out.model, metrics });
+        send("done", { intent: out.intent, reply: out.reply, question: out.question, pending: out.pending, query: out.query, state: out.state, model: out.model, metrics });
         await insertRow(user.token, "ai_logs", {
           transcript, model: out.model, latency_ms: metrics.total_ms,
-          response: { intent: out.intent, normalized: out.normalized, proposals: out.proposals.length, question: out.question, reply: out.reply, metrics },
+          response: { intent: out.intent, normalized: out.normalized, proposals: out.proposals.length, pending: out.pending, question: out.question, reply: out.reply, raw: out.raw, metrics },
         });
       } catch (err) {
         const f = friendly(turnAbort.signal.aborted ? new GroqError(504, "total") : err);

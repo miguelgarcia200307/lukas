@@ -2,8 +2,8 @@
 // Sin APIs de Deno: lo usan la Edge Function y el banco de pruebas en Node.
 import { amountSupported, normalizeText } from "./normalize.ts";
 import {
-  type Built, buildMessages, incomeFallback, mergeKey, mergeTransactions, OUT_OF_SCOPE, parseState, type Proposal, type QuerySpec,
-  queryReply, recordReply, validateLine,
+  askedItem, type Built, buildMessages, canMerge, incomeFallback, mergeTransactions, OUT_OF_SCOPE, parseState, pendingFromQuestion,
+  type Proposal, type QuerySpec, queryReply, recordReply, validateLine,
 } from "./brain.ts";
 import { type ChatMsg, GroqError, orderModels, shouldFallback, streamChat, type Usage } from "./llm.ts";
 
@@ -34,6 +34,9 @@ export interface TurnResult {
   model: string | null;
   usage: Usage | null;
   normalized: string;
+  /** Salida cruda del modelo (y del reintento), para diagnóstico en ai_logs */
+  raw: string;
+  pending: number;
   metrics: { llm_ms: number; llm_first_ms: number | null; retry: boolean; query_ms?: number };
 }
 
@@ -63,14 +66,14 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   let query: QuerySpec | null = null;
 
   // Agrupación determinística: una transacción se retiene hasta saber si la siguiente es del mismo evento
-  // (mismo tipo, categoría, día y medio de pago); si lo es, se fusionan con sus ítems y el total sumado en código.
+  // (misma categoría Y mismo lugar, mismo tipo, día y medio de pago); si lo es, se fusionan con sus ítems y el
+  // total sumado en código. Categorías distintas nunca se fusionan; las pendientes (sin monto) tampoco.
   let held: Proposal | null = null;
   const emitProposal = (p: Proposal) => { proposals.push(p); o.emit("proposal", p); };
   const flush = () => { if (held) { emitProposal(held); held = null; } };
   const accept = (p: Proposal) => {
-    const key = mergeKey(p);
-    if (!key) { flush(); emitProposal(p); return; }
-    if (held && mergeKey(held) === key) { held = mergeTransactions(held, p); return; }
+    if (p.kind !== "transaction" || p.pending) { flush(); emitProposal(p); return; } // la fusión final une lo que quede separado
+    if (held && canMerge(held, p, true)) { held = mergeTransactions(held, p); return; }
     flush();
     held = p;
   };
@@ -89,7 +92,8 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       }
       goodLines.push(r.line);
       accept(r.proposal);
-    } else if (r.type === "question") { if (!question) { question = r.text; goodLines.push(r.line); o.emit("question", { text: r.text }); } }
+      for (const x of r.extra ?? []) accept(x);
+    } else if (r.type === "question") { if (!question) { question = r.text; goodLines.push(r.line); } } // se emite al final
     else if (r.type === "query") { query = r.query; goodLines.push(r.line); }
     else if (r.type === "reply") reply = r.text;
     else if (r.type === "invalid") { if (final) console.error("línea descartada", r.error, r.line); else failed.push({ line: r.line, error: r.error }); }
@@ -131,7 +135,7 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   const llmMs = Date.now() - t0;
 
   // ── Reintento solo de las líneas que fallaron (una vez)
-  let retried = false;
+  let retried = false, retryRaw = "";
   if (failed.length && model) {
     retried = true;
     try {
@@ -142,6 +146,7 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       ];
       const r = await streamChat({ apiKey: o.apiKey, model, messages, effort: o.effort, timeoutMs: 8000, signal: o.signal, maxTokens: 600 });
       usage = addUsage(usage, r.usage);
+      retryRaw = r.content;
       for (const line of r.content.split("\n")) if (line.trim()) handle(line, true);
     } catch (err) {
       console.error("retry", String(err).slice(0, 200));
@@ -150,11 +155,10 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   }
 
   flush();
-  // Fusión final de transacciones del mismo evento que no llegaron seguidas
+  // Fusión final de transacciones del mismo evento que no llegaron seguidas (misma categoría y mismo lugar exacto)
   const merged: Proposal[] = [];
   for (const p of proposals) {
-    const key = mergeKey(p);
-    const same = key ? merged.find((m) => mergeKey(m) === key) : null;
+    const same = merged.find((m) => canMerge(m, p));
     if (same) merged[merged.indexOf(same)] = mergeTransactions(same, p); else merged.push(p);
   }
   if (merged.length !== proposals.length) {
@@ -167,6 +171,26 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     const inc = incomeFallback(norm.text, norm.amounts, o.built, now);
     if (inc) { question = null; emitProposal(inc); }
   }
+
+  // Una pregunta suelta por un monto ("¿Cuánto te costó el foco?") nunca deja el ítem por fuera:
+  // se vuelve una propuesta pendiente con esa pregunta (salvo que ya exista la pendiente de ese ítem)
+  if (question && !query) {
+    const item = askedItem(question);
+    const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const covered = item && proposals.some((p) => p.kind === "transaction" && p.pending && fold(p.description).includes(fold(item).split(" ")[0]));
+    if (covered) question = null;
+    else if (item) {
+      const pend = pendingFromQuestion(question, norm.text, o.built, now);
+      if (pend) {
+        question = null;
+        emitProposal(pend);
+        const alias = pend.kind === "transaction" ? o.built.toAlias[pend.category_id ?? ""] : null;
+        goodLines.push(JSON.stringify({ k: "g", d: (pend as { description: string }).description, ...(alias ? { c: alias } : {}), q: (pend as { question: string }).question }));
+      }
+    }
+  }
+  if (question) o.emit("question", { text: question });
+  const pendingQ = proposals.find((p) => p.kind === "transaction" && p.pending) as { question?: string } | undefined;
 
   // ── Consulta: SQL + plantilla (sin segunda llamada al LLM)
   let queryMs: number | undefined;
@@ -199,7 +223,9 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
 
   return {
     intent, reply: reply ?? "", question, proposals, query, model, usage, normalized: norm.text,
-    state: JSON.stringify({ l: goodLines.filter((l) => !/"k":"(q|x)"/.test(l)).slice(0, 12), q: question, s: said.slice(0, 20) }),
+    raw: [content, retryRaw].filter(Boolean).join("\n--- reintento ---\n").slice(0, 4000),
+    pending: proposals.filter((p) => p.kind === "transaction" && p.pending).length,
+    state: JSON.stringify({ l: goodLines.filter((l) => !/"k":"(q|x)"/.test(l)).slice(0, 12), q: question ?? pendingQ?.question ?? null, s: said.slice(0, 20) }),
     metrics: { llm_ms: llmMs, llm_first_ms: firstMs, retry: retried, ...(queryMs != null ? { query_ms: queryMs } : {}) },
   };
 }

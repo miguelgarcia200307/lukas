@@ -10,11 +10,22 @@ import { toast } from '../ui/toast.js';
 import { streamAssistant, pingAssistant } from '../api/ai.js';
 import { Recorder, canRecord } from './recorder.js';
 import { Orb } from './orb.js';
-import { renderProposals, bindProposals, pendingProposals, saveProposals, validateProposal } from './proposals.js';
+import { renderProposals, renderOne, bindProposals, pendingProposals, saveProposals, validateProposal, summarize, missingAmount } from './proposals.js';
+import { catIcon } from '../ui/common.js';
 import { showPermissionHelp } from '../permissions.js';
 
 const RECORD_INTENTS = ['create_transactions', 'card_payment', 'debt_payment', 'add_subscription', 'goal_contribution'];
 export const SUGGESTIONS = ['Almorcé por 18 lucas', 'Recibí 200 mil de una venta', 'Tanqueé 80 mil con la tarjeta', '¿Cuánto llevo este mes?'];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+/** "8 lucas", "$12.500", "15 mil" escrito como respuesta a una tarjeta pendiente → monto (sin llamar a la IA) */
+function typedAmount(text) {
+  const m = /^\s*(?:me\s+cost[oó]|cost[oó]|fueron|fue|son|vale|valió)?\s*\$?\s*(\d[\d.,]*)\s*(mil|lucas?|k|barras?)?\s*(?:pesos)?\s*\.?\s*$/i.exec(text);
+  if (!m) return 0;
+  let n = Number(m[1].replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.'));
+  if (m[2] && n < 1000) n *= 1000;
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
 
 let active = null;
 
@@ -31,6 +42,8 @@ class VoiceSession {
     this.proposals = [];
     this.transcript = '';
     this.phase = 'idle';
+    this.chain = Promise.resolve(); // las tarjetas aparecen escalonadas aunque lleguen juntas
+    this.answerTarget = null; // tarjeta pendiente que se está respondiendo por voz
     this.sheet = openSheet({
       className: 'voice-sheet',
       body: html`<div class="voice">
@@ -103,6 +116,10 @@ class VoiceSession {
       if (!v) return;
       this.input.value = '';
       this.input.blur();
+      // Una sola tarjeta pendiente y escribió solo un monto: se completa aquí mismo
+      const pend = this.proposals.filter(missingAmount);
+      const n = pend.length === 1 ? typedAmount(v) : 0;
+      if (n && this.unbindProposals?.complete) { this.unbindProposals.complete(pend[0], n); return; }
       this.sendText(v);
     });
     on(this.root, 'click', '[data-act="confirm-all"]', () => this.confirm());
@@ -165,6 +182,7 @@ class VoiceSession {
   }
 
   cancelRecording() {
+    this.answerTarget = null;
     this.recorder?.cancel();
     haptic.tap();
     this.setPhase(this.proposals.length || this.lastQuestion ? 'result' : 'idle');
@@ -178,13 +196,46 @@ class VoiceSession {
     const heard = this.recorder.heardVoice;
     const blob = await this.recorder.stop();
     if (!blob || secs < 0.5 || blob.size < 1200 || !heard) {
+      this.answerTarget = null;
       this.setPhase(this.proposals.length || this.lastQuestion ? 'result' : 'idle');
       this.setStatus(heard ? 'Fue muy cortico' : 'No te escuché', heard ? 'Mantén presionado o toca y habla un poco más' : 'Intenta de nuevo, un poco más cerca del micrófono');
       haptic.error();
       return;
     }
     haptic.tap();
-    await this.ask({ audio: blob, mimeType: this.recorder.mimeType, duration: this.recorder.duration ?? secs });
+    const turn = { audio: blob, mimeType: this.recorder.mimeType, duration: this.recorder.duration ?? secs };
+    if (this.answerTarget) await this.askAmount(turn);
+    else await this.ask(turn);
+  }
+
+  /** Respuesta hablada a una tarjeta pendiente ("8 lucas"): solo se transcribe y se extrae el monto */
+  answerByVoice(p) {
+    if (this.phase === 'thinking' || this.phase === 'recording') return;
+    this.answerTarget = p;
+    this.startRecording();
+    if (this.phase === 'recording') this.setStatus(p.question || '¿Cuánto costó?', 'Dime solo el monto');
+  }
+
+  async askAmount({ audio, mimeType, duration }) {
+    const p = this.answerTarget;
+    this.answerTarget = null;
+    this.setPhase('thinking');
+    this.setStatus('Escuchando el monto…');
+    try {
+      const done = await streamAssistant({ audio, mimeType, duration, mode: 'amount' });
+      if (done.amount > 0 && this.unbindProposals?.complete) {
+        this.unbindProposals.complete(p, done.amount);
+        this.setStatus(missingAmount(p) ? 'Me falta un detalle' : 'Esto fue lo que entendí', '');
+      } else {
+        this.setStatus('No te entendí el monto', done.transcript ? `Escuché «${done.transcript}». Escríbelo en la tarjeta` : 'Escríbelo en la tarjeta');
+        haptic.error();
+      }
+    } catch (err) {
+      this.setStatus('Uy, no pude escucharte', err.message);
+      haptic.error();
+    }
+    this.setPhase('result');
+    this.updateFooter();
   }
 
   sendText(text) {
@@ -206,18 +257,19 @@ class VoiceSession {
           else if (ev === 'transcript') { turn.transcript = data.text; this.showTranscript(data.text); this.setStatus('Entendiendo…'); }
           else if (ev === 'proposal') {
             if (!turn.started) { turn.started = true; this.startProposals(turn.proposals); }
-            turn.proposals.push({ ...data, _status: 'pending' });
-            this.appendProposal(turn.proposals.length - 1);
+            const item = { ...data, _status: 'pending' };
+            turn.proposals.push(item);
+            this.enqueue(() => this.appendProposal(turn.proposals.indexOf(item)));
             this.setStatus('Esto fue lo que entendí');
           } else if (ev === 'replace') {
             // la función fusionó transacciones del mismo evento: se reemplazan las tarjetas
             if (!turn.started) { turn.started = true; this.startProposals(turn.proposals); }
             turn.proposals.splice(0, turn.proposals.length, ...data.proposals.map((p) => ({ ...p, _status: 'pending' })));
-            this.result.querySelector('.proposals').innerHTML = String(renderProposals(turn.proposals));
-            this.updateFooter();
+            this.enqueue(() => { this.unbindProposals?.render?.(); this.updateFooter(); });
           } else if (ev === 'question') this.showBubble(data.text, true);
         },
       });
+      await this.chain;
       this.finishTurn(done, turn, prev);
     } catch (err) {
       this.setPhase(this.proposals.length ? 'result' : 'idle');
@@ -238,10 +290,25 @@ class VoiceSession {
           <button class="icon-btn" data-act="resend-transcript" aria-label="Volver a interpretar">${icon('refresh', { size: 18 })}</button></div>
       </div>
       <div class="bubble-slot"></div>
+      <div class="p-summary" hidden aria-live="polite"></div>
       <div class="proposals stagger ${prev.length ? 'stale' : ''}">${renderProposals(prev)}</div>
       <div class="turn-actions"></div>`);
+    this.bindList(this.result.querySelector('.proposals'), prev);
+  }
+
+  bindList(box, list) {
     this.unbindProposals?.();
-    this.unbindProposals = bindProposals(this.result.querySelector('.proposals'), prev, { onChange: () => this.updateFooter() });
+    this.unbindProposals = bindProposals(box, list, {
+      onChange: () => this.updateFooter(),
+      onAnswerVoice: (p) => this.answerByVoice(p),
+      onSaved: (p, r) => this.savedOne(p, r),
+      transcript: () => this.transcript,
+    });
+  }
+
+  /** Encola un paso de pintado: cada tarjeta entra al menos 220 ms después de la anterior */
+  enqueue(fn) {
+    this.chain = this.chain.then(fn).then(() => sleep(reduceMotion() ? 0 : 220)).catch(() => {});
   }
 
   showTranscript(text) {
@@ -265,17 +332,19 @@ class VoiceSession {
   startProposals(list) {
     this.proposals = list;
     const box = this.result.querySelector('.proposals');
-    box.classList.remove('stale');
+    box.classList.remove('stale', 'still');
     box.innerHTML = '';
-    this.unbindProposals?.();
-    this.unbindProposals = bindProposals(box, list, { onChange: () => this.updateFooter() });
+    this.bindList(box, list);
     this.sheet.expand();
   }
 
   /** Pinta una tarjeta apenas llega: el usuario puede empezar a revisarla antes de que termine todo */
   appendProposal(i) {
-    const box = this.result.querySelector('.proposals');
-    box.insertAdjacentHTML('beforeend', String(renderProposals(this.proposals.map((p, k) => (k === i ? p : { ...p, _status: 'discarded' })))));
+    const box = this.result?.querySelector('.proposals');
+    const p = this.proposals[i];
+    if (!box || !p) return;
+    box.insertAdjacentHTML('beforeend', renderOne(p, i, this.proposals).replace(/--i:\d+/, `--i:0`));
+    this.unbindProposals?.refreshActions?.();
     haptic.select();
     this.updateFooter();
   }
@@ -289,19 +358,23 @@ class VoiceSession {
       const box = this.result.querySelector('.proposals');
       box.classList.remove('stale');
       box.innerHTML = String(renderProposals(this.proposals));
-      this.unbindProposals?.();
-      this.unbindProposals = bindProposals(box, this.proposals, { onChange: () => this.updateFooter() });
+      this.bindList(box, this.proposals);
     }
+    this.unbindProposals?.refreshActions?.();
     this.lastQuestion = done.question || null;
     const isQuery = done.intent === 'query' || done.intent === 'unknown';
+    const sum = summarize(this.proposals);
+    const grouped = sum.count > 1 || sum.pending > 0; // el encabezado ya resume: no hace falta la burbuja
     if (done.question) this.showBubble(done.question, true);
-    else if (done.reply) this.showBubble(done.reply, false, isQuery);
+    else if (done.reply && !grouped) this.showBubble(done.reply, false, isQuery);
+    else this.result.querySelector('.bubble-slot').innerHTML = '';
     const pending = pendingProposals(this.proposals);
     this.setPhase('result');
-    this.setStatus(isQuery && !done.empty ? '' : done.question ? 'Me falta un detalle' : pending.length ? 'Esto fue lo que entendí' : 'Listo', '');
+    this.setStatus(isQuery && !done.empty ? '' : done.question || sum.pending ? 'Me falta un detalle' : pending.length ? 'Esto fue lo que entendí' : 'Listo',
+      sum.pending ? 'Dime cuánto costó o escríbelo en la tarjeta' : '');
     this.result.querySelector('.turn-actions').innerHTML = pending.length || !isQuery ? '' : String(
       html`<div class="center mt-6"><button class="btn btn-ghost btn-sm" data-act="restart">${icon('mic', { size: 16 })}Preguntar otra cosa</button></div>`);
-    this.input.placeholder = done.question ? 'Responde aquí…' : 'Corrige o agrega algo…';
+    this.input.placeholder = done.question || sum.pending ? 'Responde aquí…' : 'Corrige o agrega algo…';
     this.updateFooter();
     this.sheet.expand();
     this.speak(done.question || done.reply);
@@ -319,15 +392,70 @@ class VoiceSession {
       <button class="btn btn-ghost btn-sm" data-act="type-instead">Escribirlo</button></div>`);
   }
 
+  /** Encabezado: "Encontré 2 gastos en 2 categorías · Total $16.000 + 1 pendiente" (el total se anima) */
+  updateSummary() {
+    const box = this.result?.querySelector('.p-summary');
+    if (!box) return;
+    const s = summarize(this.proposals);
+    const show = s.count > 1 || s.pending > 0 || (s.saved > 0 && s.count > 0);
+    if (!show) { box.hidden = true; box.innerHTML = ''; this.shownTotal = 0; return; }
+    const catsLabel = s.cats.length ? ` en ${s.cats.length} ${s.cats.length === 1 ? 'categoría' : 'categorías'}` : '';
+    const key = `${s.count}|${s.cats.map((c) => c.id).join(',')}|${s.pending}`;
+    if (box.hidden || box.dataset.key !== key) {
+      const first = box.hidden;
+      box.hidden = false;
+      box.dataset.key = key;
+      box.innerHTML = String(html`<div class="ps-cats">${s.cats.map((c, k) => html`<span class="ps-cat" style="--k:${k}">${catIcon(c)}</span>`)}</div>
+        <div class="ps-text"><div class="ps-title">Encontré <b>${s.count} ${s.noun}</b>${catsLabel}</div>
+          <div class="ps-total">Total <b class="num ps-amount">${money(this.shownTotal ?? 0)}</b>${s.pending ? html` <span class="ps-pend">+ ${s.pending} ${s.pending === 1 ? 'pendiente' : 'pendientes'}</span>` : ''}</div></div>`);
+      if (!first) { box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); }
+    }
+    this.tweenTotal(box.querySelector('.ps-amount'), s.total);
+  }
+
+  tweenTotal(el, to) {
+    if (!el) return;
+    const from = this.shownTotal ?? 0;
+    this.shownTotal = to;
+    cancelAnimationFrame(this.tweenRaf);
+    if (from === to || reduceMotion()) { el.textContent = money(to); return; }
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    const dur = 520;
+    let t0 = null;
+    const step = (t) => {
+      t0 ??= t; // la base de tiempo del primer cuadro (no performance.now: pueden diferir)
+      const k = Math.max(0, Math.min(1, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = money(Math.round(from + (to - from) * e));
+      if (k < 1) this.tweenRaf = requestAnimationFrame(step);
+    };
+    this.tweenRaf = requestAnimationFrame(step);
+  }
+
+  /** Una tarjeta guardada por separado: deshacer, y si ya no queda nada, cierre con celebración */
+  savedOne(p, { undo }) {
+    const left = pendingProposals(this.proposals);
+    toast('Guardado', undo ? { action: { label: 'Deshacer', fn: async () => {
+      await undo(); p._status = 'pending'; this.unbindProposals?.render?.(); this.updateFooter(); toast('Listo, lo deshice', { type: 'info' });
+    } } } : {});
+    if (!left.length) {
+      this.celebrate();
+      setTimeout(() => this.sheet.close(), 950);
+    }
+  }
+
   updateFooter() {
+    this.updateSummary();
     const pending = pendingProposals(this.proposals);
     let bar = this.root.querySelector('.confirm-bar');
     if (!pending.length) { bar?.remove(); return; }
-    const total = pending.filter((p) => p.kind === 'transaction' && p.type === 'expense').reduce((s, p) => s + (p.amount || 0), 0);
-    const label = pending.length === 1 ? 'Confirmar' : `Confirmar todo (${pending.length})`;
+    const missing = pending.filter(missingAmount).length;
+    if (this.phase === 'result' && this.wasMissing && !missing && !this.lastQuestion) this.setStatus('¡Completo!', 'Revisa y confirma');
+    this.wasMissing = missing > 0;
+    const total =pending.filter((p) => p.kind === 'transaction' && p.type === 'expense' && !missingAmount(p)).reduce((s, p) => s + (p.amount || 0), 0);
+    const label = missing ? `Falta ${missing} ${missing === 1 ? 'monto' : 'montos'}` : pending.length === 1 ? 'Confirmar' : `Confirmar todo (${pending.length})`;
     const tpl = html`<div class="confirm-bar">
       <button class="btn btn-ghost btn-sm" data-act="restart">Cancelar</button>
-      <button class="btn btn-accent grow" data-act="confirm-all">${icon('check', { stroke: 2.4 })}<span class="btn-label">${label}${total ? ` · ${money(total)}` : ''}</span><span class="spinner"></span></button>
+      <button class="btn btn-accent grow" data-act="confirm-all" ${missing ? 'disabled aria-disabled="true"' : ''}>${icon(missing ? 'clock' : 'check', { stroke: 2.4 })}<span class="btn-label">${label}${total && !missing ? ` · ${money(total)}` : ''}</span><span class="spinner"></span></button>
     </div>`;
     if (!bar) {
       this.sheet.foot.insertAdjacentHTML('afterbegin', String(tpl));
@@ -336,6 +464,15 @@ class VoiceSession {
 
   async confirm() {
     const pending = pendingProposals(this.proposals);
+    const missing = pending.find(missingAmount);
+    if (missing) {
+      const i = this.proposals.indexOf(missing);
+      const card = this.result.querySelector(`.proposal[data-i="${i}"]`);
+      card?.classList.add('shake');
+      card?.querySelector('[data-f="answer"]')?.focus();
+      setTimeout(() => card?.classList.remove('shake'), 500);
+      return;
+    }
     for (const p of pending) {
       const err = validateProposal(p);
       if (err) {
@@ -379,6 +516,8 @@ class VoiceSession {
 
   reset() {
     this.convState = null;
+    this.answerTarget = null;
+    this.shownTotal = 0;
     this.proposals = [];
     this.lastQuestion = null;
     this.result.hidden = true;

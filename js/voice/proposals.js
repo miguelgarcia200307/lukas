@@ -1,4 +1,6 @@
-// Tarjetas de propuesta editables (lo que entendió la IA) y su guardado atómico vía RPC
+// Tarjetas de propuesta editables (lo que entendió la IA) y su guardado atómico vía RPC.
+// Una tarjeta por categoría: los ítems se pueden mover entre tarjetas, separar o unir; una tarjeta sin monto
+// queda pendiente con su pregunta integrada (campo de monto o respuesta por voz).
 import { html, on, raw } from '../utils/dom.js';
 import { icon } from '../utils/icons.js';
 import { money, number, parseAmount } from '../utils/format.js';
@@ -6,12 +8,17 @@ import { bogota, todayISO } from '../utils/dates.js';
 import { haptic } from '../utils/haptics.js';
 import { state, categoryById } from '../state.js';
 import { pickCategory, pickPayment, paymentChip } from '../ui/pickers.js';
+import { catIcon } from '../ui/common.js';
+import { openSheet } from '../ui/sheet.js';
 import { createTransactions, deleteTransactions } from '../api/transactions.js';
 import { payCard } from '../api/cards.js';
 import { payDebt } from '../api/debts.js';
 import { createSubscription, deleteSubscription } from '../api/subscriptions.js';
 import { contribute } from '../api/goals.js';
 import { learnCategoryHints } from '../api/ai.js';
+import { toast } from '../ui/toast.js';
+
+const toastErr = (m) => toast(m, { type: 'err' });
 
 const toLocalInput = (iso) => { const b = bogota(new Date(iso)); return `${b.date}T${b.time}`; };
 const fromLocalInput = (v) => (v ? `${v}:00-05:00` : new Date().toISOString());
@@ -27,28 +34,76 @@ function catChip(id, selectedId) {
     <span class="dot"></span>${c.name}</button>`;
 }
 
-function txCard(p, i) {
+const itemTotal = (it) => Math.round(it.qty * it.unit_amount);
+const isActive = (p) => !p._status || p._status === 'pending';
+/** Transacción a la que aún le falta el monto (la IA la dejó pendiente con su pregunta) */
+export const missingAmount = (p) => p.kind === 'transaction' && isActive(p) && (p.pending || !(p.amount > 0));
+function joinNames(names) {
+  const n = [...new Set(names.map((x) => String(x).trim()).filter(Boolean))];
+  const s = n.length <= 1 ? n[0] ?? '' : n.length <= 3 ? `${n.slice(0, -1).join(', ')} y ${n[n.length - 1].toLowerCase()}` : `${n.slice(0, 2).join(', ')} y más`;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+const asItems = (p) => (p.items?.length ? p.items : [{ name: p.description || categoryById(p.category_id)?.name || 'Ítem', qty: 1, unit_amount: p.amount }]);
+/** Otras tarjetas con las que esta se puede unir (mismo tipo, con monto) */
+const joinable = (p, list) => list.filter((q) => q !== p && isActive(q) && q.kind === 'transaction' && q.type === p.type && !missingAmount(q));
+
+function actionsRow(p, list) {
+  if (p.kind !== 'transaction' || !isActive(p)) return '';
+  const multi = list.filter(isActive).length > 1;
+  const pend = missingAmount(p);
+  const parts = [];
+  if ((p.items?.length ?? 0) >= 2) parts.push(html`<button class="chip" data-act="split">${icon('grid', { size: 14 })}Separar</button>`);
+  if (!pend && joinable(p, list).length) parts.push(html`<button class="chip" data-act="join">${icon('layers', { size: 14 })}Unir</button>`);
+  if (multi && !pend) parts.push(html`<button class="chip save-one" data-act="save-one">${icon('check', { size: 14, stroke: 2.4 })}Guardar esta</button>`);
+  return html`${parts}`;
+}
+
+function txCard(p, i, list = [p]) {
   const chips = [...new Set([p.category_id, ...(p.category_alternatives ?? []), ...(p._extraCats ?? [])].filter(Boolean))];
-  const itemsTotal = (p.items ?? []).reduce((s, it) => s + Math.round(it.qty * it.unit_amount), 0);
-  return html`<article class="proposal" data-i="${i}" style="--i:${i}">
+  const cat = categoryById(p.category_id);
+  const pend = missingAmount(p);
+  const items = p.items ?? [];
+  const cls = ['proposal', 'tx', pend ? 'pending' : '', p._done ? 'completed' : '', p._catch ? 'catch' : '', p._fresh ? 'fresh' : ''].filter(Boolean).join(' ');
+  return html`<article class="${cls}" data-i="${i}" style="--i:${i};--c:${cat?.color ?? '#9A9A92'}">
     <div class="p-top">
+      <button class="p-cat" data-act="cat-other" aria-label="Categoría: ${cat?.name ?? 'sin categoría'}. Cambiar">
+        ${catIcon(cat)}<span class="p-cat-name ellipsis">${cat?.name ?? 'Sin categoría'}</span>${icon('chevron-down', { size: 14 })}</button>
       <button class="tag ${p.type === 'income' ? 'ok' : 'danger'} type-toggle" data-act="type" aria-label="Cambiar tipo">
         ${icon(p.type === 'income' ? 'arrow-in' : 'arrow-out', { size: 12, stroke: 2.4 })}${p.type === 'income' ? 'Ingreso' : 'Gasto'}</button>
-      ${p.confidence < 0.6 ? html`<span class="tag warn">Revisa</span>` : ''}
+      ${p.confidence < 0.6 && !pend ? html`<span class="tag warn">Revisa</span>` : ''}
       <button class="icon-btn p-discard" data-act="discard" aria-label="Descartar">${icon('x', { size: 18 })}</button>
     </div>
-    <label class="p-amount"><span class="cur">$</span><input data-f="amount" value="${number(p.amount)}" style="width:${number(p.amount).length + 0.6}ch" inputmode="numeric" aria-label="Monto" autocomplete="off"></label>
+    ${pend ? html`<div class="p-ask" role="group" aria-label="${p.question || 'Falta el monto'}">
+        <div class="p-ask-q">${icon('sparkles', { size: 16 })}<span>${p.question || `¿Cuánto costó ${(p.description || '').toLowerCase()}?`}</span></div>
+        <div class="p-ask-row">
+          <label class="p-ask-field"><span class="cur">$</span><input data-f="answer" inputmode="numeric" placeholder="0" autocomplete="off" enterkeyhint="done" aria-label="Monto de ${p.description}"></label>
+          <button class="btn btn-accent btn-sm" data-act="answer">Listo</button>
+          <button class="icon-btn filled p-ask-mic" data-act="answer-mic" aria-label="Responder con voz">${icon('mic', { size: 20 })}</button>
+        </div>
+      </div>`
+    : html`<label class="p-amount"><span class="cur">$</span><input data-f="amount" value="${number(p.amount)}" style="width:${number(p.amount).length + 0.6}ch" inputmode="numeric" aria-label="Monto" autocomplete="off"></label>`}
     <input class="p-desc" data-f="description" value="${p.description}" aria-label="Descripción" maxlength="120">
+    ${items.length ? html`<ul class="p-items-list" aria-label="Ítems (toca uno para moverlo de categoría)">
+      ${items.map((it, k) => html`<li style="--k:${k}" class="${p._drop === k ? 'drop' : ''}"><button class="p-item" data-act="item" data-k="${k}" aria-label="Mover ${it.name} a otra categoría">
+        <span class="grow ellipsis">${it.name}</span><span class="muted">${it.qty !== 1 ? `${number(it.qty)} × ${money(it.unit_amount)}` : ''}</span>
+        <b class="num">${it.unit_amount ? money(itemTotal(it)) : '—'}</b>${icon('swap', { size: 14 })}</button></li>`)}
+    </ul>` : ''}
     <div class="chips p-cats">${chips.map((id) => catChip(id, p.category_id))}
       <button class="chip" data-act="cat-other">${icon('plus', { size: 14 })}Otra</button></div>
     <div class="p-meta">
       <button class="chip" data-act="payment">${paymentChip(p.payment)}${p.payment?.inferred ? html`<span class="p-hint">por defecto</span>` : ''}</button>
       <label class="chip p-date">${icon('calendar', { size: 15 })}<input type="datetime-local" data-f="date" value="${toLocalInput(p.date)}" max="${todayISO()}T23:59" aria-label="Fecha y hora"></label>
     </div>
-    ${p.items?.length ? html`<details class="p-items">
-      <summary>${p.items.length} ${p.items.length === 1 ? 'ítem' : 'ítems'} · ${money(itemsTotal)}${icon('chevron-down', { size: 16 })}</summary>
-      <ul>${p.items.map((it) => html`<li><span class="grow">${it.name}</span><span class="muted">${it.qty !== 1 ? `${number(it.qty)} × ${money(it.unit_amount)}` : ''}</span><b class="num">${money(Math.round(it.qty * it.unit_amount))}</b></li>`)}</ul>
-    </details>` : ''}
+    <div class="chips p-actions">${actionsRow(p, list)}</div>
+  </article>`;
+}
+
+function savedCard(p, i) {
+  const cat = p.kind === 'transaction' ? categoryById(p.category_id) : null;
+  return html`<article class="proposal saved" data-i="${i}" style="--i:${i};--c:${cat?.color ?? '#12875A'}">
+    <span class="p-saved-check">${icon('check', { size: 16, stroke: 2.6 })}</span>
+    <span class="grow ellipsis"><b>Guardado</b> · ${cat?.name ?? p.description ?? p.name ?? ''}</span>
+    <b class="num">${money(p.amount)}</b>
   </article>`;
 }
 
@@ -114,28 +169,138 @@ function goalCard(p, i) {
 
 const RENDER = { transaction: txCard, card_payment: cardPaymentCard, debt_payment: debtCard, subscription: subscriptionCard, goal_contribution: goalCard };
 
+/** Una tarjeta (en el contexto de la lista completa, para saber con cuáles se puede unir) */
+export function renderOne(p, i, list) {
+  if (p._status === 'discarded') return '';
+  if (p._status === 'saved') return String(savedCard(p, i));
+  return String(RENDER[p.kind]?.(p, i, list) ?? '');
+}
+
 export function renderProposals(list) {
-  return html`${list.map((p, i) => (p._status === 'discarded' ? '' : raw(String(RENDER[p.kind]?.(p, i) ?? ''))))}`;
+  return html`${list.map((p, i) => raw(renderOne(p, i, list)))}`;
+}
+
+/** Resumen de lo que queda por confirmar: tarjetas, categorías, total y pendientes */
+export function summarize(list) {
+  const active = list.filter(isActive);
+  const txs = active.filter((p) => p.kind === 'transaction');
+  const pending = active.filter(missingAmount);
+  const cats = [...new Set(txs.map((p) => p.category_id).filter(Boolean))].map((id) => categoryById(id)).filter(Boolean);
+  const kinds = new Set(txs.map((p) => p.type));
+  const noun = txs.length === active.length && kinds.size === 1 ? ([...kinds][0] === 'income' ? ['ingreso', 'ingresos'] : ['gasto', 'gastos']) : ['movimiento', 'movimientos'];
+  const total = active.filter((p) => !missingAmount(p)).reduce((s, p) => s + (p.amount || 0), 0);
+  return { count: active.length, noun: active.length === 1 ? noun[0] : noun[1], cats, total, pending: pending.length, saved: list.filter((p) => p._status === 'saved').length };
 }
 
 /** Enlaza la edición en vivo de las tarjetas con el arreglo de propuestas */
-export function bindProposals(container, list, { onChange } = {}) {
+export function bindProposals(container, list, { onChange, onAnswerVoice, onSaved, transcript } = {}) {
   const get = (node) => list[Number(node.closest('.proposal')?.dataset.i)];
+  const clearFlags = () => list.forEach((q) => { delete q._drop; delete q._catch; delete q._done; delete q._fresh; });
   const rerender = (p) => {
     const i = list.indexOf(p);
     const old = container.querySelector(`.proposal[data-i="${i}"]`);
     if (!old) return;
     const t = document.createElement('template');
-    t.innerHTML = String(RENDER[p.kind](p, i)).trim();
+    t.innerHTML = renderOne(p, i, list).trim();
     const fresh = t.content.firstElementChild;
-    fresh.style.animation = 'none';
+    if (!fresh) { old.remove(); return; }
+    if (!p._done && !p._catch && !p._fresh) fresh.style.animation = 'none';
     old.replaceWith(fresh);
+    clearFlags();
+    refreshActions();
   };
+  /** Re-pinta todo sin animar (salvo las tarjetas marcadas: ítem que cae, tarjeta nueva o completada) */
+  const renderAll = () => {
+    container.classList.add('still');
+    container.innerHTML = String(renderProposals(list));
+    clearFlags();
+  };
+  /** Solo actualiza las acciones (Separar / Unir / Guardar esta) sin tocar lo que se está animando */
+  const refreshActions = () => {
+    container.querySelectorAll('.proposal[data-i]').forEach((node) => {
+      const p = list[Number(node.dataset.i)];
+      const row = node.querySelector('.p-actions');
+      if (p && row) row.innerHTML = String(actionsRow(p, list));
+    });
+  };
+  const recompute = (p) => {
+    if (p.items?.length && p.items.every((it) => it.unit_amount > 0)) p.amount = p.items.reduce((s, it) => s + itemTotal(it), 0);
+    if (p.items?.length === 1 && p.items[0].qty === 1) { p.description = p.items[0].name; p.amount = itemTotal(p.items[0]) || p.amount; p.items = []; }
+  };
+  /** Completa una tarjeta pendiente con el monto que dijo o escribió el usuario */
+  const complete = (p, amount) => {
+    if (!(amount > 0)) return false;
+    p.amount = amount;
+    p.pending = false;
+    p._done = true;
+    haptic.success();
+    rerender(p);
+    onChange?.();
+    return true;
+  };
+  /** Mueve el ítem k de p a la categoría catId: cae en la tarjeta de esa categoría o crea una nueva */
+  const moveItem = (p, k, catId) => {
+    if (catId === p.category_id) return;
+    const it = p.items[k];
+    const target = list.find((q) => q !== p && isActive(q) && q.kind === 'transaction' && q.type === p.type && q.category_id === catId && !missingAmount(q));
+    p.items.splice(k, 1);
+    if (p.items.every((x) => x.unit_amount > 0)) p.amount = p.items.reduce((s, x) => s + itemTotal(x), 0);
+    else p.amount = Math.max(0, p.amount - itemTotal(it));
+    p.description = joinNames(p.items.map((x) => x.name)) || p.description;
+    recompute(p);
+    if (target) {
+      target.items = [...asItems(target), it];
+      target.amount = target.items.reduce((s, x) => s + itemTotal(x), 0);
+      target.description = joinNames(target.items.map((x) => x.name));
+      target._drop = target.items.length - 1;
+      target._catch = true;
+    } else {
+      const fresh = { ...p, category_id: catId, category_alternatives: [], _extraCats: [], items: it.qty !== 1 ? [it] : [], description: it.name, amount: itemTotal(it), pending: false, _fresh: true, _catch: true };
+      delete fresh._status;
+      list.splice(list.indexOf(p) + 1, 0, fresh);
+    }
+    renderAll();
+    onChange?.();
+  };
+  const split = (p) => {
+    const parts = p.items.map((it) => ({ ...p, items: it.qty !== 1 ? [it] : [], description: it.name, amount: itemTotal(it), _fresh: true }));
+    list.splice(list.indexOf(p), 1, ...parts);
+    renderAll();
+    onChange?.();
+  };
+  const join = (p, target) => {
+    target.items = [...asItems(target), ...asItems(p)];
+    target.amount = target.items.reduce((s, x) => s + itemTotal(x), 0);
+    target.description = joinNames(target.items.map((x) => x.name));
+    target._drop = target.items.length - 1;
+    target._catch = true;
+    p._status = 'discarded';
+    renderAll();
+    onChange?.();
+  };
+  const chooseCard = (p) => new Promise((resolve) => {
+    let done = false;
+    const options = joinable(p, list);
+    const s = openSheet({
+      title: 'Unir con…', detent: 'medium',
+      body: html`<div class="list">${options.map((q) => { const c = categoryById(q.category_id); return html`<button class="list-row tappable" data-k="${list.indexOf(q)}">
+        ${catIcon(c)}<div class="grow"><div class="row-title">${c?.name ?? 'Sin categoría'}</div><div class="row-sub ellipsis">${q.description}</div></div><b class="num">${money(q.amount)}</b></button>`; })}</div>`,
+      onClose: () => { if (!done) resolve(null); },
+    });
+    on(s.body, 'click', '[data-k]', (e, b) => { done = true; resolve(list[Number(b.dataset.k)]); s.close(); });
+  });
+
+  const offKey = on(container, 'keydown', '[data-f="answer"]', (e, inp) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    inp.closest('.proposal')?.querySelector('[data-act="answer"]')?.click();
+  });
 
   const offInput = on(container, 'input', '[data-f]', (e, inp) => {
     const p = get(inp);
     if (!p) return;
     const f = inp.dataset.f;
+    if (f === 'answer') { const v = parseAmount(inp.value); inp.value = v ? number(v) : ''; return; }
     if (f === 'amount' || f === 'interest') {
       const v = parseAmount(inp.value);
       inp.value = v ? number(v) : '';
@@ -157,7 +322,32 @@ export function bindProposals(container, list, { onChange } = {}) {
     if (act === 'discard') {
       const card = b.closest('.proposal');
       card.classList.add('leaving');
-      setTimeout(() => { p._status = 'discarded'; card.remove(); onChange?.(); }, 260);
+      setTimeout(() => { p._status = 'discarded'; card.remove(); refreshActions(); onChange?.(); }, 260);
+    } else if (act === 'answer') {
+      const inp = b.closest('.proposal').querySelector('[data-f="answer"]');
+      if (!complete(p, parseAmount(inp?.value))) { inp?.focus(); b.closest('.proposal').classList.add('shake'); setTimeout(() => b.closest('.proposal')?.classList.remove('shake'), 500); }
+    } else if (act === 'answer-mic') {
+      onAnswerVoice?.(p);
+    } else if (act === 'item') {
+      const id = await pickCategory({ kind: p.type ?? 'expense', selected: p.category_id, title: `¿A qué categoría va ${p.items[Number(b.dataset.k)]?.name ?? 'este ítem'}?` });
+      if (id) moveItem(p, Number(b.dataset.k), id);
+    } else if (act === 'split') {
+      split(p);
+    } else if (act === 'join') {
+      const target = await chooseCard(p);
+      if (target) join(p, target);
+    } else if (act === 'save-one') {
+      const err = validateProposal(p);
+      if (err) { toastErr(err); return; }
+      b.classList.add('loading');
+      b.disabled = true;
+      try {
+        const r = await saveProposals([p], { transcript: transcript?.() });
+        haptic.success();
+        rerender(p);
+        onChange?.();
+        onSaved?.(p, r);
+      } catch (e2) { b.classList.remove('loading'); b.disabled = false; toastErr(e2.message); }
     } else if (act === 'type') {
       p.type = p.type === 'income' ? 'expense' : 'income';
       const fallback = state.categories.find((c) => c.kind === p.type && c.system_key === (p.type === 'income' ? 'other_income' : 'other_expense'));
@@ -179,12 +369,14 @@ export function bindProposals(container, list, { onChange } = {}) {
       if (r) { p.payment = { ...r, inferred: false }; rerender(p); onChange?.(); }
     }
   });
-  return () => { offInput(); offChange(); offClick(); };
+  const unbind = () => { offInput(); offChange(); offClick(); offKey(); };
+  return Object.assign(unbind, { complete, render: renderAll, refreshActions });
 }
 
 export const pendingProposals = (list) => list.filter((p) => !p._status || p._status === 'pending');
 
 export function validateProposal(p) {
+  if (missingAmount(p)) return `Falta el monto de ${(p.description || 'un gasto').toLowerCase()}`;
   if (!(p.amount > 0)) return 'Falta el monto';
   if (p.kind === 'transaction' && !p.payment?.id) return 'Elige con qué pagaste';
   if (p.kind === 'card_payment' && (!p.card_id || !p.account_id)) return 'Elige la tarjeta y la cuenta';

@@ -203,8 +203,11 @@ export function grade(c, r, names) {
   const today = bogotaDate(new Date().toISOString());
   const wd = new Date(`${today}T12:00:00Z`).getUTCDay();
   const checks = {};
-  const txs = r.proposals.filter((p) => p.kind === 'transaction');
-  const amounts = r.proposals.map((p) => p.amount).filter((a) => a != null);
+  // Las propuestas pendientes (sin monto, con su pregunta) se califican aparte con expect.pending
+  const pend = r.proposals.filter((p) => p.kind === 'transaction' && p.pending);
+  const done = r.proposals.filter((p) => !(p.kind === 'transaction' && p.pending));
+  const txs = done.filter((p) => p.kind === 'transaction');
+  const amounts = done.map((p) => p.amount).filter((a) => a != null);
 
   // montos
   const expAmounts = e.amountsAny ?? [[
@@ -217,7 +220,14 @@ export function grade(c, r, names) {
   // intención
   checks.intent = e.intent === '*' || r.intent === e.intent;
   // pregunta
-  checks.ask = r.ask === e.ask && (!e.askAbout || new RegExp(e.askAbout, 'i').test(r.question ?? ''));
+  // Preguntar por un monto ahora puede ser una pregunta suelta o una tarjeta pendiente con su pregunta
+  const asked = [r.question, ...pend.map((p) => p.question)].filter(Boolean);
+  checks.ask = (asked.length > 0) === e.ask && (!e.askAbout || asked.some((q) => new RegExp(e.askAbout, 'i').test(q)));
+  if (e.pending || pend.length) {
+    const want = e.pending ?? [];
+    checks.pending = pend.length === want.length && want.every((w) => pend.some((p) =>
+      new RegExp(w.about, 'i').test(`${p.description} ${p.question ?? ''}`) && (!w.category || w.category.includes(names.cat[p.category_id]))));
+  }
 
   // transacciones: categoría, tipo, pago, fecha, ítems
   const catStrict = [], catLenient = [], extra = [];
@@ -343,7 +353,7 @@ async function main() {
         id: c.id, group: c.group, audio: !!c.audio, pass: g.pass, checks: g.checks, transcript: r.transcript, intent: r.intent,
         reply: r.reply, question: r.question, model: r.model, timing: r.timing, server: r.server, usage: r.usage, usage_turns: turnUsage,
         proposals: r.proposals.map((p) => ({
-          kind: p.kind, type: p.type, amount: p.amount, category: names.cat[p.category_id] ?? null,
+          kind: p.kind, type: p.type, amount: p.amount, category: names.cat[p.category_id] ?? null, ...(p.pending ? { pending: true, question: p.question, description: p.description } : {}),
           alts: (p.category_alternatives ?? []).map((id) => names.cat[id]), items: p.items?.length ?? 0,
           payment: p.payment ? `${p.payment.kind}:${names.acc[p.payment.id] ?? names.card[p.payment.id] ?? p.payment.id}${p.payment.inferred ? '*' : ''}` : null,
           date: p.date ? bogotaDate(p.date) : null, card: names.card[p.card_id], account: names.acc[p.account_id], name: p.name,
@@ -353,7 +363,7 @@ async function main() {
     }
     results.push(row);
     const fails = Object.entries(row.checks).filter(([, v]) => !v).map(([k]) => k);
-    console.log(`${row.pass ? '✔' : '✘'} ${c.id.padEnd(9)} ${row.error ? row.error : `${Math.round(row.timing.total_ms)} ms · ${row.model ?? ''} · ${row.proposals.map((p) => `${p.kind === 'transaction' ? p.type[0] : p.kind} ${p.amount ?? ''} ${p.category ?? ''}`).join(' | ')}${row.question ? ` · ¿${row.question}` : ''}${fails.length ? `  ✘ ${fails.join(',')}` : ''}`}`);
+    console.log(`${row.pass ? '✔' : '✘'} ${c.id.padEnd(9)} ${row.error ? row.error : `${Math.round(row.timing.total_ms)} ms · ${row.model ?? ''} · ${row.proposals.map((p) => `${p.kind === 'transaction' ? p.type[0] : p.kind} ${p.pending ? `¿${p.description}?` : p.amount ?? ''} ${p.category ?? ''}`).join(' | ')}${row.question ? ` · ¿${row.question}` : ''}${fails.length ? `  ✘ ${fails.join(',')}` : ''}`}`);
     if (!row.pass && row.transcript && c.audio) console.log(`            «${row.transcript}»`);
     await sleep(pause);
   }

@@ -37,7 +37,11 @@ export interface Payment { kind: "account" | "card"; id: string | null; inferred
 export interface Item { name: string; qty: number; unit_amount: number }
 export type Proposal =
   | { kind: "transaction"; type: Kind; amount: number; date: string; description: string; category_id: string | null;
-      category_alternatives: string[]; payment: Payment; items: Item[]; group_id: string; confidence: number }
+      category_alternatives: string[]; payment: Payment; items: Item[]; group_id: string; confidence: number;
+      /** Sin monto todavía: la tarjeta queda pendiente con su pregunta (nunca se fusiona ni se descarta) */
+      pending?: boolean; question?: string;
+      /** Lugar o evento ("supermercado", "ferretería"): solo se fusiona lo de la misma categoría y el mismo lugar */
+      place?: string }
   | { kind: "card_payment"; card_id: string | null; account_id: string | null; amount: number; interest: number | null; date: string }
   | { kind: "debt_payment"; debt_id: string | null; account_id: string | null; amount: number; mode: "expense" | "transfer"; date: string }
   | { kind: "subscription"; name: string; amount: number; frequency: "weekly" | "monthly" | "yearly"; next_charge_date: string;
@@ -206,7 +210,8 @@ export const STATIC_PROMPT = `Eres Lukas, asistente de finanzas personales en Co
 Responde SOLO líneas JSON (JSON Lines): un objeto por línea, sin markdown ni texto extra. Omite claves vacías o nulas.
 
 FORMATOS
-Gasto: {"k":"g","a":monto,"d":"descripción","c":"cat","alt":["cat","cat"],"p":"cuenta o tarjeta","f":"cuándo","it":[["ítem",cant,precio_unitario]]}
+Gasto: {"k":"g","a":monto,"d":"descripción","c":"cat","alt":["cat","cat"],"l":"lugar","p":"cuenta o tarjeta","f":"cuándo","it":[["ítem",cant,precio_unitario]]}
+Gasto sin monto (falta el precio): {"k":"g","d":"descripción","c":"cat","alt":["cat","cat"],"l":"lugar","q":"pregunta por el monto"}
 Ingreso: {"k":"i","a":monto,"d":"descripción","c":"cat","alt":["cat","cat"],"p":"cuenta","f":"cuándo"}
 Pago a tarjeta de crédito (no es gasto): {"k":"tc","t":"tarjeta","p":"cuenta de origen","a":monto,"in":intereses}
 Cuota de un crédito: {"k":"cr","cr":"crédito","p":"cuenta","a":monto} (sin "a" si no dice el monto)
@@ -218,15 +223,15 @@ Fuera de tema o saludo: {"k":"x","r":"respuesta"}
 
 REGLAS
 1. Montos en pesos, enteros. Ya vienen en cifras ($30000 = treinta mil). Copia el monto exacto que dijo; nunca lo inventes. Si se corrige ("30, no, $35000"), usa el último.
-2. Separa por categoría: cosas de categorías distintas van en líneas distintas. Lo de la misma categoría, mismo momento y lugar va en UNA línea con "it" y "a" = suma exacta de cant×precio. Un solo producto: sin "it".
+2. Separa por categoría: cosas de categorías distintas SIEMPRE van en líneas distintas, aunque sean del mismo lugar (en el supermercado, comida → Mercado y jabón de ropa → Hogar). Lo de la misma categoría, mismo momento y lugar va en UNA línea con "it" y "a" = suma exacta de cant×precio. Un solo producto: sin "it". "l": el lugar o evento si lo dice ("supermercado", "ferretería", "D1").
 3. "d": corta y natural, con mayúscula inicial ("Almuerzo", "Uber", "Comida con mi novia").
 4. "c": solo ids de la lista; prefiere la subcategoría (Taxi para Uber/DiDi/taxi, Bus para TransMilenio/SITP/bus, Gasolina, Parqueadero). "alt": 2 ids distintos del mismo tipo. Si hay pistas del usuario para una palabra, úsalas.
    Guía: comida, almuerzo, tinto, domicilio, Rappi → Comida y restaurantes; D1, Ara, Éxito, Carulla, tienda, plaza → Mercado; ferretería, aseo, arreglos de la casa → Hogar; mecánico, taller, moto, carro, llantas, peaje, SOAT → Transporte; luz, agua, gas, internet, Claro → Servicios públicos; droguería, médico → Salud; cine, rumba, bar → Entretenimiento; sueldo, quincena, nómina → Salario; vendí, venta → Ventas; cliente, proyecto → Freelance; me devolvieron → Reembolsos.
 5. "p": solo si dice cómo pagó o de dónde salió la plata ("con la Visa", "por Nequi", "en efectivo", "con la de Bancolombia" = su tarjeta de ese banco si tiene una). Si no lo dice, omítelo. Ingresos: solo cuentas.
 6. "f": solo si no fue hoy; copia la expresión de tiempo tal como la dijo ("ayer", "anoche", "antier", "el sábado", "la semana pasada", "hace 3 días", "el 5 de noviembre", "esta mañana").
-7. Si a algo le falta el monto, o no se entiende en qué gastó, o si entró o salió plata, no lo registres: emite "?" preguntando solo eso (ej. "¿Y cuánto te costaron los clavos?") y registra lo que sí está completo. No preguntes por pago, fecha ni categoría.
+7. Si a algo le falta el monto, emítelo igual en SU PROPIA línea, sin "a", con "d", "c" y "q" preguntando solo el monto (ej. {"k":"g","d":"Clavos","c":"…","l":"ferretería","q":"¿Y cuánto te costaron los clavos?"}). Nunca lo metas en "it" de otra línea ni lo omitas. Usa "?" solo si no se entiende en qué gastó o si entró o salió plata. No preguntes por pago, fecha ni categoría.
    Plata que le entró ("me entraron", "me cayeron", "me consignaron", "me pagaron", "recibí") con monto es un ingreso: regístralo sin preguntar (si no dice de qué, Otros ingresos).
-8. Varias cosas en una frase → una línea por cada una. Primero los registros; la "?" al final.
+8. Varias cosas en una frase → una línea por cada una (por categoría y lugar). Primero los registros; la "?" al final.
 9. Preguntas como "¿cuánto llevo?" o "¿cuánto debo en la Visa?" son consultas "q": no calcules cifras.
 10. Saludo o algo ajeno a finanzas → solo "x" diciendo, amable y breve, qué puedes hacer.
 11. Preguntas y respuestas: cortas, cálidas y naturales, en español colombiano neutro, tuteando, sin emojis.`;
@@ -237,8 +242,8 @@ Usuario: Almorcé por $18000 con la Master y pagué un Uber de $12000 por Nequi
 {"k":"g","a":18000,"d":"Almuerzo","c":"c1","alt":["c7","c18"],"p":"t2"}
 {"k":"g","a":12000,"d":"Uber","c":"c27","alt":["c3","c18"],"p":"a2"}
 Usuario: Fui a la ferretería por unos clavos y ayer me comí una empanada de $5000
-{"k":"g","a":5000,"d":"Empanada","c":"c1","alt":["c2","c18"],"f":"ayer"}
-{"k":"?","q":"¿Y cuánto te costaron los clavos?"}`;
+{"k":"g","d":"Clavos","c":"c4","alt":["c18","c5"],"l":"ferretería","q":"¿Y cuánto te costaron los clavos?"}
+{"k":"g","a":5000,"d":"Empanada","c":"c1","alt":["c2","c18"],"f":"ayer"}`;
 
 export interface PrevState { lines: string[]; q: string | null; said: number[] }
 
@@ -261,7 +266,7 @@ export function buildMessages(b: Built, text: string, prev: PrevState | null, op
   const hints = hintsFor(b, text);
   const turn = [
     hints ? `Pistas del usuario (palabra→categoría): ${hints}` : "",
-    prev?.lines.length || prev?.q ? `Turno anterior. Registros:\n${prev.lines.join("\n") || "(ninguno)"}${prev.q ? `\nTu pregunta: ${prev.q}` : ""}\nDevuelve la lista COMPLETA y actualizada de líneas (incluye las anteriores que sigan vigentes).` : "",
+    prev?.lines.length || prev?.q ? `Turno anterior. Registros:\n${prev.lines.join("\n") || "(ninguno)"}${prev.q ? `\nTu pregunta: ${prev.q}` : ""}\nDevuelve la lista COMPLETA y actualizada de líneas (incluye las anteriores que sigan vigentes; si ya dijo el monto que faltaba, ponle "a" y quita "q").` : "",
     `Usuario: ${text}`,
   ].filter(Boolean).join("\n");
   const stat = STATIC_PROMPT + (opts.fewshot ? FEWSHOT : "");
@@ -272,7 +277,7 @@ export function buildMessages(b: Built, text: string, prev: PrevState | null, op
 
 // ───────────────────────── validación de líneas ─────────────────────────
 export type LineResult =
-  | { type: "proposal"; proposal: Proposal; line: string }
+  | { type: "proposal"; proposal: Proposal; line: string; extra?: Proposal[] }
   | { type: "question"; text: string; line: string }
   | { type: "query"; query: QuerySpec; line: string }
   | { type: "reply"; text: string }
@@ -315,18 +320,19 @@ export function validateLine(rawLine: string, b: Built, o: ValidateOpts, amountO
   switch (x.k) {
     case "g": case "i": {
       const type: Kind = x.k === "i" ? "income" : "expense";
-      const items: Item[] = (Array.isArray(x.it) ? x.it : []).map((it: unknown) => {
+      let items: Item[] = (Array.isArray(x.it) ? x.it : []).map((it: unknown) => {
         const arr = Array.isArray(it) ? it : [(it as any)?.name, (it as any)?.qty, (it as any)?.unit_amount];
         const qty = Number(arr[1]) > 0 ? Math.round(Number(arr[1]) * 100) / 100 : 1;
         return { name: cap(str(arr[0], 80)), qty, unit_amount: toInt(arr[2]) ?? 0 };
       }).filter((it: Item) => it.name);
-      const itemsTotal = items.reduce((s, it) => s + Math.round(it.qty * it.unit_amount), 0);
       let amount = toInt(x.a);
+      // Ítems sin precio dentro de una línea con precios: no se fusionan ni se pierden → propuestas pendientes aparte
+      const priced = items.filter((it) => it.unit_amount > 0), unpriced = items.filter((it) => !(it.unit_amount > 0));
+      const pricedTotal = priced.reduce((s, it) => s + Math.round(it.qty * it.unit_amount), 0);
+      let split: Item[] = [];
+      if (priced.length && unpriced.length && (!amount || amount === pricedTotal)) { split = unpriced; items = priced; amount = pricedTotal; }
+      const itemsTotal = items.reduce((s, it) => s + Math.round(it.qty * it.unit_amount), 0);
       if (items.length > 1 && items.every((it) => it.unit_amount > 0)) amount = itemsTotal; // el detalle manda
-      if (!amount) return { type: "invalid", line, error: "sin monto: no registres sin monto, pregunta con \"?\"" };
-      if (o.strictAmounts && !amountOk(amount, itemsTotal || undefined)) {
-        return { type: "invalid", line, error: `el monto ${amount} no coincide con lo que dijo el usuario` };
-      }
       let category_id = res(x.c, "c");
       if (category_id && b.cats.get(category_id)?.kind !== type) category_id = null;
       const lowConfidence = !category_id;
@@ -334,17 +340,28 @@ export function validateLine(rawLine: string, b: Built, o: ValidateOpts, amountO
       const alts = (Array.isArray(x.alt) ? x.alt : []).map((a: unknown) => res(a, "c"))
         .filter((id: string | null): id is string => !!id && id !== category_id && b.cats.get(id)?.kind === type);
       const when = resolveWhen(str(x.f, 60), o.now);
+      const place = str(x.l, 60);
+      const base = {
+        kind: "transaction" as const, type, date: toTimestamp(when.date, when.time, o.now), category_id,
+        category_alternatives: [...new Set(alts)].slice(0, 2) as string[], payment: payment(x.p, type === "expense"),
+        group_id: "temp-1", confidence: lowConfidence ? 0.5 : Math.max(0, Math.min(1, Number(x.cf) || 0.9)), ...(place ? { place } : {}),
+      };
+      const pendingOf = (name: string, q?: string): Proposal => ({
+        ...base, amount: 0, description: cap(name), items: [], pending: true, question: q || amountQuestion(name, type),
+      });
+      const extra = split.map((it) => pendingOf(it.name));
+      if (!amount) {
+        // Sin monto: si se sabe qué es, queda pendiente con su pregunta (no se descarta ni se fusiona)
+        const name = str(x.d) || (items.length ? joinNames(items.map((it) => it.name)) : "");
+        if (!name) return { type: "invalid", line, error: "sin monto ni descripción: pregunta con \"?\"" };
+        return { type: "proposal", line, proposal: pendingOf(name, str(x.q, 200) || undefined), extra };
+      }
+      if (o.strictAmounts && !amountOk(amount, itemsTotal || undefined)) {
+        return { type: "invalid", line, error: `el monto ${amount} no coincide con lo que dijo el usuario` };
+      }
       const description = cap(str(x.d) || b.cats.get(category_id ?? "")?.name || "Movimiento");
       const single = items.length === 1 && items[0].qty === 1;
-      return {
-        type: "proposal", line,
-        proposal: {
-          kind: "transaction", type, amount, date: toTimestamp(when.date, when.time, o.now), description, category_id,
-          category_alternatives: [...new Set(alts)].slice(0, 2) as string[], payment: payment(x.p, type === "expense"),
-          items: single ? [] : items, group_id: "temp-1",
-          confidence: lowConfidence ? 0.5 : Math.max(0, Math.min(1, Number(x.cf) || 0.9)),
-        },
-      };
+      return { type: "proposal", line, proposal: { ...base, amount, description, items: single ? [] : items }, extra };
     }
     case "tc": {
       const card_id = res(x.t, "t") ?? (b.cards.length === 1 ? b.cards[0].id : null);
@@ -398,10 +415,21 @@ export function validateLine(rawLine: string, b: Built, o: ValidateOpts, amountO
 
 // ───────────────────────── agrupación determinística ─────────────────────────
 type Tx = Extract<Proposal, { kind: "transaction" }>;
-/** Mismo evento = mismo tipo, categoría, día y medio de pago */
+/** Mismo evento = mismo tipo, categoría, día y medio de pago. Las pendientes (sin monto) nunca se fusionan. */
 export function mergeKey(p: Proposal): string | null {
-  if (p.kind !== "transaction") return null;
+  if (p.kind !== "transaction" || p.pending || !(p.amount > 0)) return null;
   return [p.type, p.category_id, p.date.slice(0, 10), p.payment.kind, p.payment.id].join("|");
+}
+const placeKey = (p: Proposal) => (p.kind === "transaction" ? fold(p.place ?? "").replace(/^(el|la|los|las|un|una) /, "") : "");
+/**
+ * Regla estricta: solo se fusiona lo de la MISMA categoría y el MISMO lugar/evento; categorías distintas nunca.
+ * adjacent: líneas seguidas del modelo; ahí un lugar omitido en una de las dos se toma como el mismo evento.
+ */
+export function canMerge(a: Proposal, b: Proposal, adjacent = false): boolean {
+  const ka = mergeKey(a);
+  if (!ka || ka !== mergeKey(b)) return false;
+  const pa = placeKey(a), pb = placeKey(b);
+  return pa === pb || (adjacent && (!pa || !pb));
 }
 const asItems = (p: Tx): Item[] => (p.items.length ? p.items : [{ name: p.description, qty: 1, unit_amount: p.amount }]);
 function joinNames(names: string[]): string {
@@ -415,7 +443,73 @@ export function mergeTransactions(a: Proposal, b: Proposal): Proposal {
   const items = [...asItems(x), ...asItems(y)];
   const amount = items.reduce((s, it) => s + Math.round(it.qty * it.unit_amount), 0);
   const alts = [...new Set([...x.category_alternatives, ...y.category_alternatives])].filter((id) => id !== x.category_id).slice(0, 2);
-  return { ...x, amount, items, description: joinNames(items.map((it) => it.name)), category_alternatives: alts, confidence: Math.min(x.confidence, y.confidence) };
+  return {
+    ...x, amount, items, description: joinNames(items.map((it) => it.name)), category_alternatives: alts,
+    confidence: Math.min(x.confidence, y.confidence), ...(x.place || y.place ? { place: x.place || y.place } : {}),
+  };
+}
+
+// ───────────────────────── montos faltantes ─────────────────────────
+const lowerFirst = (s: string) => s.replace(/^(¿?)(.)/, (_, q, c) => q + c.toLowerCase());
+/** "Foco" → "¿Cuánto te costó el foco?" (artículo por género aproximado; plural → "costaron") */
+export function amountQuestion(name: string, type: Kind = "expense"): string {
+  const n = lowerFirst(name.trim());
+  if (type === "income") return `¿Cuánto recibiste por ${n}?`;
+  if (/^(el|la|los|las|un|una|unos|unas|mi|mis|tu|tus|lo) /.test(n)) return `¿Cuánto te costó ${n}?`;
+  const head = fold(n.split(" ")[0]);
+  const plural = head.length > 3 && /s$/.test(head);
+  const fem = /(as?|cion|ciones|dad|dades)$/.test(head);
+  const art = plural ? (fem ? "las" : "los") : fem ? "la" : "el";
+  return `¿Cuánto te ${plural ? "costaron" : "costó"} ${art} ${n}?`;
+}
+const ASK_AMOUNT = /^¿?\s*(?:y\s+)?cu[aá]nto\s+(?:te\s+|le\s+|me\s+)?(?:cost[oó]|costaron|vali[oó]|valieron|pagaste|diste|fue|fueron|gastaste|sali[oó]|salieron)\s+(?:por\s+|en\s+|de\s+)?(.+?)\s*\??$/i;
+/** "¿Cuánto te costó el foco?" → "foco" (null si la pregunta no es por un monto) */
+export function askedItem(q: string): string | null {
+  const m = ASK_AMOUNT.exec(q.trim());
+  if (!m) return null;
+  const name = m[1].replace(/^(el|la|los|las|un|una|unos|unas)\s+/i, "").replace(/[?¿.!]+$/g, "").trim();
+  return name && name.length <= 60 ? name : null;
+}
+
+// Palabras → categoría (system_key), para ubicar un ítem sin monto cuando el modelo solo dejó la pregunta
+const CAT_WORDS: [string, RegExp][] = [
+  ["home", /ferreter|foco|bombill|clavo|tornill|pintura|aseo|escoba|trapeador|detergente|cortina|sabana|cuarto|hogar/],
+  ["health", /droguer|farmac|pastilla|medicament|remedio|acetaminofen|ibuprofeno|medico|odontolog/],
+  ["transport", /mecanic|taller|moto|carro|llanta|peaje|soat|gasolina|tanque/],
+  ["groceries", /supermercado|mercado|\bd1\b|\bara\b|exito|carulla|olimpica|jumbo|tienda|plaza|leche|huevo|\bpan\b|arroz|cereal/],
+  ["food", /restaurante|almuerzo|almorc|desayun|cena|comida|tinto|domicilio|rappi|empanada|hamburguesa|pizza|salchipapa|corrientazo/],
+  ["clothes", /ropa|camisa|pantalon|zapato|tenis|vestido|chaqueta/],
+  ["tech", /celular|computador|audifono|cargador|teclado|mouse/],
+  ["pets", /perro|gato|veterinari|concentrado|mascota/],
+  ["entertainment", /cine|rumba|\bbar\b|concierto|discoteca|boleta/],
+  ["gifts", /regalo|cumpleanos/],
+];
+/** Categoría probable de un ítem según la parte de la frase donde aparece */
+export function guessCategory(text: string, item: string, b: Built): string | null {
+  const f = fold(text), it = fold(item);
+  const clauses = f.split(/[.;!?]|\b(?:pero|luego|despues|de camino|de paso|tambien|aparte|ademas)\b/);
+  const clause = clauses.find((c) => c.includes(it)) ?? clauses.find((c) => it.split(" ").some((w) => w.length > 3 && c.includes(w))) ?? it;
+  for (const src of [it, clause]) {
+    for (const [key, re] of CAT_WORDS) {
+      if (!re.test(src)) continue;
+      const c = [...b.cats.values()].find((x) => x.key === key && x.kind === "expense");
+      if (c) return c.id;
+    }
+  }
+  return null;
+}
+/** Pregunta suelta del modelo por un monto ("¿Cuánto te costó el foco?") → propuesta pendiente con esa pregunta */
+export function pendingFromQuestion(q: string, text: string, b: Built, now: Date): Proposal | null {
+  const name = askedItem(q);
+  if (!name) return null;
+  const guessed = guessCategory(text, name, b);
+  const other = [...b.cats.values()].find((c) => c.key === "other_expense")?.id ?? null;
+  return {
+    kind: "transaction", type: "expense", amount: 0, date: toTimestamp(bogota(now).date, null, now), description: cap(name),
+    category_id: guessed ?? other, category_alternatives: guessed && other ? [other] : [],
+    payment: { kind: "account", id: b.defAccount ?? b.accounts[0]?.id ?? null, inferred: true },
+    items: [], group_id: "temp-1", confidence: guessed ? 0.7 : 0.5, pending: true, question: q,
+  };
 }
 
 // ───────────────────────── ingresos explícitos ─────────────────────────
@@ -440,8 +534,37 @@ export function incomeFallback(text: string, amounts: number[], b: Built, now: D
 }
 
 // ───────────────────────── respuestas con plantillas ─────────────────────────
+/** Monto dicho en voz: 16000 → "16 mil", 1500000 → "1 millón 500 mil" */
+export function spokenMoney(n: number): string {
+  const v = Math.round(Number(n) || 0);
+  if (v >= 1_000_000) {
+    const m = Math.floor(v / 1_000_000), rest = v % 1_000_000;
+    return `${m === 1 ? "1 millón" : `${m} millones`}${rest ? ` ${spokenMoney(rest)}` : ""}`;
+  }
+  if (v >= 1000 && v % 1000 === 0) return `${v / 1000} mil`;
+  if (v >= 1000 && v % 100 === 0) return `${Math.floor(v / 1000)} mil ${v % 1000}`;
+  return money(v);
+}
+const NUM_WORDS = ["cero", "un", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez"];
+const countWord = (n: number) => NUM_WORDS[n] ?? String(n);
+
 export function recordReply(proposals: Proposal[], b: Built, seed: string): string {
   if (!proposals.length) return "";
+  const txs = proposals.filter((p): p is Tx => p.kind === "transaction");
+  const pend = txs.filter((p) => p.pending);
+  // Varias categorías o algo pendiente: resumen hablado ("Son dos gastos: 16 mil en mercado, y ¿cuánto te costó el foco?")
+  if (pend.length || (txs.length > 1 && txs.length === proposals.length)) {
+    if (proposals.length === 1 && pend.length === 1) return pend[0].question ?? amountQuestion(pend[0].description);
+    const kinds = new Set(txs.map((p) => p.type));
+    const noun = kinds.size === 1 && txs.length === proposals.length ? ([...kinds][0] === "income" ? "ingresos" : "gastos") : "movimientos";
+    const done = proposals.filter((p) => !(p.kind === "transaction" && p.pending))
+      .map((p) => `${spokenMoney(p.amount)} en ${p.kind === "transaction" ? (b.cats.get(p.category_id ?? "")?.name ?? p.description).toLowerCase() : p.kind === "card_payment" ? "pago de tarjeta" : p.kind === "debt_payment" ? "la cuota" : p.kind === "subscription" ? p.name : "ahorro"}`);
+    const asks = pend.map((p) => lowerFirst((p.question ?? amountQuestion(p.description)).replace(/^¿\s*y\s+/i, "¿")));
+    const list = done.length > 1 ? `${done.slice(0, -1).join(", ")} y ${done[done.length - 1]}` : done[0] ?? "";
+    if (!asks.length) return `Son ${countWord(proposals.length)} ${noun}: ${list}. ¿Los guardo así?`;
+    const ask = [asks[0], ...asks.slice(1).map((q) => q.replace(/^¿/, "¿Y "))].join(" ");
+    return `Son ${countWord(proposals.length)} ${noun}: ${list ? `${list}, y ` : ""}${ask}`;
+  }
   if (proposals.length === 1) {
     const p = proposals[0];
     if (p.kind === "transaction") {

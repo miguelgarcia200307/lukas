@@ -102,3 +102,45 @@ test('agrupación e ingresos explícitos', async () => {
   assert.equal(incomeFallback('Me pagaron la quincena, $1200000', [1200000], b, now)?.category_id, 'sal');
   assert.equal(incomeFallback('Pagué $25000', [25000], b, now), null);
 });
+
+test('fusión estricta y montos faltantes', async () => {
+  const { buildContext, canMerge, validateLine, pendingFromQuestion, askedItem, recordReply, amountQuestion } = await import('../../supabase/functions/_shared/brain.ts');
+  const b = buildContext({ name: null, def: 'acc', cats: [['groc', 'Mercado', 'expense', null, 'groceries'], ['home', 'Hogar', 'expense', null, 'home'],
+    ['health', 'Salud', 'expense', null, 'health'], ['oth', 'Otros', 'expense', null, 'other_expense']],
+  accs: [['acc', 'Efectivo', 'cash']], cards: [], debts: [], subs: [], goals: [], hints: [] }, 'v');
+  const now = new Date('2026-11-11T19:30:00Z');
+  const o = { now, said: [5000, 4000, 7000], strictAmounts: false };
+  const v = (x) => validateLine(JSON.stringify(x), b, o, () => true);
+  const groc = v({ k: 'g', a: 16000, d: 'Supermercado', c: 'c1', l: 'supermercado', it: [['Cereal', 1, 5000], ['Leche', 1, 4000], ['Huevos', 1, 7000]] }).proposal;
+  const foco = v({ k: 'g', d: 'Foco', c: 'c2', l: 'ferretería', q: '¿Cuánto te costó el foco?' }).proposal;
+  assert.equal(groc.amount, 16000);
+  assert.equal(foco.pending, true);
+  assert.equal(foco.amount, 0);
+  assert.equal(foco.question, '¿Cuánto te costó el foco?');
+  // categorías distintas o una pendiente: nunca se fusionan
+  assert.equal(canMerge(groc, foco, true), false);
+  assert.equal(canMerge(groc, { ...groc, category_id: 'home' }, true), false);
+  // misma categoría: solo si es el mismo lugar (seguidas: un lugar omitido cuenta como el mismo evento)
+  assert.equal(canMerge(groc, { ...groc, place: 'D1' }), false);
+  assert.equal(canMerge(groc, { ...groc, place: undefined }, true), true);
+  assert.equal(canMerge(groc, { ...groc, place: undefined }, false), false);
+  assert.equal(canMerge(groc, { ...groc, place: 'el supermercado' }), true);
+  // ítem sin precio dentro de una línea con precios → propuesta pendiente aparte
+  const mixed = v({ k: 'g', a: 9000, c: 'c1', it: [['Leche', 1, 4000], ['Pan', 1, 5000], ['Foco', 1, 0]] });
+  assert.equal(mixed.proposal.amount, 9000);
+  assert.equal(mixed.proposal.items.length, 2);
+  assert.equal(mixed.extra.length, 1);
+  assert.equal(mixed.extra[0].pending, true);
+  // pregunta suelta → pendiente con categoría según la frase
+  assert.equal(askedItem('¿Cuánto te costó el foco?'), 'foco');
+  assert.equal(askedItem('¿Y cuánto te costaron las pastillas?'), 'pastillas');
+  assert.equal(askedItem('¿Fue un gasto o un ingreso?'), null);
+  const text = 'Fui al supermercado, compré un cereal de $5000. De camino a casa pasé por una ferretería y compré un foco para mi cuarto.';
+  const pend = pendingFromQuestion('¿Cuánto te costó el foco?', text, b, now);
+  assert.equal(pend.category_id, 'home');
+  assert.equal(pend.pending, true);
+  assert.equal(pendingFromQuestion('¿Cuánto te costaron las pastillas?', 'luego en la droguería compré unas pastillas', b, now).category_id, 'health');
+  // resumen hablado
+  assert.equal(recordReply([groc, foco], b, 'x'), 'Son dos gastos: 16 mil en mercado, y ¿cuánto te costó el foco?');
+  assert.equal(amountQuestion('Pastillas'), '¿Cuánto te costaron las pastillas?');
+});

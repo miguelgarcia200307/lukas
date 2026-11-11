@@ -1,7 +1,7 @@
 // Lukas · service worker
 // Precache del app shell con caché versionada, stale-while-revalidate para estáticos y CDNs,
 // nunca cachea Supabase / Auth / Edge Functions / Groq. Push + notificationclick.
-const VERSION = 'lukas-v1.2.0';
+const VERSION = 'lukas-v1.3.0';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 

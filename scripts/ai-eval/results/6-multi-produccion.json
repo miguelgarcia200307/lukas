@@ -1,0 +1,846 @@
+{
+  "meta": {
+    "label": "6-multi-produccion",
+    "fn": "ai-assistant",
+    "local": false,
+    "model": null,
+    "effort": null,
+    "fewshot": null,
+    "at": "2026-11-11T14:52:53.034Z",
+    "cases": 9
+  },
+  "results": [
+    {
+      "id": "audio-10",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "intent": "create_transactions",
+      "reply": "Son dos gastos: 500 mil en transporte y 70 mil en gasolina. ¿Los guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 369.5605999999998,
+        "transcript_ms": 513.4701000000005,
+        "first_proposal_ms": 1115.2195000000002,
+        "done_ms": 1115.9616999999998,
+        "total_ms": 1116.4011
+      },
+      "server": {
+        "upload_ms": 4,
+        "ctx_ms": 91,
+        "ctx_cached": true,
+        "stt_ms": 236,
+        "stt_model": "whisper-large-v3-turbo",
+        "llm_ms": 538,
+        "llm_first_ms": 351,
+        "retry": false,
+        "total_ms": 781,
+        "usage": {
+          "in": 1828,
+          "out": 82,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 118,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1828,
+        "out": 82,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1828,
+          "out": 82,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Transporte",
+          "alts": [
+            "Hogar",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 70000,
+          "category": "Gasolina",
+          "alts": [
+            "Transporte",
+            "Parqueadero"
+          ],
+          "items": 0,
+          "payment": "account:Bancolombia",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-01",
+      "group": "multi",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "pending": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Fui al supermercado, compré un cereal de 5.000, una leche de 4.000 y unos huevos por 7.000. De camino a casa pasé por una ferretería y compré un foco para mi cuarto.",
+      "intent": "create_transactions",
+      "reply": "Son dos gastos: 16 mil en mercado, y ¿cuánto te costó el foco?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 249.6864000000005,
+        "transcript_ms": 249.90319999999883,
+        "first_proposal_ms": 866.0362000000005,
+        "done_ms": 866.3672999999999,
+        "total_ms": 866.7309000000005
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 62,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 587,
+        "llm_first_ms": 310,
+        "retry": false,
+        "total_ms": 652,
+        "usage": {
+          "in": 1872,
+          "out": 123,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 119,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1872,
+        "out": 123,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1872,
+          "out": 123,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 16000,
+          "category": "Mercado",
+          "alts": [
+            "Comida y restaurantes",
+            "Otros"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 0,
+          "category": "Hogar",
+          "pending": true,
+          "question": "¿Y cuánto te costó el foco?",
+          "description": "Foco",
+          "alts": [
+            "Servicios públicos",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-02",
+      "group": "multi",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Almorcé en el corrientazo por 15 lucas y después tanqueé la moto con 20 mil",
+      "intent": "create_transactions",
+      "reply": "Son dos gastos: 15 mil en comida y restaurantes y 20 mil en gasolina. ¿Los guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 254.97890000000007,
+        "transcript_ms": 255.27600000000166,
+        "first_proposal_ms": 1508.5109000000011,
+        "done_ms": 1511.0293000000001,
+        "total_ms": 1568.2498000000014
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 70,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 1279,
+        "llm_first_ms": 1121,
+        "retry": false,
+        "total_ms": 1351,
+        "usage": {
+          "in": 1818,
+          "out": 75,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 120,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1818,
+        "out": 75,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1818,
+          "out": 75,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 15000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 20000,
+          "category": "Gasolina",
+          "alts": [
+            "Transporte",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-03",
+      "group": "multi",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En el D1 compré arroz de 4.000 y aceite de 9.000, en la droguería unas pastillas de 6.000 y en la noche fui a cine por 18.000",
+      "intent": "create_transactions",
+      "reply": "Son tres gastos: 13 mil en mercado, 6 mil en salud y 18 mil en entretenimiento. ¿Los guardo así?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 207.66650000000118,
+        "transcript_ms": 207.77059999999983,
+        "first_proposal_ms": 963.5978000000014,
+        "done_ms": 1022.6692999999996,
+        "total_ms": 1604.5622999999996
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 38,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 815,
+        "llm_first_ms": 604,
+        "retry": false,
+        "total_ms": 856,
+        "usage": {
+          "in": 1801,
+          "out": 236,
+          "reasoning": 128,
+          "cached": 0
+        },
+        "quota": {
+          "used": 121,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1801,
+        "out": 236,
+        "reasoning": 128,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1801,
+          "out": 236,
+          "reasoning": 128,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 13000,
+          "category": "Mercado",
+          "alts": [],
+          "items": 2,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 6000,
+          "category": "Salud",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 18000,
+          "category": "Entretenimiento",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-04",
+      "group": "multi",
+      "audio": false,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": false,
+        "type": true
+      },
+      "transcript": "En el Éxito compré leche de 5.000 y pan de 3.000, y ahí mismo unos audífonos de 45.000",
+      "intent": "create_transactions",
+      "reply": "Son dos gastos: 8 mil en mercado y 45 mil en tecnología. ¿Los guardo así?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 362.1435999999994,
+        "transcript_ms": 362.52270000000135,
+        "first_proposal_ms": 966.6313000000009,
+        "done_ms": 966.6690999999992,
+        "total_ms": 967.8534
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 67,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 632,
+        "llm_first_ms": 516,
+        "retry": false,
+        "total_ms": 700,
+        "usage": {
+          "in": 1806,
+          "out": 160,
+          "reasoning": 96,
+          "cached": 0
+        },
+        "quota": {
+          "used": 122,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1806,
+        "out": 160,
+        "reasoning": 96,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1806,
+          "out": 160,
+          "reasoning": 96,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 8000,
+          "category": "Mercado",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 45000,
+          "category": "Tecnología",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-05",
+      "group": "multi",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "pending": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pasé por la panadería y compré pan por 6.000, luego en la droguería compré unas pastillas y en la ferretería unos tornillos",
+      "intent": "create_transactions",
+      "reply": "Son tres gastos: 6 mil en mercado, y ¿cuánto te costaron las pastillas? ¿Y cuánto te costaron los tornillos?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 254.49730000000272,
+        "transcript_ms": 254.64420000000246,
+        "first_proposal_ms": 635.8119000000006,
+        "done_ms": 714.1728000000003,
+        "total_ms": 753.2388000000028
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 45,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 498,
+        "llm_first_ms": 301,
+        "retry": false,
+        "total_ms": 544,
+        "usage": {
+          "in": 1795,
+          "out": 164,
+          "reasoning": 61,
+          "cached": 0
+        },
+        "quota": {
+          "used": 123,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1795,
+        "out": 164,
+        "reasoning": 61,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1795,
+          "out": 164,
+          "reasoning": 61,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 6000,
+          "category": "Mercado",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 0,
+          "category": "Salud",
+          "pending": true,
+          "question": "¿Y cuánto te costaron las pastillas?",
+          "description": "Pastillas",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 0,
+          "category": "Hogar",
+          "pending": true,
+          "question": "¿Y cuánto te costaron los tornillos?",
+          "description": "Tornillos",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-06",
+      "group": "multi",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "pending": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En el supermercado compré huevos de 9.000 y un bombillo para la sala",
+      "intent": "create_transactions",
+      "reply": "Son dos gastos: 9 mil en mercado, y ¿cuánto te costó el bombillo?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 192.87950000000274,
+        "transcript_ms": 193.0506000000023,
+        "first_proposal_ms": 646.9697000000015,
+        "done_ms": 647.0032000000028,
+        "total_ms": 700.5961000000025
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 44,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 453,
+        "llm_first_ms": 320,
+        "retry": false,
+        "total_ms": 498,
+        "usage": {
+          "in": 1793,
+          "out": 150,
+          "reasoning": 78,
+          "cached": 0
+        },
+        "quota": {
+          "used": 124,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1793,
+        "out": 150,
+        "reasoning": 78,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1793,
+          "out": 150,
+          "reasoning": 78,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 9000,
+          "category": "Mercado",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 0,
+          "category": "Hogar",
+          "pending": true,
+          "question": "¿Y cuánto te costó el bombillo?",
+          "description": "Bombillo para la sala",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-07",
+      "group": "multi",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Le pagué 50 mil al mecánico de la moto y de camino me tomé un tinto de 2.000",
+      "intent": "create_transactions",
+      "reply": "Son dos gastos: 50 mil en transporte y 2 mil en comida y restaurantes. ¿Los guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 339.3778999999995,
+        "transcript_ms": 339.49199999999837,
+        "first_proposal_ms": 847.494200000001,
+        "done_ms": 847.525999999998,
+        "total_ms": 847.6378999999979
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 29,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 553,
+        "llm_first_ms": 400,
+        "retry": false,
+        "total_ms": 583,
+        "usage": {
+          "in": 1819,
+          "out": 78,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 125,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1819,
+        "out": 78,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1819,
+          "out": 78,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 50000,
+          "category": "Transporte",
+          "alts": [
+            "Gasolina",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 2000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "multi-08",
+      "group": "multi",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "El foco me costó 8 mil",
+      "intent": "create_transactions",
+      "reply": "Son dos gastos: 16 mil en mercado y 8 mil en hogar. ¿Los guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 377.0034000000014,
+        "transcript_ms": 377.286500000002,
+        "first_proposal_ms": 1707.2912999999971,
+        "done_ms": 1708.1255999999994,
+        "total_ms": 1708.5559999999969
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 37,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 1225,
+        "llm_first_ms": 1026,
+        "retry": false,
+        "total_ms": 1263,
+        "usage": {
+          "in": 1968,
+          "out": 99,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 128,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1968,
+        "out": 99,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1834,
+          "out": 334,
+          "reasoning": 231,
+          "cached": 0
+        },
+        {
+          "in": 1968,
+          "out": 99,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 16000,
+          "category": "Mercado",
+          "alts": [],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 8000,
+          "category": "Hogar",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    }
+  ]
+}

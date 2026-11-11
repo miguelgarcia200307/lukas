@@ -161,6 +161,23 @@
     { "id": "audio-11", "group": "audio", "audio": "audio-11", "say": "Eh, o sea, pues ayer me gasté como veinte mil quinientos en un almuerzo con un amigo.",
       "expect": { "intent": "create_transactions", "ask": false, "tx": [{ "amount": 20500, "type": "expense", "category": ["Comida y restaurantes"], "date": { "rel": -1 } }] } },
     { "id": "audio-12", "group": "audio", "audio": "audio-12", "say": "Me llegó la quincena, me pagaron dos palos y medio, y le aboné trescientos mil a la Mastercard desde Nequi.",
-      "expect": { "intent": "*", "ask": false, "amountsAny": [[300000, 2500000]] } }
+      "expect": { "intent": "*", "ask": false, "amountsAny": [[300000, 2500000]] } },
+
+    { "id": "multi-01", "group": "multi", "text": "Fui al supermercado, compré un cereal de 5.000, una leche de 4.000 y unos huevos por 7.000. De camino a casa pasé por una ferretería y compré un foco para mi cuarto.",
+      "expect": { "intent": "create_transactions", "ask": true, "askAbout": "foco", "tx": [{ "amount": 16000, "type": "expense", "category": ["Mercado"], "items": 3 }], "pending": [{ "about": "foco", "category": ["Hogar"] }] } },
+    { "id": "multi-02", "group": "multi", "text": "Almorcé en el corrientazo por 15 lucas y después tanqueé la moto con 20 mil",
+      "expect": { "intent": "create_transactions", "ask": false, "tx": [{ "amount": 15000, "type": "expense", "category": ["Comida y restaurantes"] }, { "amount": 20000, "type": "expense", "category": ["Gasolina", "Transporte"] }] } },
+    { "id": "multi-03", "group": "multi", "text": "En el D1 compré arroz de 4.000 y aceite de 9.000, en la droguería unas pastillas de 6.000 y en la noche fui a cine por 18.000",
+      "expect": { "intent": "create_transactions", "ask": false, "tx": [{ "amount": 13000, "type": "expense", "category": ["Mercado"], "items": 2 }, { "amount": 6000, "type": "expense", "category": ["Salud"] }, { "amount": 18000, "type": "expense", "category": ["Entretenimiento"] }] } },
+    { "id": "multi-04", "group": "multi", "text": "En el Éxito compré leche de 5.000 y pan de 3.000, y ahí mismo unos audífonos de 45.000",
+      "expect": { "intent": "create_transactions", "ask": false, "tx": [{ "amount": 8000, "type": "expense", "category": ["Mercado"], "items": 2 }, { "amount": 45000, "type": "expense", "category": ["Tecnología"] }] } },
+    { "id": "multi-05", "group": "multi", "text": "Pasé por la panadería y compré pan por 6.000, luego en la droguería compré unas pastillas y en la ferretería unos tornillos",
+      "expect": { "intent": "create_transactions", "ask": true, "tx": [{ "amount": 6000, "type": "expense", "category": ["Mercado", "Comida y restaurantes"] }], "pending": [{ "about": "pastilla", "category": ["Salud"] }, { "about": "tornillo", "category": ["Hogar"] }] } },
+    { "id": "multi-06", "group": "multi", "text": "En el supermercado compré huevos de 9.000 y un bombillo para la sala",
+      "expect": { "intent": "create_transactions", "ask": true, "askAbout": "bombillo", "tx": [{ "amount": 9000, "type": "expense", "category": ["Mercado"] }], "pending": [{ "about": "bombillo", "category": ["Hogar"] }] } },
+    { "id": "multi-07", "group": "multi", "text": "Le pagué 50 mil al mecánico de la moto y de camino me tomé un tinto de 2.000",
+      "expect": { "intent": "create_transactions", "ask": false, "tx": [{ "amount": 50000, "type": "expense", "category": ["Transporte"] }, { "amount": 2000, "type": "expense", "category": ["Comida y restaurantes"] }] } },
+    { "id": "multi-08", "group": "multi", "turns": ["Fui al supermercado, compré un cereal de 5.000, una leche de 4.000 y unos huevos por 7.000. De camino a casa pasé por una ferretería y compré un foco para mi cuarto.", "El foco me costó 8 mil"],
+      "expect": { "intent": "create_transactions", "ask": false, "tx": [{ "amount": 16000, "type": "expense", "category": ["Mercado"], "items": 3 }, { "amount": 8000, "type": "expense", "category": ["Hogar"] }] } }
   ]
 }
