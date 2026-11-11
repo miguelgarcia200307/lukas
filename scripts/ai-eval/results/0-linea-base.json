@@ -1,0 +1,2841 @@
+{
+  "meta": {
+    "label": "0-linea-base",
+    "fn": "ai-assistant",
+    "local": false,
+    "model": null,
+    "effort": null,
+    "at": "2026-11-11T06:28:50.118Z",
+    "cases": 66
+  },
+  "results": [
+    {
+      "id": "spec-01",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos dos gaseosas de 5.000 cada una",
+      "intent": "create_transactions",
+      "reply": "Listo, 62 mil en comida con tu novia.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 8613.963800000001,
+        "total_ms": 8615.349000000002,
+        "first_proposal_ms": 8615.349000000002
+      },
+      "server": {
+        "total_ms": 8374
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 62000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Entretenimiento"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-02",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Fui a la ferretería y me compré unos clavos para la casa, y de paso una empanada de 5 lucas",
+      "intent": "create_transactions",
+      "reply": "Listo, 5 mil en empanada.",
+      "question": "¿Cuánto te costaron los clavos?",
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 4581.2355000000025,
+        "total_ms": 4583.960500000001,
+        "first_proposal_ms": 4583.960500000001
+      },
+      "server": {
+        "total_ms": 3114
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 5000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-02b",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Los clavos me costaron 8 lucas",
+      "intent": "create_transactions",
+      "reply": "Listo, 13 mil en total: 8 mil en clavos y 5 mil en empanada.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2968.4088000000047,
+        "total_ms": 2969.848800000007,
+        "first_proposal_ms": 2969.848800000007
+      },
+      "server": {
+        "total_ms": 2487
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 5000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 8000,
+          "category": "Hogar",
+          "alts": [
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-03",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Acabo de recibir 30 mil pesos por una venta",
+      "intent": "create_transactions",
+      "reply": "Listo, 30 mil ingresados por venta.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2756.3933999999717,
+        "total_ms": 2757.219299999997,
+        "first_proposal_ms": 2757.219299999997
+      },
+      "server": {
+        "total_ms": 2263
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 30000,
+          "category": "Ventas",
+          "alts": [
+            "Otros ingresos",
+            "Transferencias recibidas"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-04",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Pagué 500 mil de la Visa desde Bancolombia",
+      "intent": "card_payment",
+      "reply": "Listo, pagaste 500 mil de la Visa desde Bancolombia.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2137.789700000023,
+        "total_ms": 2138.9088000000047,
+        "first_proposal_ms": 2138.9088000000047
+      },
+      "server": {
+        "total_ms": 1450
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "card_payment",
+          "amount": 500000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "card": "Visa",
+          "account": "Bancolombia"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-05",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true,
+        "answer": true
+      },
+      "transcript": "¿Cuánto he gastado esta semana?",
+      "intent": "query",
+      "reply": "Esta semana no has gastado nada, el total es $0 en 0 movimientos. El periodo anterior también fue $0.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3295.4125999999815,
+        "total_ms": 3296.6396999999997,
+        "first_proposal_ms": 3296.6396999999997
+      },
+      "server": {
+        "total_ms": 1813
+      },
+      "usage": null,
+      "proposals": [],
+      "query": {
+        "metric": "spending",
+        "from": "2026-11-09",
+        "to": "2026-11-11",
+        "category_id": null,
+        "card_id": null
+      }
+    },
+    {
+      "id": "slang-01",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me tomé un tinto de dos lucas",
+      "intent": "create_transactions",
+      "reply": "Listo, 2 mil en un tinto.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2416.541599999997,
+        "total_ms": 2417.2060000000056,
+        "first_proposal_ms": 2417.2060000000056
+      },
+      "server": {
+        "total_ms": 1885
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 2000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-02",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me cobraron una luca por la bolsa en el D1",
+      "intent": "create_transactions",
+      "reply": "Listo, 1 mil por la bolsa en D1.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2702.538100000005,
+        "total_ms": 2703.1157999999705,
+        "first_proposal_ms": 2703.1157999999705
+      },
+      "server": {
+        "total_ms": 2285
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 1000,
+          "category": "Mercado",
+          "alts": [
+            "Otros",
+            "Comida y restaurantes"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-03",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me gasté un palo en un celular nuevo",
+      "intent": "create_transactions",
+      "reply": "Listo, un millón en tecnología por el celular nuevo.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2720.6175999999978,
+        "total_ms": 2722.3398999999627,
+        "first_proposal_ms": 2722.3398999999627
+      },
+      "server": {
+        "total_ms": 2066
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 1000000,
+          "category": "Tecnología",
+          "alts": [
+            "Otros",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-04",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto",
+      "intent": "create_transactions",
+      "reply": "Listo, medio palo al mecánico por la moto.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2853.7924999999814,
+        "total_ms": 2854.3428999999887,
+        "first_proposal_ms": 2854.3428999999887
+      },
+      "server": {
+        "total_ms": 2241
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Transporte",
+          "alts": [
+            "Hogar",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-05",
+      "group": "jerga",
+      "audio": false,
+      "pass": false,
+      "checks": {
+        "amounts": false,
+        "intent": true,
+        "ask": true,
+        "category_strict": false,
+        "category": false,
+        "structure": true
+      },
+      "transcript": "Tanqueé 80 barras",
+      "intent": "create_transactions",
+      "reply": "Listo, 80 millones en gasolina.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2316.767600000021,
+        "total_ms": 2318.170600000012,
+        "first_proposal_ms": 2318.170600000012
+      },
+      "server": {
+        "total_ms": 1826
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 80000000,
+          "category": "Gasolina",
+          "alts": [
+            "Transporte",
+            "Taxi"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-06",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Compré unos tenis de 180k",
+      "intent": "create_transactions",
+      "reply": "Listo, 180 mil en tenis.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3293.31329999998,
+        "total_ms": 3293.7897999999695,
+        "first_proposal_ms": 3293.7897999999695
+      },
+      "server": {
+        "total_ms": 1827
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 180000,
+          "category": "Ropa",
+          "alts": [
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-07",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué mil quinientos de parqueadero",
+      "intent": "create_transactions",
+      "reply": "Listo, 1.500 en parqueadero.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2621.120399999956,
+        "total_ms": 2623.5263999999734,
+        "first_proposal_ms": 2623.5263999999734
+      },
+      "server": {
+        "total_ms": 2004
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 1500,
+          "category": "Parqueadero",
+          "alts": [
+            "Taxi",
+            "Gasolina"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-08",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me cobraron veinte mil quinientos por el almuerzo",
+      "intent": "create_transactions",
+      "reply": "Listo, 20 mil quinientos en comida.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2649.09990000003,
+        "total_ms": 2650.3579000000027,
+        "first_proposal_ms": 2650.3579000000027
+      },
+      "server": {
+        "total_ms": 2036
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 20500,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-09",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué el arriendo, un millón doscientos",
+      "intent": "create_transactions",
+      "reply": "Listo, 1.200.000 en arriendo.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2095.5956000000006,
+        "total_ms": 2096.7199000000255,
+        "first_proposal_ms": 2096.7199000000255
+      },
+      "server": {
+        "total_ms": 1678
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 1200000,
+          "category": "Arriendo",
+          "alts": [
+            "Hogar",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-10",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me llegó la quincena, me pagaron dos palos y medio",
+      "intent": "create_transactions",
+      "reply": "Listo, 2.5 millones de ingreso por quincena.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2343.1957000000402,
+        "total_ms": 2345.4237999999896,
+        "first_proposal_ms": 2345.4237999999896
+      },
+      "server": {
+        "total_ms": 1909
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 2500000,
+          "category": "Salario",
+          "alts": [
+            "Ventas",
+            "Transferencias recibidas"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-11",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué luca y media por un tinto",
+      "intent": "create_transactions",
+      "reply": "Listo, 1.5 mil en un tinto.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3190.863400000031,
+        "total_ms": 3192.1885000000475,
+        "first_proposal_ms": 3192.1885000000475
+      },
+      "server": {
+        "total_ms": 2274
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 1500,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Entretenimiento",
+            "Mercado"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-12",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me gasté 30k en la peluquería",
+      "intent": "create_transactions",
+      "reply": "Listo, 30 mil en peluquería.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 6435.3120000000345,
+        "total_ms": 6437.647400000016,
+        "first_proposal_ms": 6437.647400000016
+      },
+      "server": {
+        "total_ms": 5787
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 30000,
+          "category": "Otros",
+          "alts": [
+            "Pareja",
+            "Ropa"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-01",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Compré tres cervezas de 4.500 y una bolsa de papas de 3 mil en la tienda",
+      "intent": "create_transactions",
+      "reply": "Listo, 16 mil en mercado por cervezas y papas.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3201.174400000018,
+        "total_ms": 3202.06959999993,
+        "first_proposal_ms": 3202.06959999993
+      },
+      "server": {
+        "total_ms": 2607
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 16500,
+          "category": "Mercado",
+          "alts": [
+            "Hogar",
+            "Otros"
+          ],
+          "items": 2,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-02",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En el D1 compré arroz por 4.200, dos litros de leche a 3.800 cada uno y huevos por 14 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 25 mil 800 en mercado por arroz, leche y huevos.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3197.920199999935,
+        "total_ms": 3198.359199999948,
+        "first_proposal_ms": 3198.359199999948
+      },
+      "server": {
+        "total_ms": 2541
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 25800,
+          "category": "Mercado",
+          "alts": [
+            "Hogar",
+            "Otros"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-03",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué el Uber de 15 lucas y almorcé por 22 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 15 mil en Uber y 22 mil en almuerzo.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2981.7752999999793,
+        "total_ms": 2982.404600000009,
+        "first_proposal_ms": 2982.404600000009
+      },
+      "server": {
+        "total_ms": 2495
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 15000,
+          "category": "Taxi",
+          "alts": [
+            "Transporte",
+            "Parqueadero"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 22000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-04",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En la droguería gasté 35 mil en medicamentos y después compré comida para el perro por 60 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 35 mil en salud y 60 mil en la comida del perro.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3718.129399999976,
+        "total_ms": 3718.937399999937,
+        "first_proposal_ms": 3718.937399999937
+      },
+      "server": {
+        "total_ms": 3071
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 35000,
+          "category": "Salud",
+          "alts": [
+            "Hogar",
+            "Mercado"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 60000,
+          "category": "Mascotas",
+          "alts": [
+            "Ropa",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-05",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Hoy pagué la luz, 98 mil, y el internet de Claro, 75 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 173 mil en servicios públicos.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2596.394900000072,
+        "total_ms": 2597.687900000019,
+        "first_proposal_ms": 2597.687900000019
+      },
+      "server": {
+        "total_ms": 2048
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 173000,
+          "category": "Servicios públicos",
+          "alts": [
+            "Hogar"
+          ],
+          "items": 2,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-06",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Almorcé por 18 lucas con la Master y pagué un Uber de 12 mil por Nequi",
+      "intent": "create_transactions",
+      "reply": "Listo, 18 mil en almuerzo y 12 mil en Uber.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2920.0530000000726,
+        "total_ms": 2920.517600000021,
+        "first_proposal_ms": 2920.517600000021
+      },
+      "server": {
+        "total_ms": 2262
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 18000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Mercado"
+          ],
+          "items": 0,
+          "payment": "card:Mastercard",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 12000,
+          "category": "Taxi",
+          "alts": [
+            "Transporte",
+            "Gasolina"
+          ],
+          "items": 0,
+          "payment": "account:Nequi",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "date-01",
+      "group": "fechas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "date": true
+      },
+      "transcript": "Ayer gasté 45 mil en el mercado",
+      "intent": "create_transactions",
+      "reply": "Listo, 45 mil en el mercado ayer.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 1893.2611000000034,
+        "total_ms": 1896.5651999999536,
+        "first_proposal_ms": 1896.5651999999536
+      },
+      "server": {
+        "total_ms": 1516
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 45000,
+          "category": "Mercado",
+          "alts": [
+            "Comida y restaurantes",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "date-02",
+      "group": "fechas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "date": true
+      },
+      "transcript": "Anoche pedí un domicilio de Rappi por 38 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 38 mil en comida por Rappi anoche.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2664.5139999999665,
+        "total_ms": 2665.313199999975,
+        "first_proposal_ms": 2665.313199999975
+      },
+      "server": {
+        "total_ms": 2122
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 38000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Pareja"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "date-03",
+      "group": "fechas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "date": true
+      },
+      "transcript": "Antier pagué dos pasajes de TransMilenio de 3.200",
+      "intent": "create_transactions",
+      "reply": "Listo, 6.400 en transporte por pasajes de TransMilenio.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3248.1450000000186,
+        "total_ms": 3249.428399999975,
+        "first_proposal_ms": 3249.428399999975
+      },
+      "server": {
+        "total_ms": 2452
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 6400,
+          "category": "Bus",
+          "alts": [
+            "Transporte",
+            "Gasolina"
+          ],
+          "items": 1,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-09"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "date-04",
+      "group": "fechas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "date": true
+      },
+      "transcript": "El sábado fui a cine y gasté 50 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 50 mil en entretenimiento el sábado.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 3070.64439999999,
+        "total_ms": 3071.624199999962,
+        "first_proposal_ms": 3071.624199999962
+      },
+      "server": {
+        "total_ms": 2411
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 50000,
+          "category": "Entretenimiento",
+          "alts": [
+            "Comida y restaurantes",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-07"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "date-05",
+      "group": "fechas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "date": true
+      },
+      "transcript": "La semana pasada compré un regalo para mi mamá de 120 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 120 mil en regalo para mamá.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3544.187900000019,
+        "total_ms": 3544.833400000003,
+        "first_proposal_ms": 3544.833400000003
+      },
+      "server": {
+        "total_ms": 3010
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 120000,
+          "category": "Regalos",
+          "alts": [
+            "Pareja",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-08"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "pay-01",
+      "group": "pago",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Pagué 60 mil de mercado con la Visa",
+      "intent": "create_transactions",
+      "reply": "Listo, 60 mil en mercado con Visa.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 2739.0220999999437,
+        "total_ms": 2740.5521999999182,
+        "first_proposal_ms": 2740.5521999999182
+      },
+      "server": {
+        "total_ms": 2235
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 60000,
+          "category": "Mercado",
+          "alts": [
+            "Hogar",
+            "Comida y restaurantes"
+          ],
+          "items": 0,
+          "payment": "card:Visa",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "pay-02",
+      "group": "pago",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Pagué una pizza de 42 mil por Nequi",
+      "intent": "create_transactions",
+      "reply": "Listo, 42 mil en pizza pagado con Nequi.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 9308.146100000013,
+        "total_ms": 9308.60269999993,
+        "first_proposal_ms": 9308.60269999993
+      },
+      "server": {
+        "total_ms": 8852
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 42000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Nequi",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "pay-03",
+      "group": "pago",
+      "audio": false,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": false,
+        "category": false,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Compré un libro de 65 mil en efectivo",
+      "intent": "create_transactions",
+      "reply": "Listo, 65 mil en libro comprado en efectivo.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4088.4600000001956,
+        "total_ms": 4088.8347000000067,
+        "first_proposal_ms": 4088.8347000000067
+      },
+      "server": {
+        "total_ms": 3446
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 65000,
+          "category": "Otros",
+          "alts": [
+            "Ropa",
+            "Tecnología"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "pay-04",
+      "group": "pago",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Eché gasolina, 70 mil con la de Bancolombia",
+      "intent": "create_transactions",
+      "reply": "Listo, 70 mil en gasolina con tu tarjeta Bancolombia.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4395.15559999994,
+        "total_ms": 4395.909199999878,
+        "first_proposal_ms": 4395.909199999878
+      },
+      "server": {
+        "total_ms": 3845
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 70000,
+          "category": "Gasolina",
+          "alts": [
+            "Parqueadero",
+            "Mercado"
+          ],
+          "items": 0,
+          "payment": "card:Visa",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-01",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me consignaron 200 mil de un cliente por un diseño",
+      "intent": "create_transactions",
+      "reply": "Listo, 200 mil recibidos por diseño",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4056.217200000072,
+        "total_ms": 4057.5212000000756,
+        "first_proposal_ms": 4057.5212000000756
+      },
+      "server": {
+        "total_ms": 3622
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 200000,
+          "category": "Freelance",
+          "alts": [
+            "Ventas",
+            "Transferencias recibidas"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-02",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me devolvieron 45 mil de una compra",
+      "intent": "create_transactions",
+      "reply": "Listo, 45 mil de reembolso.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4014.0559000000358,
+        "total_ms": 4014.8648999999277,
+        "first_proposal_ms": 4014.8648999999277
+      },
+      "server": {
+        "total_ms": 3369
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 45000,
+          "category": "Reembolsos",
+          "alts": [
+            "Transferencias recibidas",
+            "Ventas"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-03",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me entraron 50 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 50 mil entraron a tu cuenta.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4290.290599999949,
+        "total_ms": 4291.03870000015,
+        "first_proposal_ms": 4291.03870000015
+      },
+      "server": {
+        "total_ms": 3784
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 50000,
+          "category": "Transferencias recibidas",
+          "alts": [
+            "Salario",
+            "Ventas"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "card-01",
+      "group": "otros",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Le aboné 300 mil a la Mastercard desde Nequi",
+      "intent": "card_payment",
+      "reply": "Listo, abonaste 300 mil a la Mastercard desde Nequi.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4627.745799999917,
+        "total_ms": 4629.3535999997985,
+        "first_proposal_ms": 4629.3535999997985
+      },
+      "server": {
+        "total_ms": 3185
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "card_payment",
+          "amount": 300000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "card": "Mastercard",
+          "account": "Nequi"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "debt-01",
+      "group": "otros",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Pagué la cuota del carro",
+      "intent": "debt_payment",
+      "reply": "Listo, pagaste la cuota del carro de 850.000.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3462.692700000014,
+        "total_ms": 3463.748300000094,
+        "first_proposal_ms": 3463.748300000094
+      },
+      "server": {
+        "total_ms": 2994
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "debt_payment",
+          "amount": 850000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "account": "Efectivo"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "sub-01",
+      "group": "otros",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Me suscribí a Spotify por 17.900 al mes",
+      "intent": "add_subscription",
+      "reply": "Listo, Spotify suscrito por 17.900 al mes.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4062.774800000014,
+        "total_ms": 4063.34300000011,
+        "first_proposal_ms": 4063.34300000011
+      },
+      "server": {
+        "total_ms": 3385
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "subscription",
+          "amount": 17900,
+          "category": "Suscripciones",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": null,
+          "name": "Spotify"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "goal-01",
+      "group": "otros",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Ahorré 200 mil para el viaje a Cartagena",
+      "intent": "goal_contribution",
+      "reply": "Listo, 200 mil ahorrados para tu viaje a Cartagena.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3756.1973999999464,
+        "total_ms": 3756.6776999998838,
+        "first_proposal_ms": 3756.6776999998838
+      },
+      "server": {
+        "total_ms": 3357
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "goal_contribution",
+          "amount": 200000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "q-01",
+      "group": "consultas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true,
+        "answer": true
+      },
+      "transcript": "¿Cuánto llevo hoy?",
+      "intent": "query",
+      "reply": "Hoy llevas $0 en 0 movimientos, igual que el periodo anterior de igual duración.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4086.0200000000186,
+        "total_ms": 4087.0409999999683,
+        "first_proposal_ms": 4087.0409999999683
+      },
+      "server": {
+        "total_ms": 3577
+      },
+      "usage": null,
+      "proposals": [],
+      "query": {
+        "metric": "spending",
+        "from": "2026-11-11",
+        "to": "2026-11-11",
+        "category_id": null,
+        "card_id": null
+      }
+    },
+    {
+      "id": "q-02",
+      "group": "consultas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true,
+        "answer": true
+      },
+      "transcript": "¿Cuánto debo en la Mastercard?",
+      "intent": "query",
+      "reply": "No debes nada en la Mastercard.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4252.468300000066,
+        "total_ms": 4253.31939999992,
+        "first_proposal_ms": 4253.31939999992
+      },
+      "server": {
+        "total_ms": 3493
+      },
+      "usage": null,
+      "proposals": [],
+      "query": {
+        "metric": "card_debt",
+        "from": "2026-11-01",
+        "to": "2026-11-11",
+        "category_id": null,
+        "card_id": "104485b9-e1cd-467a-92b5-1bda20c68d3a"
+      }
+    },
+    {
+      "id": "q-03",
+      "group": "consultas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true,
+        "answer": true
+      },
+      "transcript": "¿Cuándo es el corte de la Visa?",
+      "intent": "query",
+      "reply": "El próximo corte de tu Visa es el sábado 28 de noviembre.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 5735.1687999998685,
+        "total_ms": 5735.586099999957,
+        "first_proposal_ms": 5735.586099999957
+      },
+      "server": {
+        "total_ms": 4103
+      },
+      "usage": null,
+      "proposals": [],
+      "query": {
+        "metric": "card_dates",
+        "from": "2026-11-01",
+        "to": "2026-11-11",
+        "category_id": null,
+        "card_id": "ecf1c6df-357f-4a2a-a848-3bd912ac9b47"
+      }
+    },
+    {
+      "id": "q-04",
+      "group": "consultas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true,
+        "answer": true
+      },
+      "transcript": "¿Cuánta plata me queda en Nequi?",
+      "intent": "query",
+      "reply": "En Nequi tienes $0.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 7472.152399999788,
+        "total_ms": 7473.65149999992,
+        "first_proposal_ms": 7473.65149999992
+      },
+      "server": {
+        "total_ms": 6968
+      },
+      "usage": null,
+      "proposals": [],
+      "query": {
+        "metric": "balance",
+        "from": "2026-11-01",
+        "to": "2026-11-11",
+        "category_id": null,
+        "card_id": null
+      }
+    },
+    {
+      "id": "q-05",
+      "group": "consultas",
+      "audio": false,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": false,
+        "answer": true
+      },
+      "transcript": "¿Cuánto gasté en comida este mes?",
+      "intent": "query",
+      "reply": "En este mes gastaste $0 en 0 movimientos.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 5566.574699999997,
+        "total_ms": 5568.116500000004,
+        "first_proposal_ms": 5568.116500000004
+      },
+      "server": {
+        "total_ms": 5056
+      },
+      "usage": null,
+      "proposals": [],
+      "query": {
+        "metric": "spending",
+        "from": "2026-11-01",
+        "to": "2026-11-11",
+        "category_id": null,
+        "card_id": null
+      }
+    },
+    {
+      "id": "miss-01",
+      "group": "faltantes",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Compré unas cosas en el Éxito",
+      "intent": "create_transactions",
+      "reply": "Compraste cosas en el Éxito, ¿cuánto te costaron?",
+      "question": "¿Cuánto te costaron las cosas que compraste en el Éxito?",
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3625.6348000001162,
+        "total_ms": 3626.030299999984,
+        "first_proposal_ms": 3626.030299999984
+      },
+      "server": {
+        "total_ms": 3098
+      },
+      "usage": null,
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "miss-02",
+      "group": "faltantes",
+      "audio": false,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": false,
+        "ask": true
+      },
+      "transcript": "Pagué 25 mil",
+      "intent": "unknown",
+      "reply": "Parece que pagaste 25 mil, ¿para qué fue?",
+      "question": "¿Y para qué pagaste esos 25 mil?",
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3993.4242000000086,
+        "total_ms": 3994.025999999838,
+        "first_proposal_ms": 3994.025999999838
+      },
+      "server": {
+        "total_ms": 3511
+      },
+      "usage": null,
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "miss-03",
+      "group": "faltantes",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Me gasté 40 mil",
+      "intent": "create_transactions",
+      "reply": "Entendido, gastaste 40 mil.",
+      "question": "¿En qué categoría, fecha y método de pago lo registras?",
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4399.528399999952,
+        "total_ms": 4399.913399999961,
+        "first_proposal_ms": 4399.913399999961
+      },
+      "server": {
+        "total_ms": 3104
+      },
+      "usage": null,
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "noise-01",
+      "group": "muletillas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Eh, o sea, pues me gasté como, eh, 15 mil en un almuerzo",
+      "intent": "create_transactions",
+      "reply": "Listo, 15 mil en almuerzo.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3677.8921000000555,
+        "total_ms": 3679.469500000123,
+        "first_proposal_ms": 3679.469500000123
+      },
+      "server": {
+        "total_ms": 3224
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 15000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "noise-02",
+      "group": "correcciones",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué el taxi, 30, no, 35 mil",
+      "intent": "create_transactions",
+      "reply": "Listo, 35 mil en taxi.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3667.1688000001013,
+        "total_ms": 3668.935300000012,
+        "first_proposal_ms": 3668.935300000012
+      },
+      "server": {
+        "total_ms": 3134
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 35000,
+          "category": "Taxi",
+          "alts": [
+            "Bus",
+            "Gasolina"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "noise-03",
+      "group": "correcciones",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Hice un mercado de 150, perdón, de 180 mil en Carulla",
+      "intent": "create_transactions",
+      "reply": "Listo, 180 mil en Carulla.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 10169.255800000159,
+        "total_ms": 10169.887199999997,
+        "first_proposal_ms": 10169.887199999997
+      },
+      "server": {
+        "total_ms": 8884
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 180000,
+          "category": "Mercado",
+          "alts": [
+            "Comida y restaurantes",
+            "Hogar"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "off-01",
+      "group": "fuera",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "¿Qué tal estará el clima mañana?",
+      "intent": "unknown",
+      "reply": "Puedo ayudarte con tus finanzas, registrar gastos, ingresos, pagos de tarjeta, etc. ¿En qué puedo asistirte hoy?",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 2948.6805000000168,
+        "total_ms": 2950.2685000000056,
+        "first_proposal_ms": 2950.2685000000056
+      },
+      "server": {
+        "total_ms": 2506
+      },
+      "usage": null,
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "off-02",
+      "group": "fuera",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Hola Lukas",
+      "intent": "unknown",
+      "reply": "Hola, ¿en qué puedo ayudarte con tus finanzas?",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3235.1758000000846,
+        "total_ms": 3235.6136000000406,
+        "first_proposal_ms": 3235.6136000000406
+      },
+      "server": {
+        "total_ms": 2728
+      },
+      "usage": null,
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "off-03",
+      "group": "fuera",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Cuéntame un chiste",
+      "intent": "unknown",
+      "reply": "¡Claro! Puedo contarte un chiste, pero si necesitas ayuda con tus finanzas, dime lo que quieres registrar o preguntar.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3257.496700000018,
+        "total_ms": 3259.1164000001736,
+        "first_proposal_ms": 3259.1164000001736
+      },
+      "server": {
+        "total_ms": 2784
+      },
+      "usage": null,
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "audio-01",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Salí a comer con mi novia y me gasté 30 mil en una salchipapa, ella se pidió una hamburguesa de 22 mil y compramos dos gaseosas de 5 mil cada una.",
+      "intent": "create_transactions",
+      "reply": "Listo, 62 mil en comida con tu novia.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 5284.072600000072,
+        "total_ms": 5285.035800000187,
+        "first_proposal_ms": 5285.035800000187
+      },
+      "server": {
+        "total_ms": 4825
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 62000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Entretenimiento"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-02",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Fui a la ferretería y me compré unos clavos para la casa, y de paso una empanada de 5 lucas.",
+      "intent": "create_transactions",
+      "reply": "Listo, 5.000 en comida con tu empanada.",
+      "question": "¿Y cuánto te costaron los clavos?",
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 5084.597699999809,
+        "total_ms": 5085.424599999795,
+        "first_proposal_ms": 5085.424599999795
+      },
+      "server": {
+        "total_ms": 4239
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 5000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Mercado"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-03",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Acabo de recibir 30 mil pesos por una venta",
+      "intent": "create_transactions",
+      "reply": "Listo, 30 mil en ingresos por venta.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4095.471000000136,
+        "total_ms": 4096.978899999987,
+        "first_proposal_ms": 4096.978899999987
+      },
+      "server": {
+        "total_ms": 3704
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 30000,
+          "category": "Ventas",
+          "alts": [
+            "Salario",
+            "Transferencias recibidas"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-04",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Pagué 500 mil de la visa desde Bancolombia",
+      "intent": "card_payment",
+      "reply": "Listo, pagaste 500 mil con la Visa desde Bancolombia.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 3690.3722000001,
+        "total_ms": 3690.806099999929,
+        "first_proposal_ms": 3690.806099999929
+      },
+      "server": {
+        "total_ms": 3269
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "card_payment",
+          "amount": 500000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "card": "Visa",
+          "account": "Bancolombia"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-05",
+      "group": "audio",
+      "audio": true,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": false,
+        "answer": true
+      },
+      "transcript": "¿Cuánto he gastado esta semana?",
+      "intent": "query",
+      "reply": "Esta semana no has gastado nada, $0 en 0 movimientos.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4266.506300000008,
+        "total_ms": 4267.652900000103,
+        "first_proposal_ms": 4267.652900000103
+      },
+      "server": {
+        "total_ms": 3819
+      },
+      "usage": null,
+      "proposals": [],
+      "query": {
+        "metric": "spending",
+        "from": "2026-11-01",
+        "to": "2026-11-11",
+        "category_id": null,
+        "card_id": null
+      }
+    },
+    {
+      "id": "audio-06",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Almorcé por 18 lucas con la Master y pagué un Uber de 12.000 por Nequi.",
+      "intent": "create_transactions",
+      "reply": "Listo, 18.000 en comida y 12.000 en Uber.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 6582.123099999968,
+        "total_ms": 6582.517899999861,
+        "first_proposal_ms": 6582.517899999861
+      },
+      "server": {
+        "total_ms": 5321
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 18000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Pareja",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "card:Mastercard",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 12000,
+          "category": "Taxi",
+          "alts": [
+            "Bus",
+            "Transporte"
+          ],
+          "items": 0,
+          "payment": "account:Nequi",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-07",
+      "group": "audio",
+      "audio": true,
+      "pass": false,
+      "checks": {
+        "amounts": false,
+        "intent": true,
+        "ask": false,
+        "category_strict": false,
+        "category": false,
+        "structure": false
+      },
+      "transcript": "Tanque 80 barras",
+      "intent": "create_transactions",
+      "reply": "Listo, tanque de 80 barras.",
+      "question": "¿Cuánto te costó el tanque de 80 barras?",
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 5144.727100000251,
+        "total_ms": 5145.296800000127,
+        "first_proposal_ms": 5145.296800000127
+      },
+      "server": {
+        "total_ms": 4682
+      },
+      "usage": null,
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "audio-08",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué el taxi, 30, no, 35 mil.",
+      "intent": "create_transactions",
+      "reply": "Listo, 35 mil en taxi.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 5623.550499999896,
+        "total_ms": 5625.978500000201,
+        "first_proposal_ms": 5625.978500000201
+      },
+      "server": {
+        "total_ms": 5026
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 35000,
+          "category": "Taxi",
+          "alts": [
+            "Bus",
+            "Transporte"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-09",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "En el D1 compré arroz por 4.200, 2 litros de leche a 3.800 cada uno y huevos por 14.000.",
+      "intent": "create_transactions",
+      "reply": "Listo, 25.800 en compras en D1.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 6499.525900000241,
+        "total_ms": 6501.195100000128,
+        "first_proposal_ms": 6501.195100000128
+      },
+      "server": {
+        "total_ms": 6018
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 25800,
+          "category": "Mercado",
+          "alts": [
+            "Hogar",
+            "Comida y restaurantes"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-10",
+      "group": "audio",
+      "audio": true,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": false,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70 mil con la de Bancolombia.",
+      "intent": "create_transactions",
+      "reply": "Listo, medio palo al mecánico y 70 mil en gasolina con Bancolombia.",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 11967.537099999841,
+        "total_ms": 11968.595699999947,
+        "first_proposal_ms": 11968.595699999947
+      },
+      "server": {
+        "total_ms": 9639
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Hogar",
+          "alts": [
+            "Transporte",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 70000,
+          "category": "Gasolina",
+          "alts": [
+            "Transporte",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Bancolombia",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-11",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "date": true
+      },
+      "transcript": "Eh, o sea, pues ayer me gasté como 20.500 en un almuerzo con un amigo.",
+      "intent": "create_transactions",
+      "reply": "Listo, 20.500 en comida con un amigo.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 4705.37089999998,
+        "total_ms": 4705.873099999968,
+        "first_proposal_ms": 4705.873099999968
+      },
+      "server": {
+        "total_ms": 4231
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 20500,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-12",
+      "group": "audio",
+      "audio": true,
+      "pass": false,
+      "checks": {
+        "amounts": false,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Me llegó la quincena, me pagaron dos palos y medio, y le aboné 300 mil a la Mastercard desde Nequi.",
+      "intent": "create_transactions",
+      "reply": "Listo, recibiste 2.5 millones de salario y pagaste 300 mil a la Mastercard desde Nequi.",
+      "question": null,
+      "model": "openai/gpt-oss-20b",
+      "timing": {
+        "headers_ms": 5677.806599999778,
+        "total_ms": 5678.49030000018,
+        "first_proposal_ms": 5678.49030000018
+      },
+      "server": {
+        "total_ms": 4593
+      },
+      "usage": null,
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 2500000,
+          "category": "Salario",
+          "alts": [
+            "Ventas",
+            "Freelance"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    }
+  ]
+}

@@ -439,3 +439,14 @@
 /* ── Ayuda de permisos ─────────────────────── */
 .perm-help { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .perm-help .ios-steps { width: 100%; text-align: left; }
+
+/* ── Asistente en streaming ── */
+.proposals.stale { opacity: 0.45; filter: saturate(0.6); transition: opacity 200ms ease; pointer-events: none; }
+.retry-row { display: flex; gap: var(--s-2); justify-content: center; flex-wrap: wrap; }
+
+/* ── Ajustes · Uso de IA ── */
+.usage-bar { height: 6px; margin-top: 8px; border-radius: 999px; background: var(--line); overflow: hidden; max-width: 260px; }
+.usage-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 500ms var(--spring); }
+.usage-bar span.warm { background: var(--warn); }
+.usage-bar span.hot { background: var(--danger); }
+.usage-pct { font-weight: 800; font-size: var(--fs-lg); color: var(--ink-2); }

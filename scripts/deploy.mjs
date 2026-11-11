@@ -39,14 +39,22 @@ async function mgmt(method, url, body) {
 const sqlQuery = (query) => mgmt('POST', `${API}/database/query`, { query });
 const dollar = (v) => `$v$${String(v).replace(/\$v\$/g, '')}$v$`;
 
-async function pickChatModel() {
+// Modelos configurables (.env.local → secrets). Se validan contra los disponibles en la cuenta de Groq.
+// Valores por defecto = los elegidos con el banco de pruebas (scripts/ai-eval/report.md).
+const AI_DEFAULTS = {
+  GROQ_CHAT_MODEL: 'qwen/qwen3.8-27b', GROQ_CHAT_FALLBACK: 'openai/gpt-oss-120b', GROQ_REASONING_EFFORT: 'low',
+  GROQ_STT_MODEL: 'whisper-large-v3-turbo', GROQ_STT_FALLBACK: 'whisper-large-v3', AI_DAILY_CAPACITY: '290', AI_FEWSHOT: 'off',
+};
+async function aiConfig() {
   const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${env.GROQ_API_KEY}` } });
   if (!res.ok) throw new Error(`Groq /models → ${res.status}`);
   const ids = (await res.json()).data.map((m) => m.id);
-  const prefs = ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'moonshotai/kimi-k2-instruct', 'qwen/qwen3-32b', 'openai/gpt-oss-20b'];
-  const main = prefs.find((m) => ids.includes(m)) ?? ids.find((m) => !/whisper|guard|tts|orpheus|allam/i.test(m));
-  const fallback = prefs.find((m) => ids.includes(m) && m !== main) ?? main;
-  return { main, fallback };
+  const cfg = Object.fromEntries(Object.entries(AI_DEFAULTS).map(([k, d]) => [k, env[k] || d]));
+  for (const k of ['GROQ_CHAT_MODEL', 'GROQ_CHAT_FALLBACK', 'GROQ_STT_MODEL', 'GROQ_STT_FALLBACK']) {
+    if (!ids.includes(cfg[k])) { console.warn(`⚠ ${k}=${cfg[k]} no está disponible; uso ${AI_DEFAULTS[k]}`); cfg[k] = AI_DEFAULTS[k]; }
+  }
+  if (env.AI_USER_DAILY_QUOTA) cfg.AI_USER_DAILY_QUOTA = env.AI_USER_DAILY_QUOTA;
+  return cfg;
 }
 
 try {
@@ -74,12 +82,11 @@ end $$;`);
   console.log('✔ Secretos en Vault');
 
   step('5. Secrets de Edge Functions');
-  const { main, fallback } = await pickChatModel();
-  console.log(`Modelo de chat: ${main} (respaldo: ${fallback})`);
+  const ai = await aiConfig();
+  console.log(`IA: ${ai.GROQ_CHAT_MODEL} (${ai.GROQ_REASONING_EFFORT}) · respaldo ${ai.GROQ_CHAT_FALLBACK} · voz ${ai.GROQ_STT_MODEL}`);
   const secrets = {
     GROQ_API_KEY: env.GROQ_API_KEY,
-    GROQ_CHAT_MODEL: main,
-    GROQ_CHAT_FALLBACK: fallback,
+    ...ai,
     VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY,
     VAPID_SUBJECT: env.VAPID_SUBJECT || 'mailto:dazamiguel95@gmail.com',

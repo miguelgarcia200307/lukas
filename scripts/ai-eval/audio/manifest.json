@@ -1,0 +1,50 @@
+{
+  "audio-01": {
+    "file": "audio-01.webm",
+    "seconds": 11.7
+  },
+  "audio-02": {
+    "file": "audio-02.m4a",
+    "seconds": 8.2
+  },
+  "audio-03": {
+    "file": "audio-03.webm",
+    "seconds": 5.2
+  },
+  "audio-04": {
+    "file": "audio-04.m4a",
+    "seconds": 5
+  },
+  "audio-05": {
+    "file": "audio-05.webm",
+    "seconds": 4.1
+  },
+  "audio-06": {
+    "file": "audio-06.m4a",
+    "seconds": 6.7
+  },
+  "audio-07": {
+    "file": "audio-07.webm",
+    "seconds": 3.8
+  },
+  "audio-08": {
+    "file": "audio-08.m4a",
+    "seconds": 6.4
+  },
+  "audio-09": {
+    "file": "audio-09.webm",
+    "seconds": 9.8
+  },
+  "audio-10": {
+    "file": "audio-10.m4a",
+    "seconds": 8.8
+  },
+  "audio-11": {
+    "file": "audio-11.webm",
+    "seconds": 7.6
+  },
+  "audio-12": {
+    "file": "audio-12.m4a",
+    "seconds": 8.8
+  }
+}

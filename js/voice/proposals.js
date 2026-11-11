@@ -11,6 +11,7 @@ import { payCard } from '../api/cards.js';
 import { payDebt } from '../api/debts.js';
 import { createSubscription, deleteSubscription } from '../api/subscriptions.js';
 import { contribute } from '../api/goals.js';
+import { learnCategoryHints } from '../api/ai.js';
 
 const toLocalInput = (iso) => { const b = bogota(new Date(iso)); return `${b.date}T${b.time}`; };
 const fromLocalInput = (v) => (v ? `${v}:00-05:00` : new Date().toISOString());
@@ -212,6 +213,10 @@ export async function saveProposals(list, { transcript } = {}) {
     }));
     const { ids } = await createTransactions(rows);
     txs.forEach((p) => { p._status = 'saved'; });
+    // Memoria de categorización: lo confirmado (o corregido) enseña a Lukas cómo categoriza este usuario
+    learnCategoryHints(txs.filter((p) => p.category_id).map((p) => ({
+      text: [p.description, ...(p.items ?? []).map((it) => it.name)].filter(Boolean).join(' '), category_id: p.category_id,
+    })));
     count += ids.length;
     undos.push(() => deleteTransactions(ids));
   }

@@ -1,4 +1,4 @@
-// Flujo de voz: grabar → enviar → "pensando" → propuestas editables / pregunta de aclaración → confirmar
+// Flujo de voz: grabar → enviar → transcripción → propuestas en streaming (editables) / pregunta de aclaración → confirmar
 import { html, on, raw } from '../utils/dom.js';
 import { icon } from '../utils/icons.js';
 import { haptic } from '../utils/haptics.js';
@@ -7,13 +7,13 @@ import { MAX_RECORDING_SECONDS } from '../config.js';
 import { state } from '../state.js';
 import { openSheet } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
-import { askAssistant } from '../api/ai.js';
+import { streamAssistant, pingAssistant } from '../api/ai.js';
 import { Recorder, canRecord } from './recorder.js';
 import { Orb } from './orb.js';
 import { renderProposals, bindProposals, pendingProposals, saveProposals, validateProposal } from './proposals.js';
 import { showPermissionHelp } from '../permissions.js';
 
-const THINKING = ['Escuchando tus lucas…', 'Entendiendo lo que dijiste…', 'Separando por categorías…', 'Sumando montos…', 'Casi listo…'];
+const RECORD_INTENTS = ['create_transactions', 'card_payment', 'debt_payment', 'add_subscription', 'goal_contribution'];
 export const SUGGESTIONS = ['Almorcé por 18 lucas', 'Recibí 200 mil de una venta', 'Tanqueé 80 mil con la tarjeta', '¿Cuánto llevo este mes?'];
 
 let active = null;
@@ -27,7 +27,7 @@ export function openVoice(opts = {}) {
 
 class VoiceSession {
   constructor({ autoStart = false, text = '', hold = false } = {}) {
-    this.history = [];
+    this.convState = null; // estado compacto del turno anterior (lo devuelve la función)
     this.proposals = [];
     this.transcript = '';
     this.phase = 'idle';
@@ -68,6 +68,7 @@ class VoiceSession {
     this.input = this.form.querySelector('input');
 
     this.bind();
+    pingAssistant(); // el usuario está por hablar: despierta la función y su contexto
     if (text) this.sendText(text);
     else if (autoStart) this.startRecording({ hold });
   }
@@ -77,6 +78,7 @@ class VoiceSession {
     let pressT = 0, holdTimer = null, holding = false;
     hit.addEventListener('pointerdown', () => {
       if (this.phase !== 'idle' && this.phase !== 'result') return;
+      pingAssistant();
       pressT = performance.now();
       holdTimer = setTimeout(() => { holding = true; this.startRecording({ hold: true }); }, 320);
     });
@@ -106,9 +108,11 @@ class VoiceSession {
     on(this.root, 'click', '[data-act="confirm-all"]', () => this.confirm());
     on(this.root, 'click', '[data-act="mic-answer"]', () => this.startRecording());
     on(this.root, 'click', '[data-act="restart"]', () => this.reset());
+    on(this.root, 'click', '[data-act="retry"]', () => { if (this.lastFailed && this.phase !== 'thinking') this.ask(this.lastFailed); });
+    on(this.root, 'click', '[data-act="type-instead"]', () => this.input.focus());
     on(this.root, 'click', '[data-act="resend-transcript"]', () => {
       const v = this.root.querySelector('.transcript-input')?.value.trim();
-      if (v) { this.history = []; this.sendText(v); }
+      if (v) { this.convState = null; this.sendText(v); }
     });
     this.root.addEventListener('keydown', (e) => {
       if (e.target.classList?.contains('transcript-input') && e.key === 'Enter') { e.preventDefault(); this.root.querySelector('[data-act="resend-transcript"]')?.click(); }
@@ -133,8 +137,10 @@ class VoiceSession {
     if (!canRecord()) { showPermissionHelp('mic', 'unavailable'); return; }
     haptic.start();
     this.setPhase('recording');
-    this.setStatus('Te escucho…', hold ? 'Suelta para enviar' : 'Toca el orbe o la flecha para enviar');
+    const autosend = state.profile?.voice_autosend !== false;
+    this.setStatus('Te escucho…', hold ? 'Suelta para enviar' : autosend ? 'Envío cuando hagas una pausa · o toca la flecha' : 'Toca el orbe o la flecha para enviar');
     this.recorder = new Recorder({
+      onSilence: () => { if (!hold && autosend && this.phase === 'recording') this.stopAndSend(); },
       onLevel: (lvl, freq) => this.orb.setLevel(lvl, freq),
       onTick: (s) => {
         const left = Math.max(0, MAX_RECORDING_SECONDS - s);
@@ -167,11 +173,14 @@ class VoiceSession {
 
   async stopAndSend() {
     if (this.phase !== 'recording') return;
+    this.setPhase('thinking'); // evita un doble envío (auto-envío por silencio + toque manual)
     const secs = this.recorder.seconds;
+    const heard = this.recorder.heardVoice;
     const blob = await this.recorder.stop();
-    if (!blob || secs < 0.5 || blob.size < 1200) {
-      this.setPhase(this.proposals.length ? 'result' : 'idle');
-      this.setStatus('Fue muy cortico', 'Mantén presionado o toca y habla un poco más');
+    if (!blob || secs < 0.5 || blob.size < 1200 || !heard) {
+      this.setPhase(this.proposals.length || this.lastQuestion ? 'result' : 'idle');
+      this.setStatus(heard ? 'Fue muy cortico' : 'No te escuché', heard ? 'Mantén presionado o toca y habla un poco más' : 'Intenta de nuevo, un poco más cerca del micrófono');
+      haptic.error();
       return;
     }
     haptic.tap();
@@ -185,67 +194,123 @@ class VoiceSession {
 
   async ask({ audio, mimeType, duration, text }) {
     this.setPhase('thinking');
-    let k = 0;
-    this.setStatus(THINKING[0]);
-    clearInterval(this.thinkTimer);
-    this.thinkTimer = setInterval(() => {
-      k = Math.min(k + 1, THINKING.length - 1);
-      const t = this.status.querySelector('.vs-title');
-      if (t) { t.classList.remove('swap'); void t.offsetWidth; t.classList.add('swap'); t.textContent = THINKING[k]; }
-    }, 1400);
+    this.setStatus(audio ? 'Enviando tu audio…' : 'Entendiendo…');
+    const prev = this.proposals;
+    const turn = { transcript: text ?? '', proposals: [], started: false };
+    this.beginTurnView(prev, text ?? '');
     try {
-      const r = await askAssistant({ audio, mimeType, duration, text, history: this.history });
-      clearInterval(this.thinkTimer);
-      this.handle(r);
+      const done = await streamAssistant({
+        audio, mimeType, duration, text, state: this.convState,
+        onEvent: (ev, data) => {
+          if (ev === 'sent') this.setStatus(audio ? 'Escuchando tu audio…' : 'Entendiendo…');
+          else if (ev === 'transcript') { turn.transcript = data.text; this.showTranscript(data.text); this.setStatus('Entendiendo…'); }
+          else if (ev === 'proposal') {
+            if (!turn.started) { turn.started = true; this.startProposals(turn.proposals); }
+            turn.proposals.push({ ...data, _status: 'pending' });
+            this.appendProposal(turn.proposals.length - 1);
+            this.setStatus('Esto fue lo que entendí');
+          } else if (ev === 'question') this.showBubble(data.text, true);
+        },
+      });
+      this.finishTurn(done, turn, prev);
     } catch (err) {
-      clearInterval(this.thinkTimer);
       this.setPhase(this.proposals.length ? 'result' : 'idle');
       this.setStatus('Uy, no pude entenderte', err.message);
+      this.showRetry(audio ? { audio, mimeType, duration } : { text });
       haptic.error();
     }
   }
 
-  handle(r) {
-    this.transcript = r.transcript || this.transcript;
-    this.history.push({ role: 'user', content: r.transcript || '' });
-    if (r.memory) this.history.push({ role: 'assistant', content: r.memory });
+  /** Estructura del turno: transcripción, burbuja y tarjetas (se llenan a medida que llegan los eventos) */
+  beginTurnView(prev, text) {
+    this.stage.classList.add('compact');
+    this.result.hidden = false;
+    this.result.innerHTML = String(html`
+      <div class="transcript" ${text ? '' : 'hidden'}>
+        <span class="eyebrow">Escuché</span>
+        <div class="transcript-row"><input class="transcript-input" value="${text}" aria-label="Transcripción (puedes corregirla)">
+          <button class="icon-btn" data-act="resend-transcript" aria-label="Volver a interpretar">${icon('refresh', { size: 18 })}</button></div>
+      </div>
+      <div class="bubble-slot"></div>
+      <div class="proposals stagger ${prev.length ? 'stale' : ''}">${renderProposals(prev)}</div>
+      <div class="turn-actions"></div>`);
+    this.unbindProposals?.();
+    this.unbindProposals = bindProposals(this.result.querySelector('.proposals'), prev, { onChange: () => this.updateFooter() });
+  }
 
-    if (r.proposals?.length || ['create_transactions', 'card_payment', 'debt_payment', 'add_subscription', 'goal_contribution'].includes(r.intent)) {
-      // La IA devuelve siempre la lista completa y actualizada: reemplaza las pendientes
-      this.proposals = (r.proposals ?? []).map((p) => ({ ...p, _status: 'pending' }));
+  showTranscript(text) {
+    const box = this.result.querySelector('.transcript');
+    if (!box) return;
+    box.hidden = !text;
+    box.querySelector('.transcript-input').value = text;
+  }
+
+  showBubble(text, question = false, big = false) {
+    const slot = this.result.querySelector('.bubble-slot');
+    if (!slot) return;
+    slot.innerHTML = String(question
+      ? html`<div class="bubble ai question">${text}
+          <div class="q-actions"><button class="chip" data-act="mic-answer">${icon('mic', { size: 15 })}Responder con voz</button>
+          <span class="muted xsmall">o escríbelo abajo</span></div></div>`
+      : html`<div class="bubble ai ${big ? 'big' : ''}">${text}</div>`);
+  }
+
+  /** Primera propuesta del turno: la lista nueva reemplaza a la anterior (la IA siempre devuelve la lista completa) */
+  startProposals(list) {
+    this.proposals = list;
+    const box = this.result.querySelector('.proposals');
+    box.classList.remove('stale');
+    box.innerHTML = '';
+    this.unbindProposals?.();
+    this.unbindProposals = bindProposals(box, list, { onChange: () => this.updateFooter() });
+    this.sheet.expand();
+  }
+
+  /** Pinta una tarjeta apenas llega: el usuario puede empezar a revisarla antes de que termine todo */
+  appendProposal(i) {
+    const box = this.result.querySelector('.proposals');
+    box.insertAdjacentHTML('beforeend', String(renderProposals(this.proposals.map((p, k) => (k === i ? p : { ...p, _status: 'discarded' })))));
+    haptic.select();
+    this.updateFooter();
+  }
+
+  finishTurn(done, turn, prev) {
+    this.convState = done.state || this.convState;
+    this.transcript = turn.transcript || this.transcript;
+    if (!turn.started) {
+      // Sin tarjetas nuevas: si fue un registro (solo pregunta) no queda nada pendiente; si fue consulta o saludo se conservan
+      this.proposals = RECORD_INTENTS.includes(done.intent) && !done.empty ? [] : prev;
+      const box = this.result.querySelector('.proposals');
+      box.classList.remove('stale');
+      box.innerHTML = String(renderProposals(this.proposals));
+      this.unbindProposals?.();
+      this.unbindProposals = bindProposals(box, this.proposals, { onChange: () => this.updateFooter() });
     }
-    this.lastQuestion = r.needs_clarification ? r.question : null;
+    this.lastQuestion = done.question || null;
+    const isQuery = done.intent === 'query' || done.intent === 'unknown';
+    if (done.question) this.showBubble(done.question, true);
+    else if (done.reply) this.showBubble(done.reply, false, isQuery);
+    const pending = pendingProposals(this.proposals);
     this.setPhase('result');
-    this.renderResult(r);
-    this.speak(r.needs_clarification ? r.question : r.reply);
+    this.setStatus(isQuery && !done.empty ? '' : done.question ? 'Me falta un detalle' : pending.length ? 'Esto fue lo que entendí' : 'Listo', '');
+    this.result.querySelector('.turn-actions').innerHTML = pending.length || !isQuery ? '' : String(
+      html`<div class="center mt-6"><button class="btn btn-ghost btn-sm" data-act="restart">${icon('mic', { size: 16 })}Preguntar otra cosa</button></div>`);
+    this.input.placeholder = done.question ? 'Responde aquí…' : 'Corrige o agrega algo…';
+    this.updateFooter();
+    this.sheet.expand();
+    this.speak(done.question || done.reply);
     haptic.success();
   }
 
-  renderResult(r) {
-    const pending = pendingProposals(this.proposals);
-    const isQuery = r.intent === 'query' || r.intent === 'unknown';
-    this.setStatus(isQuery ? '' : r.needs_clarification ? 'Me falta un detalle' : pending.length ? 'Esto fue lo que entendí' : 'Listo', '');
-    this.stage.classList.toggle('compact', true);
-
-    this.result.hidden = false;
-    this.result.innerHTML = String(html`
-      ${r.transcript ? html`<div class="transcript">
-        <span class="eyebrow">Escuché</span>
-        <div class="transcript-row"><input class="transcript-input" value="${r.transcript}" aria-label="Transcripción (puedes corregirla)">
-          <button class="icon-btn" data-act="resend-transcript" aria-label="Volver a interpretar">${icon('refresh', { size: 18 })}</button></div>
-      </div>` : ''}
-      ${r.reply && !r.needs_clarification ? html`<div class="bubble ai ${isQuery ? 'big' : ''}">${r.reply}</div>` : ''}
-      ${r.needs_clarification ? html`<div class="bubble ai question">${r.question}
-        <div class="q-actions"><button class="chip" data-act="mic-answer">${icon('mic', { size: 15 })}Responder con voz</button>
-        <span class="muted xsmall">o escríbelo abajo</span></div></div>` : ''}
-      <div class="proposals stagger">${renderProposals(this.proposals)}</div>
-      ${pending.length ? '' : isQuery ? html`<div class="center mt-6"><button class="btn btn-ghost btn-sm" data-act="restart">${icon('mic', { size: 16 })}Preguntar otra cosa</button></div>` : ''}
-    `);
-    this.unbindProposals?.();
-    this.unbindProposals = bindProposals(this.result.querySelector('.proposals'), this.proposals, { onChange: () => this.updateFooter() });
-    this.input.placeholder = r.needs_clarification ? 'Responde aquí…' : 'Corrige o agrega algo…';
-    this.updateFooter();
-    this.sheet.expand();
+  /** Error sin tecnicismos, con opción de reintentar o escribir */
+  showRetry(turn) {
+    this.lastFailed = turn;
+    if (this.result.hidden) return;
+    const box = this.result.querySelector('.turn-actions');
+    if (!box) return;
+    box.innerHTML = String(html`<div class="center mt-6 retry-row">
+      <button class="btn btn-secondary btn-sm" data-act="retry">${icon('refresh', { size: 16 })}Reintentar</button>
+      <button class="btn btn-ghost btn-sm" data-act="type-instead">Escribirlo</button></div>`);
   }
 
   updateFooter() {
@@ -307,7 +372,7 @@ class VoiceSession {
   }
 
   reset() {
-    this.history = [];
+    this.convState = null;
     this.proposals = [];
     this.lastQuestion = null;
     this.result.hidden = true;
@@ -334,7 +399,6 @@ class VoiceSession {
   }
 
   destroy() {
-    clearInterval(this.thinkTimer);
     this.recorder?.cancel();
     this.orb?.destroy();
     this.unbindProposals?.();

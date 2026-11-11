@@ -4,7 +4,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
 import { errorResponse, HttpError, json, preflight } from "../_shared/cors.ts";
 import { adminClient, requireInternal } from "../_shared/auth.ts";
 import { notify } from "../_shared/push.ts";
-import { addDays, bogota } from "../_shared/prompt.ts";
+import { addDays, bogota } from "../_shared/brain.ts";
 
 type Slot = "morning" | "weekly" | "evening";
 interface Profile { user_id: string; name: string | null; reminder_time: string; notification_prefs: Record<string, boolean> }

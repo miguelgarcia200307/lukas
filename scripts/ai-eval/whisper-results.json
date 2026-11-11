@@ -1,0 +1,786 @@
+{
+  "at": "2026-11-11T06:11:22.196Z",
+  "prompt": "Gastos en pesos colombianos. Me gasté 30 lucas en el almuerzo, 5.000 de bus, medio palo de arriendo y 2 gaseosas de 3.500. Pagué con la Visa, por Nequi, en efectivo. Uber, DiDi, D1, Ara, Éxito, Rappi, TransMilenio, tinto, empanada. Efectivo, Nequi, Bancolombia, Visa, Mastercard, Davivienda, Crédito del carro, Netflix, Viaje a Cartagena, Bus, Taxi, Gasolina, Parqueadero, Intereses, Cuota de manejo, 4x1000, Cuotas de créditos.",
+  "summary": [
+    {
+      "model": "whisper-large-v3-turbo",
+      "n": 24,
+      "errors": 0,
+      "amounts": "100.0%",
+      "names": "100.0%",
+      "p50": 490,
+      "p95": 839
+    },
+    {
+      "model": "whisper-large-v3",
+      "n": 24,
+      "errors": 0,
+      "amounts": "100.0%",
+      "names": "100.0%",
+      "p50": 557,
+      "p95": 942
+    }
+  ],
+  "rows": [
+    {
+      "round": 0,
+      "id": "audio-01",
+      "model": "whisper-large-v3-turbo",
+      "ms": 755,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos 2 gaseosas de 5.000 cada una.",
+      "expected": [
+        5000,
+        22000,
+        30000
+      ],
+      "got": [
+        5000,
+        22000,
+        30000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-01",
+      "model": "whisper-large-v3",
+      "ms": 611,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos 2 gaseosas de 5.000 cada una.",
+      "expected": [
+        5000,
+        22000,
+        30000
+      ],
+      "got": [
+        5000,
+        22000,
+        30000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-02",
+      "model": "whisper-large-v3-turbo",
+      "ms": 839,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Fui a la ferretería y me compré unos clavos para la casa, y de paso una empanada de 5 lucas.",
+      "expected": [
+        5000
+      ],
+      "got": [
+        5000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-02",
+      "model": "whisper-large-v3",
+      "ms": 967,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Fui a la ferretería y me compré unos clavos para la casa, y de paso una empanada de 5 lucas.",
+      "expected": [
+        5000
+      ],
+      "got": [
+        5000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-03",
+      "model": "whisper-large-v3-turbo",
+      "ms": 487,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Acabo de recibir 30 mil pesos por una venta.",
+      "expected": [
+        30000
+      ],
+      "got": [
+        30000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-03",
+      "model": "whisper-large-v3",
+      "ms": 692,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Acabo de recibir 30.000 pesos por una venta.",
+      "expected": [
+        30000
+      ],
+      "got": [
+        30000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-04",
+      "model": "whisper-large-v3-turbo",
+      "ms": 383,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué 500.000 de la visa desde Bancolombia.",
+      "expected": [
+        500000
+      ],
+      "got": [
+        500000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-04",
+      "model": "whisper-large-v3",
+      "ms": 543,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué 500.000 de la Visa desde Bancolombia.",
+      "expected": [
+        500000
+      ],
+      "got": [
+        500000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-05",
+      "model": "whisper-large-v3-turbo",
+      "ms": 428,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "¿Cuánto he gastado esta semana?",
+      "expected": [],
+      "got": []
+    },
+    {
+      "round": 0,
+      "id": "audio-05",
+      "model": "whisper-large-v3",
+      "ms": 598,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "¿Cuánto he gastado esta semana?",
+      "expected": [],
+      "got": []
+    },
+    {
+      "round": 0,
+      "id": "audio-06",
+      "model": "whisper-large-v3-turbo",
+      "ms": 490,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Almorcé por 18 lucas con la Master y pagué un Uber de 12.000 por Nequi.",
+      "expected": [
+        12000,
+        18000
+      ],
+      "got": [
+        12000,
+        18000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-06",
+      "model": "whisper-large-v3",
+      "ms": 557,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Almorcé por 18 lucas con la Master y pagué un Uber de 12.000 por Nequi.",
+      "expected": [
+        12000,
+        18000
+      ],
+      "got": [
+        12000,
+        18000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-07",
+      "model": "whisper-large-v3-turbo",
+      "ms": 523,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Tanque 80 barras.",
+      "expected": [
+        80000
+      ],
+      "got": [
+        80000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-07",
+      "model": "whisper-large-v3",
+      "ms": 465,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Tanqué 80 barras.",
+      "expected": [
+        80000
+      ],
+      "got": [
+        80000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-08",
+      "model": "whisper-large-v3-turbo",
+      "ms": 508,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué el taxi, 30, no, 35.000.",
+      "expected": [
+        35000
+      ],
+      "got": [
+        35000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-08",
+      "model": "whisper-large-v3",
+      "ms": 452,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué el taxi, 30, no, 35.000.",
+      "expected": [
+        35000
+      ],
+      "got": [
+        35000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-09",
+      "model": "whisper-large-v3-turbo",
+      "ms": 529,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "En el D1 compré arroz por 4200, 2 litros de leche a 3800 cada uno y huevos por 14000.",
+      "expected": [
+        3800,
+        4200,
+        14000
+      ],
+      "got": [
+        3800,
+        4200,
+        14000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-09",
+      "model": "whisper-large-v3",
+      "ms": 685,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "En el D1 compré arroz por 4.200, 2 litros de leche a 3.800 cada uno y huevos por 14.000.",
+      "expected": [
+        3800,
+        4200,
+        14000
+      ],
+      "got": [
+        3800,
+        4200,
+        14000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-10",
+      "model": "whisper-large-v3-turbo",
+      "ms": 490,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "expected": [
+        70000,
+        500000
+      ],
+      "got": [
+        70000,
+        500000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-10",
+      "model": "whisper-large-v3",
+      "ms": 553,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "expected": [
+        70000,
+        500000
+      ],
+      "got": [
+        70000,
+        500000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-11",
+      "model": "whisper-large-v3-turbo",
+      "ms": 617,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Eh, o sea, pues ayer me gasté como 20.500 en un almuerzo con un amigo.",
+      "expected": [
+        20500
+      ],
+      "got": [
+        20500
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-11",
+      "model": "whisper-large-v3",
+      "ms": 585,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Eh, o sea, pues ayer me gasté como 20.500 en un almuerzo con un amigo.",
+      "expected": [
+        20500
+      ],
+      "got": [
+        20500
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-12",
+      "model": "whisper-large-v3-turbo",
+      "ms": 478,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Me llegó la quincena, me pagaron dos palos y medio, y le aboné 300.000 a la Mastercard desde Nequi.",
+      "expected": [
+        300000,
+        2500000
+      ],
+      "got": [
+        300000,
+        2500000
+      ]
+    },
+    {
+      "round": 0,
+      "id": "audio-12",
+      "model": "whisper-large-v3",
+      "ms": 502,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Me llegó la quincena, me pagaron dos palos y medio, y le aboné 300.000 a la Mastercard desde Nequi.",
+      "expected": [
+        300000,
+        2500000
+      ],
+      "got": [
+        300000,
+        2500000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-01",
+      "model": "whisper-large-v3-turbo",
+      "ms": 400,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos 2 gaseosas de 5.000 cada una.",
+      "expected": [
+        5000,
+        22000,
+        30000
+      ],
+      "got": [
+        5000,
+        22000,
+        30000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-01",
+      "model": "whisper-large-v3",
+      "ms": 743,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos 2 gaseosas de 5.000 cada una.",
+      "expected": [
+        5000,
+        22000,
+        30000
+      ],
+      "got": [
+        5000,
+        22000,
+        30000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-02",
+      "model": "whisper-large-v3-turbo",
+      "ms": 436,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Fui a la ferretería y me compré unos clavos para la casa, y de paso una empanada de 5 lucas.",
+      "expected": [
+        5000
+      ],
+      "got": [
+        5000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-02",
+      "model": "whisper-large-v3",
+      "ms": 746,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Fui a la ferretería y me compré unos clavos para la casa, y de paso una empanada de 5 lucas.",
+      "expected": [
+        5000
+      ],
+      "got": [
+        5000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-03",
+      "model": "whisper-large-v3-turbo",
+      "ms": 484,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Acabo de recibir 30 mil pesos por una venta.",
+      "expected": [
+        30000
+      ],
+      "got": [
+        30000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-03",
+      "model": "whisper-large-v3",
+      "ms": 593,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Acabo de recibir 30.000 pesos por una venta.",
+      "expected": [
+        30000
+      ],
+      "got": [
+        30000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-04",
+      "model": "whisper-large-v3-turbo",
+      "ms": 498,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué 500.000 de la visa desde Bancolombia.",
+      "expected": [
+        500000
+      ],
+      "got": [
+        500000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-04",
+      "model": "whisper-large-v3",
+      "ms": 441,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué 500.000 de la Visa desde Bancolombia.",
+      "expected": [
+        500000
+      ],
+      "got": [
+        500000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-05",
+      "model": "whisper-large-v3-turbo",
+      "ms": 493,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "¿Cuánto he gastado esta semana?",
+      "expected": [],
+      "got": []
+    },
+    {
+      "round": 1,
+      "id": "audio-05",
+      "model": "whisper-large-v3",
+      "ms": 500,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "¿Cuánto he gastado esta semana?",
+      "expected": [],
+      "got": []
+    },
+    {
+      "round": 1,
+      "id": "audio-06",
+      "model": "whisper-large-v3-turbo",
+      "ms": 489,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Almorcé por 18 lucas con la Master y pagué un Uber de 12.000 por Nequi.",
+      "expected": [
+        12000,
+        18000
+      ],
+      "got": [
+        12000,
+        18000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-06",
+      "model": "whisper-large-v3",
+      "ms": 480,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Almorcé por 18 lucas con la Master y pagué un Uber de 12.000 por Nequi.",
+      "expected": [
+        12000,
+        18000
+      ],
+      "got": [
+        12000,
+        18000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-07",
+      "model": "whisper-large-v3-turbo",
+      "ms": 383,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Tanque 80 barras.",
+      "expected": [
+        80000
+      ],
+      "got": [
+        80000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-07",
+      "model": "whisper-large-v3",
+      "ms": 418,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Tanqué 80 barras.",
+      "expected": [
+        80000
+      ],
+      "got": [
+        80000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-08",
+      "model": "whisper-large-v3-turbo",
+      "ms": 471,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué el taxi, 30, no, 35.000.",
+      "expected": [
+        35000
+      ],
+      "got": [
+        35000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-08",
+      "model": "whisper-large-v3",
+      "ms": 546,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Pagué el taxi, 30, no, 35.000.",
+      "expected": [
+        35000
+      ],
+      "got": [
+        35000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-09",
+      "model": "whisper-large-v3-turbo",
+      "ms": 913,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "En el D1 compré arroz por 4200, 2 litros de leche a 3800 cada uno y huevos por 14000.",
+      "expected": [
+        3800,
+        4200,
+        14000
+      ],
+      "got": [
+        3800,
+        4200,
+        14000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-09",
+      "model": "whisper-large-v3",
+      "ms": 942,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "En el D1 compré arroz por 4.200, 2 litros de leche a 3.800 cada uno y huevos por 14.000.",
+      "expected": [
+        3800,
+        4200,
+        14000
+      ],
+      "got": [
+        3800,
+        4200,
+        14000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-10",
+      "model": "whisper-large-v3-turbo",
+      "ms": 557,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "expected": [
+        70000,
+        500000
+      ],
+      "got": [
+        70000,
+        500000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-10",
+      "model": "whisper-large-v3",
+      "ms": 585,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "expected": [
+        70000,
+        500000
+      ],
+      "got": [
+        70000,
+        500000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-11",
+      "model": "whisper-large-v3-turbo",
+      "ms": 833,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Eh, o sea, pues ayer me gasté como 20.500 en un almuerzo con un amigo.",
+      "expected": [
+        20500
+      ],
+      "got": [
+        20500
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-11",
+      "model": "whisper-large-v3",
+      "ms": 555,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Eh, o sea, pues ayer me gasté como 20.500 en un almuerzo con un amigo.",
+      "expected": [
+        20500
+      ],
+      "got": [
+        20500
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-12",
+      "model": "whisper-large-v3-turbo",
+      "ms": 589,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Me llegó la quincena, me pagaron dos palos y medio, y le aboné 300.000 a la Mastercard desde Nequi.",
+      "expected": [
+        300000,
+        2500000
+      ],
+      "got": [
+        300000,
+        2500000
+      ]
+    },
+    {
+      "round": 1,
+      "id": "audio-12",
+      "model": "whisper-large-v3",
+      "ms": 691,
+      "amountsOk": true,
+      "namesOk": true,
+      "text": "Me llegó la quincena, me pagaron dos palos y medio, y le aboné 300.000 a la Mastercard desde Nequi.",
+      "expected": [
+        300000,
+        2500000
+      ],
+      "got": [
+        300000,
+        2500000
+      ]
+    }
+  ]
+}

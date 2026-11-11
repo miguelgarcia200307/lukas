@@ -7,7 +7,7 @@ import { APP_NAME, APP_VERSION } from '../config.js';
 import { sb } from '../supabase.js';
 import { state, subscribe } from '../state.js';
 import { updateProfile } from '../api/profile.js';
-import { sendTestPush } from '../api/ai.js';
+import { sendTestPush, aiUsage } from '../api/ai.js';
 import { topbar, bindTopbar } from '../ui/common.js';
 import { formSheet } from '../ui/form.js';
 import { confirmDialog } from '../ui/modal.js';
@@ -34,6 +34,7 @@ const sw = (name, checked, attrs = '') => html`<span class="switch"><input type=
 export function mount(screen) {
   let pushOn = false;
   let mic = 'prompt';
+  let usage = null; // Uso de IA de hoy
   const render = () => {
     const p = state.profile ?? {};
     const prefs = p.notification_prefs ?? {};
@@ -82,6 +83,22 @@ export function mount(screen) {
         <label class="list-row"><span class="cat-icon" style="--c:#A65BE0">${icon('mic', { size: 20 })}</span>
           <div class="grow"><div class="row-title">Respuesta hablada</div><div class="row-sub">${APP_NAME} lee en voz alta lo que entendió</div></div>
           ${sw('voice_reply', p.voice_reply, 'voice')}</label>
+        <label class="list-row"><span class="cat-icon" style="--c:#2FB3A6">${icon('send', { size: 20 })}</span>
+          <div class="grow"><div class="row-title">Enviar al hacer una pausa</div><div class="row-sub">Envía el audio tras 1,5 s de silencio</div></div>
+          ${sw('voice_autosend', p.voice_autosend !== false, 'autosend')}</label>
+      </div>
+
+      <div class="eyebrow mt-8 mb-2">Uso de IA</div>
+      <div class="list ai-usage">
+        <div class="list-row"><span class="cat-icon" style="--c:#4B3BF5">${icon('sparkles', { size: 20 })}</span>
+          <div class="grow"><div class="row-title">Hoy</div>
+            <div class="row-sub">${usage ? `${usage.audio_today} ${usage.audio_today === 1 ? 'audio' : 'audios'} · ${usage.text_today} por texto` : 'Cargando…'}</div>
+            ${usage ? html`<div class="usage-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${usage.pct}" aria-label="Cuota personal usada"><span style="width:${Math.max(2, usage.pct)}%" class="${usage.pct >= 90 ? 'hot' : usage.pct >= 70 ? 'warm' : ''}"></span></div>` : ''}</div>
+          ${usage ? html`<div class="usage-pct num">${usage.pct}%</div>` : ''}</div>
+        ${usage ? html`<div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Cuota personal</div>
+            <div class="row-sub">${usage.used_today} de ${usage.quota_day} solicitudes al día</div></div></div>
+          <div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Modelo activo</div>
+            <div class="row-sub">${usage.model?.replace('openai/', '') ?? '—'}${usage.model !== usage.last_model && usage.last_model ? ` · último usado: ${usage.last_model.replace('openai/', '')}` : ''} · voz: ${usage.stt_model ?? '—'}</div></div></div>` : ''}
       </div>
 
       <div class="eyebrow mt-8 mb-2">App y datos</div>
@@ -108,6 +125,7 @@ export function mount(screen) {
     bindTopbar(screen),
     on(screen, 'change', '[data-pref]', (e, inp) => savePrefs({ notification_prefs: { ...(state.profile.notification_prefs ?? {}), [inp.dataset.pref]: inp.checked } })),
     on(screen, 'change', '[data-voice]', (e, inp) => savePrefs({ voice_reply: inp.checked })),
+    on(screen, 'change', '[data-autosend]', (e, inp) => savePrefs({ voice_autosend: inp.checked })),
     on(screen, 'change', '[data-reminder]', (e, inp) => inp.value && savePrefs({ reminder_time: `${inp.value.slice(0, 2)}:00` })),
     on(screen, 'change', '[data-push]', async (e, inp) => {
       try {
@@ -148,5 +166,6 @@ export function mount(screen) {
   render();
   hasPushSubscription().then((v) => { pushOn = v; render(); if (v) syncPushSubscription(); });
   micStatus().then((v) => { mic = v; render(); });
+  aiUsage().then((u) => { usage = u; render(); }).catch(() => {});
   return () => offs.forEach((f) => f());
 }

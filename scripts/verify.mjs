@@ -33,11 +33,21 @@ export async function verify(env = readEnv()) {
   await rpc('ensure_profile', {});
 
   // Asistente
-  const ai = async (text, history = []) => {
-    const r = await fetch(`${base}/functions/v1/ai-assistant`, { method: 'POST', headers: H, body: JSON.stringify({ text, history }) });
-    const j = await r.json();
-    if (!r.ok) throw new Error(`ai-assistant ${r.status}: ${JSON.stringify(j)}`);
-    return j;
+  // La función responde en streaming (SSE): transcript → proposal* → question? → reply? → done
+  const ai = async (text) => {
+    const r = await fetch(`${base}/functions/v1/ai-assistant`, { method: 'POST', headers: H, body: JSON.stringify({ text }) });
+    if (!r.ok) throw new Error(`ai-assistant ${r.status}: ${await r.text()}`);
+    const out = { proposals: [] };
+    for (const block of (await r.text()).split('\n\n')) {
+      const ev = /^event: (.+)$/m.exec(block)?.[1];
+      const data = /^data: (.+)$/m.exec(block)?.[1];
+      if (!ev || !data) continue;
+      const j = JSON.parse(data);
+      if (ev === 'proposal') out.proposals.push(j);
+      if (ev === 'error') throw new Error(`ai-assistant: ${j.message}`);
+      if (ev === 'done') Object.assign(out, j, { needs_clarification: !!j.question });
+    }
+    return out;
   };
   const cases = [
     ['Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos dos gaseosas de 5.000 cada una',
@@ -46,14 +56,14 @@ export async function verify(env = readEnv()) {
       (j) => j.needs_clarification && j.proposals.some((p) => p.amount === 5000)],
     ['Acabo de recibir 30 mil pesos por una venta', (j) => j.proposals[0]?.type === 'income' && j.proposals[0]?.amount === 30000],
     ['Pagué 500 mil de la Visa desde Bancolombia', (j) => j.intent === 'card_payment' || j.needs_clarification],
-    ['¿Cuánto he gastado esta semana?', (j) => j.intent === 'query' && /\$/.test(j.reply)],
+    ['¿Cuánto he gastado esta semana?', (j) => j.intent === 'query' && /esta semana/i.test(j.reply) && j.query?.metric === 'spending'],
   ];
   for (const [text, test] of cases) {
     try {
       const j = await ai(text);
       check(`IA: "${text.slice(0, 48)}…"`, test(j), `${j.intent} · ${j.reply}`);
     } catch (e) { check(`IA: "${text.slice(0, 48)}…"`, false, e.message); }
-    await sleep(Number(process.env.AI_TEST_PAUSE ?? 15000)); // límite por minuto del plan gratis de Groq
+    await sleep(Number(process.env.AI_TEST_PAUSE ?? 3000)); // límite por minuto del plan gratis de Groq
   }
 
   // Contabilidad de tarjetas

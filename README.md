@@ -22,6 +22,16 @@ El script vincula el proyecto, aplica las migraciones y el seed, desactiva el re
 - Verificar sin tocar tus datos: `node --use-system-ca scripts/verify-temp.mjs` (usa un usuario temporal que luego se borra).
 - Redesplegar solo funciones: `npx supabase functions deploy <nombre> --project-ref <ref> --no-verify-jwt --use-api` (cada función valida el JWT en su código).
 
+## Asistente de IA
+Flujo por solicitud: el audio se sube apenas se detiene la grabación (o tras 1,5 s de silencio) → la función verifica el JWT localmente, consulta en **una sola RPC** (`ai_begin`) la cuota y el contexto compacto del usuario (en caché por versión), y en paralelo transcribe con Whisper → normaliza los montos en código ("30 lucas" → $30000) → el LLM responde en **JSON Lines** y cada línea se valida y se envía a la app por **SSE** (`transcript`, `proposal`, `question`, `reply`, `done`). Las consultas se calculan en SQL (`ai_query`) y se responden con plantillas, sin segunda llamada al LLM. Lo que el usuario confirma alimenta `category_hints` (memoria de categorización).
+
+- Modelos y cuotas por secrets: `GROQ_CHAT_MODEL`, `GROQ_CHAT_FALLBACK`, `GROQ_REASONING_EFFORT`, `GROQ_STT_MODEL`, `GROQ_STT_FALLBACK`, `AI_DAILY_CAPACITY` (capacidad diaria estimada; cada usuario recibe la mitad) o `AI_USER_DAILY_QUOTA`.
+- Banco de pruebas: `scripts/ai-eval/` (casos en español colombiano, audios sintéticos y reporte en `report.md`).
+  - Contra la función desplegada: `npm run eval -- --label nombre`
+  - Pipeline local con otro modelo: `npm run eval -- --label x --local --model openai/gpt-oss-20b --effort low`
+  - Whisper turbo vs large-v3: `npm run eval:whisper` · pruebas unitarias de la normalización: `npm test`
+  - Borrar las cuentas y tarjetas de prueba que crea el banco: `npm run eval -- --cleanup`
+
 ## Activar GitHub Pages
 1. En el repositorio: **Settings → Pages → Build and deployment → Deploy from a branch**, rama `main`, carpeta `/ (root)`.
 2. La app queda en `https://<usuario>.github.io/<repositorio>/`. Todas las rutas son relativas y usan hash routing.
@@ -37,4 +47,4 @@ Cambia `APP_NAME` en `js/config.js`, `name` y `short_name` en `manifest.webmanif
 - **Públicos (solo en `js/config.js`):** la URL de Supabase, la llave publicable (anon) y la llave pública VAPID.
 - **Secretos (solo en `.env.local`, ignorado por git, y en los secrets de Supabase / Vault):** la service role, `GROQ_API_KEY`, la llave privada VAPID, `CRON_SECRET` y el token de acceso.
 - **Datos:** todas las tablas tienen RLS y el rol `anon` no tiene permisos.
-- **Asistente:** la IA tiene cuota por usuario (20 por minuto y 300 por día) y CORS con una lista exacta de orígenes.
+- **Asistente:** la IA tiene cuota por usuario (20 por minuto y una cuota diaria configurable), CORS con una lista exacta de orígenes y nunca escribe datos: el usuario confirma cada registro.
