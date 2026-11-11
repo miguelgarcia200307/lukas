@@ -40,7 +40,14 @@ Flujo por solicitud: el audio se sube apenas se detiene la grabación (o tras 1,
 3. En Supabase, **Authentication → URL Configuration**: agrega esa URL como *Site URL* o *Redirect URL*.
 4. Si publicas desde otro dominio, agrégalo al secret `ALLOWED_ORIGINS` (CORS) y redespliega las funciones.
 
-Cada vez que publiques una versión nueva, sube `VERSION` en `sw.js` para que aparezca el aviso “Hay una nueva versión”.
+Cada vez que publiques una versión nueva, sube `VERSION` en `sw.js` y `APP_VERSION` en `js/config.js` (iguales). La app instalada se actualiza sola al abrirla o al volver a ella; en Ajustes está “Buscar actualización”.
+
+## Pruebas
+- `npm test`: normalización de montos, respuestas cortas sin LLM y modo privado (Node).
+- `npm run test:ui`: pruebas de interfaz en Chrome/Edge sin ventana (`scripts/ui-tests/*.html`; usa `CHROME_PATH` si el navegador no está en la ruta habitual).
+
+## Modo privado
+En “Más” se pueden ocultar los saldos (todos con el ojito del encabezado o uno por uno). Es una preferencia del dispositivo (`localStorage`, clave `lukas-privacy`): no se envía al servidor. Para usarlo en otra pantalla: agrega la clave en `PRIVACY_KEYS` (`js/privacy.js`) y pinta el monto con `sensitiveLine()` / `sensitiveAmount()` (`js/ui/sensitive.js`), que nunca dejan el valor real en el DOM cuando está oculto.
 
 ## Cambiar el nombre de la app
 Cambia `APP_NAME` en `js/config.js`, `name` y `short_name` en `manifest.webmanifest`, y `<title>` y `apple-mobile-web-app-title` en `index.html`. Para regenerar los íconos: `npm run icons`.

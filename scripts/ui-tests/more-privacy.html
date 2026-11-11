@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba · modo privado en Más</title>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/animations.css">
+</head><body><section class="screen" id="scr"></section><pre id="results"></pre>
+<script type="module">
+// Prueba de navegador del modo privado de "Más" (la corre scripts/ui-tests/run.mjs en Chrome sin interfaz).
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  // Estado guardado de una sesión anterior: Cuentas oculta
+  localStorage.setItem('lukas-privacy', JSON.stringify({ hidden: ['accounts'] }));
+  location.hash = '#/mas';
+  const { state } = await import('../../js/state.js');
+  state.accounts = [{ balance: 4708900 }]; state.cards = [{ debt: 1469000 }]; state.debts = [{ balance: 30711000 }];
+  state.subscriptions = [{ active: true, monthly_equivalent: 63800 }];
+  const { mount } = await import('../../js/views/more.js');
+  const screen = document.getElementById('scr');
+  mount(screen);
+  const subEl = (k) => screen.querySelector(`[data-sens-key="${k}"] .mt-sub`);
+  // Texto que se VE (sin el texto solo para lectores de pantalla)
+  const sub = (k) => { const c = subEl(k).cloneNode(true); c.querySelectorAll('.sr-only').forEach((n) => n.remove()); return { textContent: c.textContent }; };
+  const cell = (k) => screen.querySelector(`[data-sens-key="${k}"]`);
+  const g = () => screen.querySelector('[data-privacy-all]');
+
+  // 1. Sin destello: el primer render ya trae la máscara (estado leído antes de pintar)
+  check('persistencia: Cuentas oculta desde el primer render', sub('accounts').textContent.includes('$••••••') && !cell('accounts').innerHTML.includes('4.708.900'));
+  check('las demás siguen visibles', sub('creditCards').textContent.includes('$1.469.000'));
+
+  // 2. El ojito nunca navega; el resto de la tarjeta sí
+  let bubbled = false;
+  document.addEventListener('click', () => { bubbled = true; });
+  screen.querySelector('[data-privacy="loans"]').click();
+  await new Promise((r) => setTimeout(r, 50));
+  check('el ojito no navega', location.hash === '#/mas', location.hash);
+  check('el ojito detiene la propagación', !bubbled);
+  check('el ojito alterna solo su tarjeta', sub('loans').textContent === 'Saldo $••••••' && sub('subscriptions').textContent.includes('$63.800'));
+  check('contexto se mantiene', sub('accounts').textContent.includes('en total') && sub('loans').textContent.startsWith('Saldo'));
+  check('el valor real no está en el DOM', !cell('loans').innerHTML.includes('30.711.000'));
+  const masked = cell('loans').querySelector('.mt-sub');
+  check('lector de pantalla: máscara oculta y "saldo oculto"', masked.querySelector('[aria-hidden="true"] .is-masked') && masked.querySelector('.sr-only')?.textContent === 'saldo oculto');
+  check('etiqueta del ojito describe la acción', screen.querySelector('[data-privacy="loans"]').getAttribute('aria-label') === 'Mostrar saldo de Créditos'
+    && screen.querySelector('[data-privacy="loans"]').getAttribute('aria-pressed') === 'true');
+
+  // 3. Botón global: mixto → Eye y "Ocultar todos"; toggleAll oculta todas → EyeOff; luego muestra todas
+  check('global en estado mixto', g().getAttribute('aria-label') === 'Ocultar todos los saldos' && g().getAttribute('aria-pressed') === 'false');
+  g().click();
+  check('global oculta todas', ['accounts', 'creditCards', 'loans', 'subscriptions'].every((k) => sub(k).textContent.includes('$••••••')));
+  check('global en "todo oculto"', g().getAttribute('aria-label') === 'Mostrar todos los saldos' && g().getAttribute('aria-pressed') === 'true' && g().innerHTML.includes('m2 2 20 20'));
+  const amounts = ['4.708.900', '1.469.000', '30.711.000', '63.800'];
+  check('ningún monto real en el DOM de la pantalla con todo oculto', !amounts.some((a) => screen.innerHTML.includes(a)));
+  g().click();
+  check('global muestra todas', sub('loans').textContent === 'Saldo $30.711.000' && g().getAttribute('aria-pressed') === 'false' && !g().innerHTML.includes('m2 2 20 20'));
+  for (const k of ['accounts', 'creditCards', 'loans', 'subscriptions']) screen.querySelector(`[data-privacy="${k}"]`).click();
+  check('ocultar las 4 una por una pasa el global a "todo oculto"', g().getAttribute('aria-pressed') === 'true');
+  check('se guardó en el dispositivo', JSON.parse(localStorage.getItem('lukas-privacy')).hidden.length === 4);
+
+  // 4. El foco del teclado se conserva al cambiar el ícono
+  const eye = screen.querySelector('[data-privacy="accounts"]');
+  eye.focus(); eye.click();
+  check('el foco se queda en el ojito', document.activeElement === screen.querySelector('[data-privacy="accounts"]'));
+
+  // 5. Tocar la tarjeta (fuera del ojito) sigue navegando igual que antes
+  cell('accounts').querySelector('a.more-tile').click();
+  await new Promise((r) => setTimeout(r, 50));
+  check('tocar la tarjeta navega a su detalle', location.hash === '#/cuentas', location.hash);
+  localStorage.removeItem('lukas-privacy');
+} catch (e) { check('sin excepciones', false, String(e?.stack || e)); }
+done();
+</script></body></html>

@@ -553,3 +553,28 @@
 .voice-ask p { margin: 6px 0 0; }
 .voice-ask ol { margin: 6px 0 0; padding-left: 18px; }
 .voice-ask li + li { margin-top: 4px; }
+
+/* ── Más: modo privado (ocultar saldos) ───────────────────────────────────── */
+/* Contenedor de las tarjetas con saldo: el enlace la llena igual que antes y el ojito queda encima, fuera del enlace */
+.more-cell { position: relative; display: grid; min-width: 0; }
+.more-cell > .more-tile { min-width: 0; }
+/* El monto (visible u oculto) siempre ocupa una sola línea: alternar no cambia el alto de la tarjeta */
+.mt-sub.one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Ojito de cada tarjeta: centrado con el ícono de la esquina (48px desde el padding superior) */
+.privacy-eye {
+  position: absolute; top: calc(var(--s-4) + 2px); right: 3px;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: var(--r-full);
+  color: var(--ink-3);
+  transition: background var(--t-fast);
+}
+.privacy-eye svg { width: 18px; height: 18px; opacity: 0.75; transition: opacity var(--t-fast); } /* 0,75: contraste 3:1 sobre la tarjeta */
+.privacy-eye:active { background: var(--surface-3); }
+.privacy-eye:focus-visible { border-radius: var(--r-full); }
+@media (hover: hover) { .privacy-eye:hover svg { opacity: 1; } }
+/* Botón global del encabezado: "ghost" en gris secundario (el fondo de presión es el de .icon-btn) */
+.icon-btn.privacy-all { color: var(--ink-3); }
+.icon-btn.privacy-all:focus-visible { border-radius: var(--r-full); }
+/* Fundido corto al cambiar entre monto y máscara (con movimiento reducido, base.css lo deja instantáneo) */
+.sens-fade { animation: fade-in 150ms var(--ease-out); }
