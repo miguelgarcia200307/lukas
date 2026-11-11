@@ -1,12 +1,18 @@
 // Inicio voice-first: límite del día alrededor del orbe de voz, próximos pagos, alertas y últimos movimientos
-import { html, on } from '../utils/dom.js';
+import { html, raw, on } from '../utils/dom.js';
 import { icon } from '../utils/icons.js';
 import { money, moneyShort } from '../utils/format.js';
 import { greeting, inDays, dateShort } from '../utils/dates.js';
 import { haptic } from '../utils/haptics.js';
+import { spring, animate } from '../utils/motion.js';
 import { state, subscribe, onChanged } from '../state.js';
 import { homeSummary } from '../api/reports.js';
-import { txRow, animateCounts, ring, animateRings } from '../ui/common.js';
+import { txRow } from '../ui/common.js';
+import { staticOrbSvg } from '../ui/lukas-orb.js';
+import {
+  budgetRing, budgetTone, playRing, countTo, paintEdges, edgeFades, collapsingHeader, onceThisSession,
+  voiceUsed, markVoiceUsed, introHeader, introBody, hop, ringBell,
+} from '../ui/home-fx.js';
 import { pullToRefresh } from '../ui/gestures.js';
 import { loaderHtml, settle, revealStagger, orbEmpty, orbError, loadErrorText, online } from '../ui/orb-loader.js';
 import { toast } from '../ui/toast.js';
@@ -27,16 +33,20 @@ export function prefetch() {
   return prefetched.catch(() => {});
 }
 const UPCOMING_ICON = { card_due: 'card', card_cut: 'calendar', debt: 'bank', subscription: 'repeat' };
+// Urgencia del badge: vencido rojo, hoy/mañana ámbar, 2–3 días morado suave, 4+ gris
+const upTone = (d) => (d < 0 ? 'danger' : d <= 1 ? 'warn' : d <= 3 ? 'accent' : '');
 
 export function mount(screen, { query, navigate }) {
+  const hello = `${greeting()}${state.profile?.name ? `, ${state.profile.name}` : ''}`;
   screen.innerHTML = String(html`
+    <div class="home-bar" aria-hidden="true"><span class="hb-orb">${raw(staticOrbSvg({ id: 'hb' }))}</span><span class="hb-title ellipsis">${hello}</span></div>
     <div class="scroller">
       <div class="content home">
         <header class="home-head">
           <span class="home-lukas" data-orb-slot><lukas-orb size="28"></lukas-orb></span>
           <div class="grow">
             <div class="home-date muted small">${new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Bogota' }).format(new Date())}</div>
-            <h1 class="home-greet">${greeting()}${state.profile?.name ? `, ${state.profile.name}` : ''}</h1>
+            <h1 class="home-greet">${hello}</h1>
           </div>
           <a class="icon-btn filled" href="#/notificaciones" aria-label="Notificaciones">${icon('bell')}<span class="badge-dot" data-unread hidden></span></a>
         </header>
@@ -48,6 +58,10 @@ export function mount(screen, { query, navigate }) {
   const body = screen.querySelector('.home-body');
   let orb = null;
   let summary = null;
+  // Lo que se mostró antes: la cifra, el anillo y la lista animan desde ahí en cada recarga
+  let shown = null;
+  const intro = onceThisSession('lukas.homeIntro');
+  if (intro) introHeader(screen.querySelector('.home-head'));
 
   const paintUnread = (n) => {
     const b = screen.querySelector('[data-unread]');
@@ -56,12 +70,17 @@ export function mount(screen, { query, navigate }) {
     b.textContent = n > 9 ? '9+' : String(n);
   };
 
-  const render = () => {
+  const render = ({ first = false } = {}) => {
     const s = summary;
     const limit = Number(s.daily_limit) || 0;
     const spent = Number(s.today_expense) || 0;
     const pct = limit ? spent / limit : 0;
-    const ringColor = pct >= 1 ? 'var(--expense)' : pct >= 0.8 ? 'var(--warn)' : 'var(--accent)';
+    const tone = budgetTone(pct);
+    const upcoming = s.upcoming ?? [];
+    const urgent = upcoming.length ? Math.min(...upcoming.map((u) => u.days_left)) : 99;
+    const pulseAt = urgent <= 1 ? upcoming.findIndex((u) => u.days_left === urgent) : -1;
+    const recent = s.recent ?? [];
+    const fresh = shown ? new Set(recent.filter((t) => !shown.ids.has(t.id)).map((t) => t.id)) : new Set();
     const alerts = [];
     (s.budgets ?? []).forEach((b) => {
       const p = Number(b.pct);
@@ -81,41 +100,47 @@ export function mount(screen, { query, navigate }) {
     body.innerHTML = String(html`
       <section class="hero">
         <p class="hero-line">${limit
-          ? html`Hoy llevas <b class="num" data-count="${spent}">${money(0)}</b> <span class="muted">de ${money(limit)}</span>`
-          : html`Hoy llevas <b class="num" data-count="${spent}">${money(0)}</b> en gastos`}</p>
-        <div class="orb-ring">
-          ${ring(pct, { size: 236, stroke: 10, color: ringColor })}
-          <canvas class="home-orb" aria-hidden="true"></canvas>
-          <button class="orb-btn" aria-label="Registrar con voz. Toca para hablar o mantén presionado">
-            <span class="sr-only">Hablar</span></button>
+          ? html`Hoy llevas <b class="num" data-spent>${money(0)}</b> <span class="muted">de ${money(limit)}</span>`
+          : html`Hoy llevas <b class="num" data-spent>${money(0)}</b> en gastos`}</p>
+        <div class="orb-ring" data-tone="${tone}">
+          ${budgetRing()}
+          <div class="orb-float"><div class="orb-body">
+            <canvas class="home-orb" aria-hidden="true"></canvas>
+            <span class="orb-badge ${voiceUsed() ? '' : 'invite'}" aria-hidden="true">${icon('mic', { size: 18, stroke: 2.2 })}</span>
+          </div></div>
+          <button class="orb-btn" aria-label="Hablar con Lukas" aria-describedby="orb-help">
+            <span class="sr-only" id="orb-help">Registra un gasto o ingreso con tu voz. Mantén presionado para hablar mientras lo sostienes.</span></button>
         </div>
+        ${limit ? html`<p class="hero-left num">${spent <= limit ? `Te quedan ${money(limit - spent)} hoy` : `Te pasaste ${money(spent - limit)} hoy`}</p>` : ''}
         <p class="hero-hint">Cuéntame qué gastaste</p>
-        <div class="chips scroll hero-suggest">${SUGGESTIONS.slice(0, 3).map((t) => html`<button class="chip suggest" data-suggest="${t}">“${t}”</button>`)}</div>
+        <p class="hero-sub" aria-hidden="true">Toca a Lukas para hablar</p>
+        <div class="chips scroll hero-suggest edge-fade">${SUGGESTIONS.slice(0, 3).map((t) => html`<button class="chip suggest" data-suggest="${t}" aria-label="Probar: ${t}">“${t}”</button>`)}</div>
         <form class="home-compose" autocomplete="off">
-          ${icon('keyboard', { size: 18 })}
           <input class="input" name="q" placeholder="O escríbelo: “taxi 12 mil”" aria-label="Escribe un gasto" enterkeyhint="send" maxlength="500">
-          <button class="composer-send" aria-label="Enviar">${icon('send', { stroke: 2.4 })}</button>
+          <button class="composer-send is-empty" aria-label="Enviar" aria-disabled="true">${icon('send', { stroke: 2.4 })}</button>
         </form>
       </section>
 
       ${alerts.length ? html`<section class="alerts">${alerts.map((a) => html`<div class="banner ${a.tone}" data-key="${a.key}">
         ${icon(a.icon)}<span>${a.text}</span><button class="b-close" data-dismiss="${a.key}" aria-label="Descartar">${icon('x', { size: 16 })}</button></div>`)}</section>` : ''}
 
-      ${(s.upcoming ?? []).length ? html`<section class="section">
+      <section class="section up-section">
         <div class="section-head"><h2 class="section-title">Próximos</h2><span class="muted small">7 días</span></div>
-        <div class="upcoming scroll-x">${s.upcoming.map((u, i) => html`<a class="up-card pressable" style="--i:${i};--c:${u.color || '#4B3BF5'}"
-            href="${u.kind.startsWith('card') ? `#/tarjetas/${u.ref_id}` : u.kind === 'debt' ? '#/creditos' : '#/suscripciones'}">
-          <div class="up-top"><span class="up-ico">${icon(UPCOMING_ICON[u.kind] ?? 'calendar', { size: 18 })}</span>
-            <span class="tag ${u.days_left === 0 ? 'danger' : u.days_left <= 2 ? 'warn' : ''}">${inDays(u.days_left)}</span></div>
+        ${upcoming.length ? html`<div class="upcoming">${upcoming.map((u, i) => html`<a class="up-card"
+            href="${u.kind.startsWith('card') ? `#/tarjetas/${u.ref_id}` : u.kind === 'debt' ? '#/creditos' : '#/suscripciones'}"
+            aria-label="${u.title}, ${inDays(u.days_left)}${u.amount ? `, ${money(u.amount)}` : ''}, ${dateShort(u.event_date)}">
+          <div class="up-top"><span class="up-ico ${u.kind === 'card_cut' ? 'cut' : 'pay'}">${icon(UPCOMING_ICON[u.kind] ?? 'calendar', { size: 20 })}</span>
+            <span class="up-badge">${i === pulseAt ? html`<i class="up-pulse" aria-hidden="true"></i>` : ''}<span class="tag ${upTone(u.days_left)}">${inDays(u.days_left)}</span></span></div>
           <div class="up-title ellipsis">${u.title}</div>
-          <div class="up-sub">${u.amount ? html`<b class="num">${moneyShort(u.amount)}</b> · ` : ''}${dateShort(u.event_date)}</div>
-        </a>`)}</div>
-      </section>` : ''}
+          <div class="up-sub ellipsis">${u.amount ? html`<b class="num">${moneyShort(u.amount)}</b> · ` : ''}${dateShort(u.event_date)}</div>
+        </a>`)}</div>`
+          : html`<div class="up-empty"><lukas-orb size="36" state="done" aria-hidden="true"></lukas-orb><span>Nada pendiente esta semana</span></div>`}
+      </section>
 
       <section class="section">
         <div class="section-head"><h2 class="section-title">Últimos movimientos</h2>
           <a class="link-btn" href="#/movimientos">Ver todos${icon('chevron-right', { size: 16 })}</a></div>
-        ${(s.recent ?? []).length ? html`<div class="list stagger">${s.recent.map((t, i) => html`<div style="--i:${i}">${txRow(t)}</div>`)}</div>`
+        ${recent.length ? html`<div class="list ${first ? 'stagger' : ''}">${recent.map((t, i) => html`<div class="${fresh.has(t.id) ? 'is-new' : ''}" style="--i:${i}">${txRow(t)}</div>`)}</div>`
           : orbEmpty({ title: 'Cuéntame tu primer gasto', text: 'Toca el micrófono y dímelo como a un amigo. Por ejemplo: “almorcé por 18 lucas”.' })}
       </section>
       ${Number(s.month_expense) || Number(s.month_income) ? html`<section class="section month-strip card card-pad">
@@ -127,8 +152,15 @@ export function mount(screen, { query, navigate }) {
 
     orb?.destroy();
     orb = new Orb(body.querySelector('.home-orb'), { compact: false });
-    animateCounts(body);
-    animateRings(body);
+    countTo(body.querySelector('[data-spent]'), shown?.spent ?? 0, spent, { delay: first && intro ? 80 : 0 });
+    playRing(body, { from: shown?.pct ?? 0, to: pct, fromTone: shown?.tone, tone, first: !shown });
+    body.querySelectorAll('.edge-fade').forEach(paintEdges);
+    // Movimiento nuevo (por voz o texto): Lukas sonríe y salta; la fila nueva entra resaltada
+    if (fresh.size) {
+      orb.cue('ok');
+      hop(body.querySelector('.orb-body'));
+    }
+    shown = { spent, pct, tone, ids: new Set(recent.map((t) => t.id)) };
     paintUnread(state.unread);
   };
 
@@ -152,9 +184,11 @@ export function mount(screen, { query, navigate }) {
       if (first) await settle(body);
       summary = next;
       state.unread = Number(summary.unread) || 0;
-      render();
-      // El contenido entra escalonado; el bloque de voz (.hero) conserva su entrada original
-      if (first) revealStagger(body, { selector: ':scope > :not(.hero)' });
+      render({ first });
+      // Primera vez en la sesión: coreografía completa; después, el contenido entra escalonado como en el resto de la app
+      if (first && intro) introBody(body);
+      else if (first) revealStagger(body, { selector: ':scope > :not(.hero)' });
+      if (first && intro && state.unread) ringBell(screen.querySelector('.home-head .icon-btn'));
     } catch (err) {
       console.error(err);
       if (!summary) {
@@ -166,30 +200,76 @@ export function mount(screen, { query, navigate }) {
     }
   };
 
+  // Lukas se aplasta al presionar y rebota (squash & stretch) al soltar
+  const squash = (down) => {
+    const ob = screen.querySelector('.orb-body');
+    if (!ob) return;
+    if (down) {
+      animate(ob, [{ transform: 'scale(1)' }, { transform: 'scale(1.08, 0.92)' }], { duration: spring.snappy.duration, easing: spring.snappy.easing, fill: 'forwards' });
+      return;
+    }
+    ob.getAnimations?.().forEach((a) => a.cancel());
+    animate(ob, [{ transform: 'scale(1.08, 0.92)' }, { transform: 'scale(0.95, 1.12)', offset: 0.3 }, { transform: 'scale(1.02, 0.96)', offset: 0.62 }, { transform: 'scale(1)' }], { duration: 560 });
+  };
+  const setSendEmpty = (btn, empty) => {
+    if (!btn || btn.classList.contains('is-empty') === empty) return;
+    btn.classList.toggle('is-empty', empty);
+    btn.setAttribute('aria-disabled', String(empty));
+    if (!empty) animate(btn, [{ transform: 'scale(0.8)' }, { transform: 'scale(1)' }], { duration: spring.snappy.duration, easing: spring.snappy.easing });
+  };
+
   // Orbe: toque = grabar; mantener = grabar mientras se sostiene
-  let holdTimer = null, held = false;
+  let holdTimer = null, held = false, pressing = false;
   const offs = [
     on(screen, 'pointerdown', '.orb-btn', () => {
       unlockVoice(); // el desbloqueo de la voz tiene que nacer del toque (la grabación sostenida abre la hoja en un setTimeout)
       held = false;
-      holdTimer = setTimeout(() => { held = true; haptic.start(); openVoice({ autoStart: true, hold: true }); }, 320);
+      pressing = true;
+      squash(true);
+      haptic.tap();
+      holdTimer = setTimeout(() => { held = true; haptic.start(); markVoiceUsed(); openVoice({ autoStart: true, hold: true }); }, 320);
     }),
     on(screen, 'pointerup', '.orb-btn', () => {
       clearTimeout(holdTimer);
-      if (!held) { haptic.tap(); openVoice({ autoStart: true }); }
+      if (pressing) squash(false);
+      pressing = false;
+      if (!held) { haptic.start(); markVoiceUsed(); openVoice({ autoStart: true }); }
     }),
-    on(screen, 'pointercancel', '.orb-btn', () => clearTimeout(holdTimer)),
-    on(screen, 'keydown', '.orb-btn', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unlockVoice(); openVoice({ autoStart: true }); } }),
-    on(screen, 'click', '[data-suggest]', (e, b) => { unlockVoice(); openVoice({ text: b.dataset.suggest }); }),
+    on(screen, 'pointercancel', '.orb-btn', () => {
+      clearTimeout(holdTimer);
+      if (pressing) squash(false);
+      pressing = false;
+    }),
+    on(screen, 'keydown', '.orb-btn', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unlockVoice(); markVoiceUsed(); openVoice({ autoStart: true }); } }),
+    on(screen, 'click', '[data-suggest]', (e, b) => { haptic.select(); unlockVoice(); openVoice({ text: b.dataset.suggest }); }),
+    on(screen, 'input', '.home-compose .input', (e, inp) => setSendEmpty(inp.form?.querySelector('.composer-send'), !inp.value.trim())),
     on(screen, 'submit', '.home-compose', (e, f) => {
       e.preventDefault();
       const v = f.q.value.trim();
       if (!v) return;
       f.q.value = '';
       f.q.blur();
+      haptic.tap();
+      const send = f.querySelector('.composer-send');
+      const fly = animate(send.querySelector('svg'), [
+        { transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-22px)', opacity: 0, offset: 0.45 },
+        { transform: 'translateY(22px)', opacity: 0, offset: 0.46 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 440 });
+      if (fly) fly.finished.then(() => setSendEmpty(send, !f.q.value.trim()), () => {});
+      else setSendEmpty(send, true);
       unlockVoice();
       openVoice({ text: v });
     }),
+    on(screen, 'click', '.up-card', () => haptic.select()),
+    on(screen, 'click', '.home-head .icon-btn', () => haptic.select()),
+    edgeFades(screen),
+    collapsingHeader(screen, scroller),
+    (() => {
+      // Si se suelta fuera del orbe (p. ej. la hoja de voz se abrió encima al mantener), Lukas vuelve a su forma
+      const release = () => { if (pressing) { pressing = false; squash(false); } };
+      window.addEventListener('pointerup', release);
+      window.addEventListener('pointercancel', release);
+      return () => { window.removeEventListener('pointerup', release); window.removeEventListener('pointercancel', release); };
+    })(),
     on(screen, 'click', '[data-dismiss]', (e, b) => {
       dismissed.add(b.dataset.dismiss);
       const el = b.closest('.banner');

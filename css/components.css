@@ -78,6 +78,10 @@
 .tab:active { transform: scale(0.92); }
 .tab.active { color: var(--ink); }
 .tab.active svg { stroke-width: 2.2; }
+.tab.bounce svg { animation: tab-bounce 360ms var(--ease-default); }
+@keyframes tab-bounce { 40% { transform: scale(1.12); } }
+@media (min-resolution: 2dppx) { .tabbar { border-top: 0.5px solid var(--line-2); } }
+@media (prefers-reduced-motion: reduce) { .tab.bounce svg { animation: none; } }
 .tab-voice { display: grid; place-items: center; }
 .tab-voice .voice-fab {
   width: 58px; height: 58px;

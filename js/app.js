@@ -15,6 +15,7 @@ import { setSaveNotifier } from './ui/submit.js';
 import { initInstall } from './install.js';
 import { syncPushSubscription } from './push.js';
 import { unlockVoice } from './voice/speech.js';
+import { markVoiceUsed } from './ui/home-fx.js';
 import { initUpdates } from './update.js';
 import { AUTH, guardRoute } from './route-guard.js';
 import './ui/lukas-orb.js'; // registra <lukas-orb> y <lukas-lockup>
@@ -123,8 +124,15 @@ async function route() {
 function updateChrome(r) {
   const tabbar = $('.tabbar');
   tabbar.classList.toggle('hidden', r.chrome === false);
+  const hadActive = $$('.tab.active').length > 0;
   $$('.tab[data-tab]').forEach((t) => {
     const active = t.dataset.tab === r.tab;
+    // Al cambiar de pestaña, el ícono activo da un pequeño rebote
+    if (active && hadActive && !t.classList.contains('active')) {
+      t.classList.remove('bounce');
+      void t.offsetWidth;
+      t.classList.add('bounce');
+    }
     t.classList.toggle('active', active);
     if (active) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
@@ -148,6 +156,7 @@ function initTabbar() {
     }
     if (tab.dataset.voice !== undefined) {
       unlockVoice(); // dentro del toque (antes del import asíncrono): iOS deja hablar a Lukas
+      markVoiceUsed();
       const { openVoice } = await import('./voice/voice-sheet.js');
       openVoice({ autoStart: true });
     }

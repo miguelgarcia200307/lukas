@@ -1,10 +1,10 @@
 {
-  "version": "1.8.0",
+  "version": "1.9.0",
   "date": "2026-11-11",
   "notes": [
-    "Lukas ahora tiene cara en el orbe de voz: te mira, te escucha y asiente mientras hablas",
-    "Cuando entiende tu gasto sonríe; si algo falla, te lo dice con la mirada",
-    "Mientras piensa, sus ojos dan una vuelta: así sabes que está trabajando",
-    "El botón Confirmar ahora muestra a Lukas mientras guarda"
+    "Inicio renovado: Lukas flota, reacciona cuando lo tocas y salta de alegría cuando registras algo",
+    "El anillo del día cambia de color a medida que te acercas a tu tope y te dice cuánto te queda",
+    "Próximos pagos más claros: tarjetas que se deslizan con suavidad y un aviso de lo más urgente",
+    "Al bajar en el Inicio, el saludo se recoge en una barra compacta"
   ]
 }

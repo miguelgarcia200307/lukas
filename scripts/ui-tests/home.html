@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba · Inicio</title>
+<script type="importmap">{ "imports": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js" } }</script>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/animations.css">
+<link rel="stylesheet" href="../../css/lukas.css">
+<style>#app { position: relative; height: 900px; } #results { display: none; }</style>
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><pre id="results"></pre>
+<script type="module">
+// Prueba de navegador del Inicio (la corre scripts/ui-tests/run.mjs en Chrome sin interfaz): gutter, carrusel,
+// anillo del presupuesto, campo de texto, encabezado compacto y la llegada de un movimiento nuevo.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const frames = (n = 3) => new Promise((r) => { const f = () => (--n ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); });
+const until = async (f, ms = 4000) => { for (let t = 0; t < ms; t += 50) { if (f()) return true; await wait(50); } return false; };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  // Chrome sin interfaz con reloj virtual casi no entrega frames: requestAnimationFrame pasa a un temporizador de 16 ms
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  // Movimiento reducido: las medidas no dependen del reloj virtual de Chrome sin interfaz
+  const realMM = window.matchMedia.bind(window);
+  window.matchMedia = (q) => (q.includes('prefers-reduced-motion') ? { matches: true, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} } : realMM(q));
+  localStorage.removeItem('lukas.voiceUsed');
+  sessionStorage.removeItem('lukas.homeIntro');
+  const tx = (id, amount, description) => ({ id, type: 'expense', amount, description, occurred_at: '2026-11-11T17:00:00Z' });
+  let summary = {
+    daily_limit: 40000, today_expense: 9200, unread: 1, budgets: [], month_expense: 120000, month_income: 0,
+    upcoming: [
+      { kind: 'card_due', ref_id: 'a', title: 'Pago Visa', amount: 350000, days_left: 1, event_date: '2026-11-12' },
+      { kind: 'card_cut', ref_id: 'b', title: 'Corte Mastercard', amount: 0, days_left: 2, event_date: '2026-11-13' },
+      { kind: 'card_due', ref_id: 'c', title: 'Pago CMR Falabella con un nombre largo', amount: 90000, days_left: 4, event_date: '2026-11-15' },
+    ],
+    recent: [tx('t1', 9200, 'Almuerzo')],
+  };
+  window.__rpc = (fn) => (fn === 'home_summary' ? structuredClone(summary) : null);
+
+  const { state, emitChanged } = await import('../../js/state.js');
+  state.profile = { name: 'Miguel' };
+  const { mount } = await import('../../js/views/home.js');
+  const screen = document.getElementById('scr');
+  const unmount = mount(screen, { query: {}, navigate() {} });
+  check('el Inicio carga', await until(() => screen.querySelector('.hero')));
+  await wait(150);
+  // Chrome sin interfaz no avanza las animaciones: se terminan las finitas para medir el estado final
+  const settleAnims = () => document.getAnimations().forEach((a) => { try { if (a.effect.getComputedTiming().endTime !== Infinity) a.finish(); } catch { /* infinita */ } });
+  settleAnims();
+
+  const $ = (s) => screen.querySelector(s);
+  const rect = (el) => el.getBoundingClientRect();
+  const left = rect($('.home-head')).left;
+  const contentW = rect($('.home-head')).width;
+
+  // Lukas: el orbe de voz sigue siendo el mismo canvas, con el mismo inset de 22 px dentro del anillo
+  const cvEl = $('.home-orb'), ringW = $('.orb-ring').offsetWidth;
+  check('orbe de voz intacto (canvas con inset 22 px)', cvEl.offsetLeft === 22 && cvEl.offsetTop === 22 && cvEl.offsetWidth === ringW - 44, `${cvEl.offsetLeft} ${cvEl.offsetWidth}/${ringW}`);
+  check('Lukas es un botón accesible', $('.orb-btn').getAttribute('aria-label') === 'Hablar con Lukas' && $('#orb-help')?.textContent.includes('voz'));
+  check('badge de micrófono con pulso de invitación', $('.orb-body .orb-badge.invite svg'));
+  check('subtítulo "Toca a Lukas para hablar"', $('.hero-sub')?.textContent === 'Toca a Lukas para hablar');
+
+  // Anillo y titular
+  check('cifra con el formateador de la app', $('[data-spent]').textContent === '$9.200', $('[data-spent]').textContent);
+  check('te quedan (resta de presentación)', $('.hero-left')?.textContent === 'Te quedan $30.800 hoy', $('.hero-left')?.textContent);
+  check('anillo en tono normal (< 60 %)', $('.budget-ring').dataset.tone === 'ok', $('.budget-ring').dataset.tone);
+  const arc = $('.br-arc'), C = Number(arc.getAttribute('stroke-dasharray'));
+  check('arco al 23 %', Math.abs(parseFloat(arc.style.strokeDashoffset) - C * (1 - 0.23)) < 0.5);
+  check('extremos redondeados y punto al final', arc.getAttribute('stroke-linecap') === 'round' && $('.br-knob').style.transform === `rotate(${0.23 * 360}deg)`);
+
+  // Sugerencias: empiezan en el gutter, bordes desvanecidos
+  const chips = screen.querySelectorAll('.hero-suggest .chip');
+  check('3 sugerencias', chips.length === 3);
+  check('la primera sugerencia empieza en el gutter', Math.abs(rect(chips[0]).left - left) < 1, `${rect(chips[0]).left} vs ${left}`);
+  check('borde derecho desvanecido, izquierdo no (sin scroll)', $('.hero-suggest').classList.contains('fade-end') && !$('.hero-suggest').classList.contains('fade-start'));
+  check('alto de sugerencia ≥ 36 px', rect(chips[0]).height >= 36);
+
+  // Campo de texto
+  const send = $('.composer-send'), input = $('.home-compose .input');
+  check('campo de 56 px', Math.round(rect($('.home-compose')).height) >= 56);
+  check('enviar inactivo con el campo vacío', send.classList.contains('is-empty') && send.getAttribute('aria-disabled') === 'true' && getComputedStyle(send).pointerEvents === 'none');
+  input.value = 'taxi 12 mil';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  check('enviar se activa al escribir', !send.classList.contains('is-empty') && send.getAttribute('aria-disabled') === 'false');
+  input.value = '';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+
+  // Próximos: primera tarjeta en x = gutter, 2 tarjetas y un asomo de la tercera, snap con scroll-padding
+  const cards = screen.querySelectorAll('.up-card');
+  const up = $('.upcoming');
+  const expectW = (contentW - 12) / 2.15;
+  check('primera tarjeta en el gutter', Math.abs(rect(cards[0]).left - left) < 1, `${rect(cards[0]).left} vs ${left}`);
+  check('ancho de tarjeta (W − 12) / 2.15', Math.abs(rect(cards[0]).width - expectW) < 1, `${rect(cards[0]).width} vs ${expectW}`);
+  check('separación de 12 px', Math.abs(rect(cards[1]).left - rect(cards[0]).right - 12) < 1);
+  check('snap alineado al gutter', getComputedStyle(up).scrollPaddingLeft === getComputedStyle(document.documentElement).getPropertyValue('--gutter').trim()
+    && getComputedStyle(cards[0]).scrollSnapAlign.includes('start'));
+  up.scrollLeft = 99999;
+  await wait(50);
+  check('la última tarjeta termina con aire del gutter', Math.abs(rect(up).right - rect(cards[2]).right - 20) < 2, `${rect(up).right - rect(cards[2]).right}`);
+  up.scrollLeft = 0;
+  check('badges por urgencia (mañana ámbar, 2 días morado, 4 días neutro)', cards[0].querySelector('.tag.warn') && cards[1].querySelector('.tag.accent') && cards[2].querySelector('.tag:not(.warn):not(.accent):not(.danger)'));
+  check('punto pulsante solo en la más urgente', cards[0].querySelector('.up-pulse') && screen.querySelectorAll('.up-pulse').length === 1);
+  check('título largo con elipsis', getComputedStyle(cards[2].querySelector('.up-title')).textOverflow === 'ellipsis');
+  check('las tarjetas conservan su enlace', cards[0].getAttribute('href') === '#/tarjetas/a');
+
+  // Nada queda tapado por la tab bar; sin scroll horizontal de la página
+  const pb = parseFloat(getComputedStyle($('.content.home')).paddingBottom);
+  check('padding inferior ≥ tab bar + micrófono + aire', pb >= 64 + 22 + 24, pb);
+  check('sin scroll horizontal', document.documentElement.scrollWidth <= innerWidth);
+
+  // Encabezado compacto al hacer scroll
+  const sc = $('.scroller');
+  sc.scrollTop = 120;
+  sc.dispatchEvent(new Event('scroll'));
+  await frames();
+  check('barra compacta al bajar', screen.classList.contains('bar-on') && Number(getComputedStyle($('.home-bar')).opacity) > 0.9,
+    `top=${sc.scrollTop} h=${sc.scrollHeight}/${sc.clientHeight} hy=${screen.style.getPropertyValue('--hy')} op=${getComputedStyle($('.home-bar')).opacity}`);
+  check('el saludo grande se desvanece', Number(getComputedStyle($('.home-head .grow')).opacity) < 0.05);
+  sc.scrollTop = 0;
+  sc.dispatchEvent(new Event('scroll'));
+  await frames();
+  check('barra oculta arriba', Number(getComputedStyle($('.home-bar')).opacity) === 0);
+
+  // Movimiento nuevo: la fila entra resaltada y el anillo cambia de tono (> 90 %)
+  summary = { ...summary, today_expense: 37000, recent: [tx('t2', 27800, 'Mercado'), ...summary.recent], upcoming: [] };
+  emitChanged('transactions');
+  await until(() => screen.querySelector('[data-tx="t2"]'));
+  await frames();
+  check('la fila nueva se resalta', screen.querySelector('[data-tx="t2"]')?.parentElement.classList.contains('is-new') && !screen.querySelector('[data-tx="t1"]').parentElement.classList.contains('is-new'));
+  check('anillo en tono rojo (> 90 %)', $('.budget-ring').dataset.tone === 'danger', $('.budget-ring').dataset.tone);
+  check('Próximos vacío: Lukas y "Nada pendiente esta semana"', $('.up-empty lukas-orb') && $('.up-empty').textContent.includes('Nada pendiente esta semana'));
+
+  const { spring } = await import('../../js/utils/motion.js');
+  check('resortes como easing CSS válido', ['snappy', 'gentle', 'bouncy'].every((k) => CSS.supports('transition-timing-function', spring[k].easing) && spring[k].duration > 200 && spring[k].duration < 2000),
+    JSON.stringify(Object.values(spring).map((x) => x.duration)));
+  unmount();
+  check('desmontar limpia los oyentes', true);
+} catch (e) { check('sin excepciones', false, String(e?.stack || e)); }
+done();
+</script></body></html>
