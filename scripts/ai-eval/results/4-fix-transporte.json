@@ -1,0 +1,166 @@
+{
+  "meta": {
+    "label": "4-fix-transporte",
+    "fn": null,
+    "local": true,
+    "model": "qwen/qwen3.8-27b,openai/gpt-oss-120b",
+    "effort": null,
+    "fewshot": null,
+    "at": "2026-11-11T11:11:21.344Z",
+    "cases": 2
+  },
+  "results": [
+    {
+      "id": "slang-04",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto",
+      "intent": "create_transactions",
+      "reply": "Listo, ¿guardo mecánico por $500.000?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 1525.5661,
+        "first_proposal_ms": 1525.0680000000002
+      },
+      "server": {
+        "llm_ms": 1524,
+        "llm_first_ms": 1435,
+        "retry": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "usage": {
+          "in": 1568,
+          "out": 40,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Le pagué $500000 al mecánico por arreglar la moto"
+      },
+      "usage": {
+        "in": 1568,
+        "out": 40,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1568,
+          "out": 40,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Transporte",
+          "alts": [
+            "Hogar",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-10",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "intent": "create_transactions",
+      "reply": "Anotado: 2 registros. Revísalos y confirma.",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "total_ms": 1588.4903000000004,
+        "first_proposal_ms": 1588.3340000000007,
+        "transcript_ms": 919.4748
+      },
+      "server": {
+        "llm_ms": 669,
+        "llm_first_ms": 419,
+        "retry": false,
+        "stt_ms": 919,
+        "stt_model": "whisper-large-v3-turbo",
+        "usage": {
+          "in": 1589,
+          "out": 83,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "normalized": "Le pagué $500000 al mecánico por arreglar la moto, y ayer eché gasolina por $70000 con la de Bancolombia."
+      },
+      "usage": {
+        "in": 1589,
+        "out": 83,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1589,
+          "out": 83,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Transporte",
+          "alts": [
+            "Hogar",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 70000,
+          "category": "Gasolina",
+          "alts": [
+            "Transporte",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Bancolombia",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    }
+  ]
+}

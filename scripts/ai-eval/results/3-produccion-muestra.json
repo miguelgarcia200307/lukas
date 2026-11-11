@@ -1,0 +1,1345 @@
+{
+  "meta": {
+    "label": "3-produccion-muestra",
+    "fn": "ai-assistant",
+    "local": false,
+    "model": null,
+    "effort": null,
+    "fewshot": null,
+    "at": "2026-11-11T11:10:53.740Z",
+    "cases": 17
+  },
+  "results": [
+    {
+      "id": "spec-01",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos dos gaseosas de 5.000 cada una",
+      "intent": "create_transactions",
+      "reply": "Anotado: salchipapa, hamburguesa de mi novia y gaseosa por $62.000. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 163.92479999999978,
+        "transcript_ms": 164.06719999999996,
+        "first_proposal_ms": 665.5643999999998,
+        "done_ms": 665.7157999999995,
+        "total_ms": 704.3322000000003
+      },
+      "server": {
+        "upload_ms": 0,
+        "ctx_ms": 36,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 504,
+        "llm_first_ms": 222,
+        "retry": false,
+        "total_ms": 540,
+        "usage": {
+          "in": 1582,
+          "out": 135,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 83,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1582,
+        "out": 135,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1582,
+          "out": 135,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 62000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-02b",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Los clavos me costaron 8 lucas",
+      "intent": "create_transactions",
+      "reply": "Anotado: 2 registros. Revísalos y confirma.",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 1054.732100000001,
+        "transcript_ms": 1054.8208999999988,
+        "first_proposal_ms": 1054.9055000000008,
+        "done_ms": 1054.9700999999986,
+        "total_ms": 1055.0250000000015
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 33,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 363,
+        "llm_first_ms": 215,
+        "retry": false,
+        "total_ms": 397,
+        "usage": {
+          "in": 1639,
+          "out": 66,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 85,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1639,
+        "out": 66,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1561,
+          "out": 52,
+          "reasoning": 0,
+          "cached": 0
+        },
+        {
+          "in": 1639,
+          "out": 66,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 5000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 8000,
+          "category": "Hogar",
+          "alts": [
+            "Mercado",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "spec-04",
+      "group": "spec",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Pagué 500 mil de la Visa desde Bancolombia",
+      "intent": "card_payment",
+      "reply": "Listo, pago de $500.000 a la Visa. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 689.2992999999988,
+        "transcript_ms": 689.590400000001,
+        "first_proposal_ms": 1383.670900000001,
+        "done_ms": 1383.8738999999987,
+        "total_ms": 1506.741399999999
+      },
+      "server": {
+        "upload_ms": 48,
+        "ctx_ms": 61,
+        "ctx_cached": false,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 612,
+        "llm_first_ms": 556,
+        "retry": false,
+        "total_ms": 726,
+        "usage": {
+          "in": 1547,
+          "out": 25,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 86,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1547,
+        "out": 25,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1547,
+          "out": 25,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "card_payment",
+          "amount": 500000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "card": "Visa",
+          "account": "Bancolombia"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "slang-05",
+      "group": "jerga",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Tanqueé 80 barras",
+      "intent": "create_transactions",
+      "reply": "Listo, ¿guardo tanque por $80.000?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 1059.1129999999976,
+        "transcript_ms": 1059.241900000001,
+        "first_proposal_ms": 1364.6685999999972,
+        "done_ms": 1364.7479000000021,
+        "total_ms": 1446.1800999999978
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 40,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 339,
+        "llm_first_ms": 265,
+        "retry": false,
+        "total_ms": 380,
+        "usage": {
+          "in": 1539,
+          "out": 29,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 87,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1539,
+        "out": 29,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1539,
+          "out": 29,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 80000,
+          "category": "Gasolina",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-03",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué el Uber de 15 lucas y almorcé por 22 mil",
+      "intent": "create_transactions",
+      "reply": "Perfecto, son 2 movimientos. ¿Los guardo así?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 461.11069999999745,
+        "transcript_ms": 461.3380000000034,
+        "first_proposal_ms": 1070.5772999999972,
+        "done_ms": 1070.6895000000004,
+        "total_ms": 1085.201399999998
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 68,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 624,
+        "llm_first_ms": 405,
+        "retry": false,
+        "total_ms": 693,
+        "usage": {
+          "in": 1533,
+          "out": 117,
+          "reasoning": 56,
+          "cached": 0
+        },
+        "quota": {
+          "used": 88,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1533,
+        "out": 117,
+        "reasoning": 56,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1533,
+          "out": 117,
+          "reasoning": 56,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 15000,
+          "category": "Taxi",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 22000,
+          "category": "Comida y restaurantes",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "items-06",
+      "group": "items",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Almorcé por 18 lucas con la Master y pagué un Uber de 12 mil por Nequi",
+      "intent": "create_transactions",
+      "reply": "Listo, te separé 2 movimientos por $30.000. ¿Los guardo así?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 473.392399999997,
+        "transcript_ms": 473.67759999999544,
+        "first_proposal_ms": 1052.6863999999987,
+        "done_ms": 1052.8050999999978,
+        "total_ms": 1117.8375000000015
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 46,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 561,
+        "llm_first_ms": 409,
+        "retry": false,
+        "total_ms": 608,
+        "usage": {
+          "in": 1538,
+          "out": 126,
+          "reasoning": 67,
+          "cached": 0
+        },
+        "quota": {
+          "used": 89,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1538,
+        "out": 126,
+        "reasoning": 67,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1538,
+          "out": 126,
+          "reasoning": 67,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 18000,
+          "category": "Comida y restaurantes",
+          "alts": [],
+          "items": 0,
+          "payment": "card:Mastercard",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 12000,
+          "category": "Taxi",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Nequi",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "date-04",
+      "group": "fechas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "date": true
+      },
+      "transcript": "El sábado fui a cine y gasté 50 mil",
+      "intent": "create_transactions",
+      "reply": "Anotado: cine por $50.000. ¿Lo guardo?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 377.3413999999975,
+        "transcript_ms": 377.56059999999707,
+        "first_proposal_ms": 897.6907999999967,
+        "done_ms": 897.7316999999966,
+        "total_ms": 897.9367999999959
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 40,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 529,
+        "llm_first_ms": 466,
+        "retry": false,
+        "total_ms": 570,
+        "usage": {
+          "in": 1527,
+          "out": 81,
+          "reasoning": 43,
+          "cached": 0
+        },
+        "quota": {
+          "used": 90,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1527,
+        "out": 81,
+        "reasoning": 43,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1527,
+          "out": 81,
+          "reasoning": 43,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 50000,
+          "category": "Entretenimiento",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-07"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "inc-04",
+      "group": "ingresos",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Me cayeron 80 mil",
+      "intent": "create_transactions",
+      "reply": "Anotado: ingreso de $80.000. ¿Lo guardo?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 538.472099999999,
+        "transcript_ms": 538.6747000000032,
+        "first_proposal_ms": 1363.8224000000046,
+        "done_ms": 1364.0141000000003,
+        "total_ms": 1445.337400000004
+      },
+      "server": {
+        "upload_ms": 0,
+        "ctx_ms": 44,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 829,
+        "llm_first_ms": 785,
+        "retry": false,
+        "total_ms": 874,
+        "usage": {
+          "in": 1523,
+          "out": 65,
+          "reasoning": 36,
+          "cached": 0
+        },
+        "quota": {
+          "used": 91,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1523,
+        "out": 65,
+        "reasoning": 36,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1523,
+          "out": 65,
+          "reasoning": 36,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 80000,
+          "category": "Otros ingresos",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "q-02",
+      "group": "consultas",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true,
+        "answer": true
+      },
+      "transcript": "¿Cuánto debo en la Mastercard?",
+      "intent": "query",
+      "reply": "Tus tarjetas están al día: no debes nada.",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 368.6637000000046,
+        "transcript_ms": 368.8234000000084,
+        "done_ms": 865.8329000000085,
+        "total_ms": 876.3179000000091,
+        "first_proposal_ms": 865.8329000000085
+      },
+      "server": {
+        "upload_ms": 0,
+        "ctx_ms": 27,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 447,
+        "llm_first_ms": 408,
+        "retry": false,
+        "query_ms": 61,
+        "total_ms": 535,
+        "usage": {
+          "in": 1524,
+          "out": 93,
+          "reasoning": 66,
+          "cached": 0
+        },
+        "quota": {
+          "used": 92,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1524,
+        "out": 93,
+        "reasoning": 66,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1524,
+          "out": 93,
+          "reasoning": 66,
+          "cached": 0
+        }
+      ],
+      "proposals": [],
+      "query": {
+        "metric": "card_debt",
+        "from": "2026-11-01",
+        "to": "2026-11-11",
+        "label": "este mes",
+        "category_id": null,
+        "card_id": null,
+        "account_id": null
+      }
+    },
+    {
+      "id": "miss-01",
+      "group": "faltantes",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Compré unas cosas en el Éxito",
+      "intent": "create_transactions",
+      "reply": "¿Cuánto gastaste en el Éxito?",
+      "question": "¿Cuánto gastaste en el Éxito?",
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 569.7688999999955,
+        "transcript_ms": 569.8494999999966,
+        "first_proposal_ms": 937.5326999999961,
+        "done_ms": 937.5665000000008,
+        "total_ms": 939.7532999999967
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 48,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 372,
+        "llm_first_ms": 321,
+        "retry": false,
+        "total_ms": 422,
+        "usage": {
+          "in": 1525,
+          "out": 60,
+          "reasoning": 32,
+          "cached": 0
+        },
+        "quota": {
+          "used": 93,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1525,
+        "out": 60,
+        "reasoning": 32,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1525,
+          "out": 60,
+          "reasoning": 32,
+          "cached": 0
+        }
+      ],
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "noise-02",
+      "group": "correcciones",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Pagué el taxi, 30, no, 35 mil",
+      "intent": "create_transactions",
+      "reply": "Anotado: taxi por $35.000. ¿Lo guardo?",
+      "question": null,
+      "model": "openai/gpt-oss-120b",
+      "timing": {
+        "headers_ms": 334.7618999999977,
+        "transcript_ms": 334.9641999999876,
+        "first_proposal_ms": 742.6780999999901,
+        "done_ms": 742.736899999989,
+        "total_ms": 806.9660000000003
+      },
+      "server": {
+        "upload_ms": 0,
+        "ctx_ms": 27,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 459,
+        "llm_first_ms": 323,
+        "retry": false,
+        "total_ms": 486,
+        "usage": {
+          "in": 1530,
+          "out": 76,
+          "reasoning": 43,
+          "cached": 0
+        },
+        "quota": {
+          "used": 94,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1530,
+        "out": 76,
+        "reasoning": 43,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1530,
+          "out": 76,
+          "reasoning": 43,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 35000,
+          "category": "Taxi",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Efectivo",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "off-02",
+      "group": "fuera",
+      "audio": false,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Hola Lukas",
+      "intent": "unknown",
+      "reply": "Hola Miguel, ¿en qué te puedo ayudar hoy con tus finanzas?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 481.06750000000466,
+        "transcript_ms": 481.23880000000645,
+        "done_ms": 995.3158000000112,
+        "total_ms": 995.4872000000032,
+        "first_proposal_ms": 995.3158000000112
+      },
+      "server": {
+        "upload_ms": 1,
+        "ctx_ms": 111,
+        "ctx_cached": true,
+        "stt_ms": null,
+        "stt_model": null,
+        "llm_ms": 513,
+        "llm_first_ms": 458,
+        "retry": false,
+        "total_ms": 626,
+        "usage": {
+          "in": 1532,
+          "out": 24,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 95,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1532,
+        "out": 24,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1532,
+          "out": 24,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [],
+      "query": null
+    },
+    {
+      "id": "audio-01",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true
+      },
+      "transcript": "Salí a comer con mi novia y me gasté 30.000 en una salchipapa, ella se pidió una hamburguesa de 22.000 y compramos 2 gaseosas de 5.000 cada una.",
+      "intent": "create_transactions",
+      "reply": "Anotado: salchipapa, hamburguesa de mi novia y gaseosa por $62.000. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 650.3904999999941,
+        "transcript_ms": 853.448000000004,
+        "first_proposal_ms": 1365.5938999999926,
+        "done_ms": 1365.6762000000017,
+        "total_ms": 1365.7632000000012
+      },
+      "server": {
+        "upload_ms": 4,
+        "ctx_ms": 126,
+        "ctx_cached": true,
+        "stt_ms": 288,
+        "stt_model": "whisper-large-v3-turbo",
+        "llm_ms": 524,
+        "llm_first_ms": 298,
+        "retry": false,
+        "total_ms": 817,
+        "usage": {
+          "in": 1583,
+          "out": 135,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 96,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1583,
+        "out": 135,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1583,
+          "out": 135,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 62000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Entretenimiento"
+          ],
+          "items": 3,
+          "payment": "account:Efectivo*",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-04",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "fields": true
+      },
+      "transcript": "Pagué 500.000 de la visa desde Bancolombia.",
+      "intent": "card_payment",
+      "reply": "Listo, pago de $500.000 a la Visa. ¿Lo guardo?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 370.7870000000112,
+        "transcript_ms": 743.9205999999976,
+        "first_proposal_ms": 1863.751900000003,
+        "done_ms": 1863.8502000000008,
+        "total_ms": 1863.9628999999986
+      },
+      "server": {
+        "upload_ms": 40,
+        "ctx_ms": 49,
+        "ctx_cached": false,
+        "stt_ms": 359,
+        "stt_model": "whisper-large-v3-turbo",
+        "llm_ms": 1071,
+        "llm_first_ms": 1024,
+        "retry": false,
+        "total_ms": 1522,
+        "usage": {
+          "in": 1548,
+          "out": 25,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 97,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1548,
+        "out": 25,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1548,
+          "out": 25,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "card_payment",
+          "amount": 500000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "card": "Visa",
+          "account": "Bancolombia"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-06",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": true,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true
+      },
+      "transcript": "Almorcé por 18 lucas con la Master y pagué un Uber de 12.000 por Nequi.",
+      "intent": "create_transactions",
+      "reply": "Anotado: 2 registros. Revísalos y confirma.",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 554.2320999999938,
+        "transcript_ms": 656.3074999999953,
+        "first_proposal_ms": 1168.1301999999996,
+        "done_ms": 1168.338499999998,
+        "total_ms": 1168.4577999999892
+      },
+      "server": {
+        "upload_ms": 3,
+        "ctx_ms": 47,
+        "ctx_cached": true,
+        "stt_ms": 214,
+        "stt_model": "whisper-large-v3-turbo",
+        "llm_ms": 450,
+        "llm_first_ms": 297,
+        "retry": false,
+        "total_ms": 669,
+        "usage": {
+          "in": 1559,
+          "out": 75,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 98,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1559,
+        "out": 75,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1559,
+          "out": 75,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 18000,
+          "category": "Comida y restaurantes",
+          "alts": [
+            "Mercado",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "card:Mastercard",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 12000,
+          "category": "Taxi",
+          "alts": [
+            "Transporte",
+            "Parqueadero"
+          ],
+          "items": 0,
+          "payment": "account:Nequi",
+          "date": "2026-11-11"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-10",
+      "group": "audio",
+      "audio": true,
+      "pass": false,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true,
+        "category_strict": false,
+        "category": true,
+        "structure": true,
+        "type": true,
+        "payment": true,
+        "date": true
+      },
+      "transcript": "Le pagué medio palo al mecánico por arreglar la moto, y ayer eché gasolina por 70.000 con la de Bancolombia.",
+      "intent": "create_transactions",
+      "reply": "Anotado: 2 registros. Revísalos y confirma.",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 1052.500199999995,
+        "transcript_ms": 1053.2979999999952,
+        "first_proposal_ms": 1585.7393999999913,
+        "done_ms": 1586.0555999999924,
+        "total_ms": 1586.2379999999976
+      },
+      "server": {
+        "upload_ms": 4,
+        "ctx_ms": 109,
+        "ctx_cached": true,
+        "stt_ms": 274,
+        "stt_model": "whisper-large-v3-turbo",
+        "llm_ms": 525,
+        "llm_first_ms": 356,
+        "retry": false,
+        "total_ms": 803,
+        "usage": {
+          "in": 1569,
+          "out": 83,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 99,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1569,
+        "out": 83,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1569,
+          "out": 83,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 500000,
+          "category": "Hogar",
+          "alts": [
+            "Transporte",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Efectivo",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "transaction",
+          "type": "expense",
+          "amount": 70000,
+          "category": "Gasolina",
+          "alts": [
+            "Transporte",
+            "Otros"
+          ],
+          "items": 0,
+          "payment": "account:Bancolombia",
+          "date": "2026-11-10"
+        }
+      ],
+      "query": null
+    },
+    {
+      "id": "audio-12",
+      "group": "audio",
+      "audio": true,
+      "pass": true,
+      "checks": {
+        "amounts": true,
+        "intent": true,
+        "ask": true
+      },
+      "transcript": "Me llegó la quincena, me pagaron dos palos y medio, y le aboné 300.000 a la Mastercard desde Nequi.",
+      "intent": "create_transactions",
+      "reply": "Listo, te separé 2 movimientos por $2.800.000. ¿Los guardo así?",
+      "question": null,
+      "model": "qwen/qwen3.8-27b",
+      "timing": {
+        "headers_ms": 388.1217999999935,
+        "transcript_ms": 561.3689000000013,
+        "first_proposal_ms": 1207.6471999999776,
+        "done_ms": 1207.8413,
+        "total_ms": 1248.4379999999946
+      },
+      "server": {
+        "upload_ms": 2,
+        "ctx_ms": 36,
+        "ctx_cached": true,
+        "stt_ms": 213,
+        "stt_model": "whisper-large-v3-turbo",
+        "llm_ms": 646,
+        "llm_first_ms": 492,
+        "retry": false,
+        "total_ms": 862,
+        "usage": {
+          "in": 1567,
+          "out": 58,
+          "reasoning": 0,
+          "cached": 0
+        },
+        "quota": {
+          "used": 100,
+          "limit": 145
+        }
+      },
+      "usage": {
+        "in": 1567,
+        "out": 58,
+        "reasoning": 0,
+        "cached": 0
+      },
+      "usage_turns": [
+        {
+          "in": 1567,
+          "out": 58,
+          "reasoning": 0,
+          "cached": 0
+        }
+      ],
+      "proposals": [
+        {
+          "kind": "transaction",
+          "type": "income",
+          "amount": 2500000,
+          "category": "Salario",
+          "alts": [],
+          "items": 0,
+          "payment": "account:Bancolombia",
+          "date": "2026-11-11"
+        },
+        {
+          "kind": "card_payment",
+          "amount": 300000,
+          "category": null,
+          "alts": [],
+          "items": 0,
+          "payment": null,
+          "date": "2026-11-11",
+          "card": "Mastercard",
+          "account": "Nequi"
+        }
+      ],
+      "query": null
+    }
+  ]
+}
