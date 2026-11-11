@@ -1,6 +1,6 @@
 // Configuración pública del frontend. Aquí NO van secretos: la anon/publishable key y la llave VAPID pública son públicas.
 export const APP_NAME = 'Lukas';
-export const APP_VERSION = '1.5.0'; // mantener igual a VERSION en sw.js
+export const APP_VERSION = '1.6.0'; // mantener igual a VERSION en sw.js
 
 export const SUPABASE_URL = 'https://hstriyriyvgkpukelxav.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_OjLdR5gu1o3g8ShdaFddvg_H5tA8cV3';

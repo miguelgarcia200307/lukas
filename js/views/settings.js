@@ -18,6 +18,7 @@ import { micStatus, showPermissionHelp } from '../permissions.js';
 import { exportTransactionsCSV, exportAllJSON } from '../utils/export.js';
 import { unlockVoice, speak, stopSpeaking, playTestTone, ENGINES, loadVoices, spanishVoices, pickVoice, hasGoodSpanish, voicePrefs, setVoicePrefs, isIOS, canSpeak } from '../voice/speech.js';
 import { testLine } from '../voice/talk.js';
+import { checkForUpdate } from '../update.js';
 
 const rateLabel = (r) => `${Number(r).toFixed(2).replace(/0$/, '').replace('.', ',')}×`;
 
@@ -256,11 +257,8 @@ export function mount(screen) {
     on(screen, 'click', '[data-check-update]', async (e, b) => {
       b.disabled = true;
       try {
-        const reg = await navigator.serviceWorker?.getRegistration();
-        if (!reg) { location.reload(); return; }
-        await reg.update();
-        const w = reg.installing || reg.waiting;
-        if (w) { toast('Descargando la versión nueva…', { type: 'info' }); w.postMessage({ type: 'SKIP_WAITING' }); } // al activarse, la app se recarga sola
+        // Si hay una versión nueva, aparece el modal obligatorio "Hay una nueva versión"
+        if (await checkForUpdate()) toast('Encontré una versión nueva…', { type: 'info' });
         else toast(`Ya tienes la última versión (${APP_VERSION})`, { type: 'info' });
       } catch { toast('No pude revisar. Revisa tu conexión.', { type: 'err' }); }
       b.disabled = false;

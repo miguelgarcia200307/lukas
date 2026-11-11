@@ -40,7 +40,11 @@ Flujo por solicitud: el audio se sube apenas se detiene la grabación (o tras 1,
 3. En Supabase, **Authentication → URL Configuration**: agrega esa URL como *Site URL* o *Redirect URL*.
 4. Si publicas desde otro dominio, agrégalo al secret `ALLOWED_ORIGINS` (CORS) y redespliega las funciones.
 
-Cada vez que publiques una versión nueva, sube `VERSION` en `sw.js` y `APP_VERSION` en `js/config.js` (iguales). La app instalada se actualiza sola al abrirla o al volver a ella; en Ajustes está “Buscar actualización”.
+Cada vez que publiques una versión nueva:
+1. Sube la versión en `sw.js` (`VERSION`), `js/config.js` (`APP_VERSION`) y `version.json` (las tres iguales; `npm test` lo verifica).
+2. Escribe en `version.json` → `notes` de 1 a 5 novedades cortas, en lenguaje para el usuario.
+
+Al abrir la app o volver a ella, los usuarios ven el modal obligatorio **“¡Hay una nueva versión de Lukas!”** con esas novedades y un único botón **Actualizar ahora** (no se puede cerrar). Si están registrando algo, el modal espera a que cierren esa ventana. En Ajustes también está “Buscar actualización”.
 
 ## Pruebas
 - `npm test`: normalización de montos, respuestas cortas sin LLM y modo privado (Node).

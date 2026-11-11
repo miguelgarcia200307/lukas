@@ -1,7 +1,7 @@
 // Lukas · service worker
 // Precache del app shell con caché versionada, stale-while-revalidate para estáticos y CDNs,
 // nunca cachea Supabase / Auth / Edge Functions / Groq. Push + notificationclick.
-const VERSION = 'lukas-v1.5.0'; // mantener igual a APP_VERSION en js/config.js
+const VERSION = 'lukas-v1.6.0'; // mantener igual a APP_VERSION en js/config.js
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -41,6 +41,7 @@ const SHELL = [
   './js/offline-queue.js',
   './js/permissions.js',
   './js/privacy.js',
+  './js/update.js',
   './js/push.js',
   './js/state.js',
   './js/supabase.js',
@@ -92,9 +93,9 @@ const CDN_HOSTS = ['cdn.jsdelivr.net', 'esm.sh', 'fonts.googleapis.com', 'fonts.
 const NEVER_CACHE = [/\.supabase\.co$/, /\.supabase\.in$/, /^api\.groq\.com$/];
 
 self.addEventListener('install', (event) => {
-  // La versión nueva se activa sola (sin depender de que el usuario toque "Actualizar") y descarga el shell
-  // saltándose la caché HTTP (GitHub Pages manda max-age=600): si no, podía guardar archivos viejos como nuevos.
-  self.skipWaiting();
+  // La versión nueva queda EN ESPERA: la app muestra el modal obligatorio "Hay una nueva versión" y se activa
+  // cuando el usuario toca "Actualizar ahora" (mensaje SKIP_WAITING). El shell se descarga saltándose la caché
+  // HTTP (GitHub Pages manda max-age=600): si no, podía guardar archivos viejos como nuevos.
   event.waitUntil(caches.open(STATIC_CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))));
 });
 
@@ -139,6 +140,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (NEVER_CACHE.some((re) => re.test(url.hostname))) return; // datos y auth siempre en vivo
   if (request.mode === 'navigate') { event.respondWith(navigation(request)); return; }
+  if (url.origin === self.location.origin && url.pathname.endsWith('/version.json')) return; // novedades: siempre de la red
   if (url.origin === self.location.origin || CDN_HOSTS.includes(url.hostname)) {
     event.respondWith(staleWhileRevalidate(request));
   }
