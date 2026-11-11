@@ -9,6 +9,7 @@ import { updateProfile } from '../api/profile.js';
 import { createAccount } from '../api/accounts.js';
 import { bindAmountInput } from '../ui/number-input.js';
 import { toast } from '../ui/toast.js';
+import { runSave } from '../ui/submit.js';
 import { logoSvg } from '../ui/logo.js';
 import { enablePush, pushStatus } from '../push.js';
 import { showPermissionHelp } from '../permissions.js';
@@ -102,15 +103,8 @@ export function mount(screen, { navigate }) {
 
   const finish = async () => {
     const btn = screen.querySelector('.ob-foot [data-next]');
-    btn?.classList.add('loading');
-    try {
-      await updateProfile({ name: data.name || null, daily_limit: data.daily_limit || 0, onboarded: true });
-      haptic.success();
-      navigate('inicio', { replace: true });
-    } catch (err) {
-      btn?.classList.remove('loading');
-      toast(err.message, { type: 'err' });
-    }
+    const r = await runSave(() => updateProfile({ name: data.name || null, daily_limit: data.daily_limit || 0, onboarded: true }), { button: btn });
+    if (r.ok) { haptic.success(); navigate('inicio', { replace: true }); }
   };
 
   const next = async () => {

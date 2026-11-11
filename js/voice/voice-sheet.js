@@ -16,6 +16,7 @@ import { Orb } from './orb.js';
 import { renderProposals, renderOne, bindProposals, pendingProposals, saveProposals, validateProposal, summarize, missingAmount } from './proposals.js';
 import { catIcon } from '../ui/common.js';
 import { showPermissionHelp } from '../permissions.js';
+import { runSave } from '../ui/submit.js';
 import { unlockVoice, speak as speakText, stopSpeaking, chime, voicePrefs, isSpeaking } from './speech.js';
 import { summaryLine, afterAmountLine, savedLine, cancelledLine, pausedLine, notHeardAmountLine, stillMissingLine, speakable } from './talk.js';
 
@@ -654,24 +655,20 @@ class VoiceSession {
         return;
       }
     }
+    // Mismo mecanismo que todos los formularios: el botón (y un "sí" por voz) no pueden guardar dos veces
     const btn = this.root.querySelector('[data-act="confirm-all"]');
-    btn?.classList.add('loading');
-    try {
-      const { count, undo } = await saveProposals(this.proposals, { transcript: this.transcript });
-      haptic.success();
-      this.endConversation();
-      if (byVoice && state.profile?.voice_reply) { this.keepTalking = true; speakText(savedLine(count)); } // sigue sonando aunque la hoja se cierre
-      this.celebrate();
-      setTimeout(() => {
-        this.sheet.close();
-        toast(count === 1 ? 'Guardado' : `${count} registros guardados`, undo ? { action: { label: 'Deshacer', fn: async () => { await undo(); toast('Listo, lo deshice', { type: 'info' }); } } } : {});
-      }, 950);
-    } catch (err) {
-      btn?.classList.remove('loading');
-      this.endConversation();
-      this.setStatus('No pude guardar', 'Intenta de nuevo con el botón Confirmar');
-      toast(err.message, { type: 'err' });
-    }
+    const r = await runSave(() => saveProposals(this.proposals, { transcript: this.transcript }), { button: btn });
+    if (r.skipped) return;
+    this.endConversation();
+    if (!r.ok) { this.setStatus('No pude guardar', 'Intenta de nuevo con el botón Confirmar'); return; }
+    const { count, undo } = r.value;
+    haptic.success();
+    if (byVoice && state.profile?.voice_reply) { this.keepTalking = true; speakText(savedLine(count)); } // sigue sonando aunque la hoja se cierre
+    this.celebrate();
+    setTimeout(() => {
+      this.sheet.close();
+      toast(count === 1 ? 'Guardado' : `${count} registros guardados`, undo ? { action: { label: 'Deshacer', fn: async () => { await undo(); toast('Listo, lo deshice', { type: 'info' }); } } } : {});
+    }, 950);
   }
 
   celebrate() {

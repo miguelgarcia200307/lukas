@@ -6,7 +6,7 @@ import { haptic } from '../utils/haptics.js';
 import { openSheet } from './sheet.js';
 import { bindAmountInput } from './number-input.js';
 import { confirmDialog } from './modal.js';
-import { toast } from './toast.js';
+import { runSave } from './submit.js';
 
 /**
  * fields: [{ name, label, type: text|amount|select|date|day|number|color|icon|switch|textarea|percent, value, options, required, placeholder, hint, show(values) }]
@@ -108,23 +108,18 @@ export function formSheet({ title, fields, submitLabel = 'Guardar', onSubmit, on
       if (custom) { setError(f.name, custom); bad = true; }
     }
     if (bad) { haptic.error(); form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); return; }
-    const btn = s.foot.querySelector('[data-submit]');
-    btn.classList.add('loading');
-    try {
-      await onSubmit(v);
-      haptic.success();
-      s.close();
-    } catch (err) {
-      btn.classList.remove('loading');
-      toast(err.message ?? 'No se pudo guardar', { type: 'err' });
-    }
+    // Carga local a este botón, liberada siempre; si falla, error visible y los datos quedan para reintentar
+    const r = await runSave(() => onSubmit(v), { button: s.foot.querySelector('[data-submit]') });
+    if (r.ok) { haptic.success(); s.close(); }
   };
   s.foot.querySelector('[data-submit]').addEventListener('click', submit);
   form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
-  form.querySelector('[data-delete]')?.addEventListener('click', async () => {
+  form.querySelector('[data-delete]')?.addEventListener('click', async (e) => {
+    const delBtn = e.currentTarget;
     const ok = await confirmDialog({ title: deleteConfirm?.title ?? '¿Eliminar?', message: deleteConfirm?.message ?? 'Esta acción no se puede deshacer.', confirm: deleteLabel, danger: true });
     if (!ok) return;
-    try { await onDelete(); s.close(); } catch (err) { toast(err.message, { type: 'err' }); }
+    const r = await runSave(() => onDelete(), { button: delBtn, fallbackMessage: 'No se pudo eliminar. Intenta de nuevo.' });
+    if (r.ok) s.close();
   });
   return s;
 }

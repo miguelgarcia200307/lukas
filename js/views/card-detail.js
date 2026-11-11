@@ -13,6 +13,7 @@ import { emptyState } from '../ui/empty.js';
 import { openSheet } from '../ui/sheet.js';
 import { bindAmountInput } from '../ui/number-input.js';
 import { toast } from '../ui/toast.js';
+import { runSave } from '../ui/submit.js';
 import { plastic, cardStats, openCardForm } from './cards.js';
 
 export const title = 'Tarjeta';
@@ -32,16 +33,8 @@ function actionSheet({ title, body, submitLabel, onSubmit }) {
   });
   const btn = s.foot.querySelector('[data-submit]');
   btn.addEventListener('click', async () => {
-    btn.classList.add('loading');
-    try {
-      const ok = await onSubmit(s.body);
-      if (ok === false) { btn.classList.remove('loading'); return; }
-      haptic.success();
-      s.close();
-    } catch (err) {
-      btn.classList.remove('loading');
-      toast(err.message, { type: 'err' });
-    }
+    const r = await runSave(() => onSubmit(s.body), { button: btn });
+    if (r.ok && r.value !== false) { haptic.success(); s.close(); } // false = validación propia del formulario
   });
   return s;
 }

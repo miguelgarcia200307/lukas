@@ -5,18 +5,18 @@ import { refresh } from './catalog.js';
 
 export async function createCard(c) {
   const row = unwrap(await from('credit_cards').insert(c).select().single());
-  await refresh('cards');
+  refresh('cards'); // en segundo plano: actualiza la pantalla sin retener el botón
   return row;
 }
 
 export async function updateCard(id, patch) {
   unwrap(await from('credit_cards').update(patch).eq('id', id));
-  await refresh('cards');
+  refresh('cards'); // en segundo plano: actualiza la pantalla sin retener el botón
 }
 
 export async function deleteCard(id) {
   unwrap(await from('credit_cards').delete().eq('id', id));
-  await refresh('cards');
+  refresh('cards'); // en segundo plano: actualiza la pantalla sin retener el botón
 }
 
 export async function cardMovements(cardId, limit = 100) {
@@ -26,20 +26,20 @@ export async function cardMovements(cardId, limit = 100) {
 /** Pago de tarjeta = transferencia desde una cuenta (no es gasto) + intereses opcionales (gasto) */
 export async function payCard({ cardId, accountId, amount, date, interest = 0, note = null }) {
   const r = await rpc('pay_card', { p_card_id: cardId, p_account_id: accountId, p_amount: amount, p_date: date, p_interest: interest || 0, p_note: note });
-  await refresh('cards', 'accounts');
+  refresh('cards', 'accounts'); // en segundo plano: actualiza la pantalla sin retener el botón
   emitChanged('transactions');
   return r;
 }
 
 export async function extraCharge({ cardId, kind, amount, date, note = null }) {
   const r = await rpc('card_extra_charge', { p_card_id: cardId, p_kind: kind, p_amount: amount, p_date: date, p_note: note });
-  await refresh('cards');
+  refresh('cards'); // en segundo plano: actualiza la pantalla sin retener el botón
   emitChanged('transactions');
   return r;
 }
 
 export async function adjustBalance({ cardId, target, note = null }) {
   const r = await rpc('adjust_card_balance', { p_card_id: cardId, p_target_debt: target, p_note: note });
-  await refresh('cards');
+  refresh('cards'); // en segundo plano: actualiza la pantalla sin retener el botón
   return r;
 }

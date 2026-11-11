@@ -7,6 +7,7 @@ import { icon } from './utils/icons.js';
 import { haptic } from './utils/haptics.js';
 import { toast } from './ui/toast.js';
 import { APP_VERSION } from './config.js';
+import { shouldReloadOnControllerChange } from './route-guard.js';
 
 const DONE_KEY = 'lukas-updated-to';
 let reg = null;
@@ -16,7 +17,7 @@ let updating = false;
 /** Registra el service worker y vigila las versiones nuevas */
 export function initUpdates() {
   if (!('serviceWorker' in navigator)) return;
-  const hadController = !!navigator.serviceWorker.controller;
+  let controlled = !!navigator.serviceWorker.controller; // ¿había una versión controlando la página?
   navigator.serviceWorker.register('./sw.js', { scope: './' }).then((r) => {
     reg = r;
     if (r.waiting && navigator.serviceWorker.controller) offer(r.waiting);
@@ -25,13 +26,17 @@ export function initUpdates() {
     setInterval(() => r.update().catch(() => {}), 60 * 60 * 1000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') r.update().catch(() => {}); });
   }).catch((e) => console.warn('[sw]', e));
-  // Solo se recarga cuando el usuario tocó "Actualizar" (o si ya había una versión controlando la página)
+  // Primera instalación: clients.claim() dispara controllerchange y NO se recarga (era la doble carga al entrar).
+  // Se recarga solo si se reemplaza una versión que ya controlaba la página o si el usuario tocó "Actualizar".
   let reloaded = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloaded || (!updating && !hadController)) return;
+  const onControllerChange = () => {
+    const reload = shouldReloadOnControllerChange({ wasControlled: controlled, userRequested: updating });
+    controlled = true;
+    if (!reload || reloaded) return;
     reloaded = true;
     location.reload();
-  });
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
   announceDone();
 }
 

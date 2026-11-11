@@ -9,6 +9,7 @@ import { from, unwrap } from '../api/base.js';
 import { createTransactions, updateTransaction, deleteTransactions, restoreTransactions } from '../api/transactions.js';
 import { openSheet } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
+import { runSave } from '../ui/submit.js';
 import { confirmDialog } from '../ui/modal.js';
 import { segmented, selectSegment, catIcon } from '../ui/common.js';
 import { pickCategory, pickPayment, paymentChip } from '../ui/pickers.js';
@@ -185,25 +186,20 @@ export function openTransactionForm({ tx = null, type = 'expense' } = {}) {
       });
       if (m.type !== 'transfer') row.items = m.items.filter((i) => i.name.trim()).map((i) => ({ name: i.name.trim(), qty: i.qty || 1, unit_amount: i.unit_amount || 0 }));
     }
-    const btn = s.foot.querySelector('[data-save]');
-    btn.classList.add('loading');
-    try {
-      if (editing) {
-        await updateTransaction(tx.id, row);
-        toast('Cambios guardados');
-      } else {
-        const r = await createTransactions([{ ...row, source: 'manual' }], { allowOffline: true });
-        if (r.queued) toast('Guardado sin conexión. Se sincroniza cuando vuelvas a tener internet.', { type: 'info' });
-        else toast(`${m.type === 'income' ? 'Ingreso' : m.type === 'transfer' ? 'Transferencia' : 'Gasto'} de ${money(m.amount)} guardado`, {
-          action: { label: 'Deshacer', fn: () => deleteTransactions(r.ids) },
-        });
-      }
-      haptic.success();
-      s.close();
-    } catch (err) {
-      btn.classList.remove('loading');
-      toast(err.message, { type: 'err' });
-    }
+    // El id se genera una vez por apertura: si un guardado se reintenta tras un timeout, no se duplica
+    if (!editing) row.id = s.newId ??= crypto.randomUUID();
+    const r = await runSave(async () => {
+      if (editing) { await updateTransaction(tx.id, row); return null; }
+      return createTransactions([{ ...row, source: 'manual' }], { allowOffline: true });
+    }, { button: s.foot.querySelector('[data-save]') });
+    if (!r.ok) return;
+    if (editing) toast('Cambios guardados');
+    else if (r.value.queued) toast('Guardado sin conexión. Se sincroniza cuando vuelvas a tener internet.', { type: 'info' });
+    else toast(`${m.type === 'income' ? 'Ingreso' : m.type === 'transfer' ? 'Transferencia' : 'Gasto'} de ${money(m.amount)} guardado`, {
+      action: { label: 'Deshacer', fn: () => deleteTransactions(r.value.ids) },
+    });
+    haptic.success();
+    s.close();
   };
   s.foot.querySelector('[data-save]').addEventListener('click', save);
   form.addEventListener('submit', (e) => { e.preventDefault(); save(); });

@@ -13,6 +13,7 @@ import { formSheet } from '../ui/form.js';
 import { openSheet } from '../ui/sheet.js';
 import { bindAmountInput } from '../ui/number-input.js';
 import { toast } from '../ui/toast.js';
+import { runSave } from '../ui/submit.js';
 
 export const title = 'Créditos';
 
@@ -62,14 +63,9 @@ async function openDebtDetail(d) {
   s.foot.querySelector('[data-pay]').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     if (!amt.value) { toast('Escribe el monto', { type: 'err' }); return; }
-    btn.classList.add('loading');
-    try {
-      await payDebt({ debtId: d.id, amount: amt.value, accountId: s.body.querySelector('[name="account"]').value, mode,
-        date: toTimestamp(s.body.querySelector('[name="date"]').value, now.time) });
-      haptic.success();
-      toast(`Pago de ${money(amt.value)} registrado`);
-      s.close();
-    } catch (err) { btn.classList.remove('loading'); toast(err.message, { type: 'err' }); }
+    const r = await runSave(() => payDebt({ debtId: d.id, amount: amt.value, accountId: s.body.querySelector('[name="account"]').value, mode,
+      date: toTimestamp(s.body.querySelector('[name="date"]').value, now.time) }), { button: btn });
+    if (r.ok) { haptic.success(); toast(`Pago de ${money(amt.value)} registrado`); s.close(); }
   });
   try {
     const pays = await debtPayments(d.id);

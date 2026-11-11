@@ -1,7 +1,9 @@
 {
-  "version": "1.6.1",
+  "version": "1.6.3",
   "date": "2026-11-11",
   "notes": [
-    "Nuevo pie en la pantalla de inicio de sesión: desarrollado por Miguel García"
+    "Ya puedes guardar todas las veces que quieras sin cerrar la app",
+    "Si algo falla al guardar, te avisamos y tus datos quedan listos para reintentar",
+    "Lukas abre una sola vez y de forma limpia al entrar"
   ]
 }

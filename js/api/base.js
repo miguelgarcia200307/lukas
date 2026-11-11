@@ -14,6 +14,7 @@ function friendly(err) {
   if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(msg)) {
     return 'Sin conexión. Revisa tu internet e intenta de nuevo.';
   }
+  if (/AbortError|TimeoutError|timed out|aborted/i.test(msg)) return 'El servidor tardó demasiado en responder. Revisa tu conexión e intenta de nuevo.';
   if (/JWT|expired|not authenticated|No autenticado|401/i.test(msg)) return 'Tu sesión expiró. Vuelve a entrar.';
   if (/duplicate key/i.test(msg)) return 'Eso ya existe.';
   if (/violates foreign key/i.test(msg)) return 'Hay datos relacionados que lo impiden.';

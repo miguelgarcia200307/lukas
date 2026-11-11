@@ -7,10 +7,10 @@ export async function saveBudget({ id, category_id, period, amount, alert_thresh
   const row = { category_id: category_id || null, period, amount, alert_thresholds };
   if (id) unwrap(await from('budgets').update(row).eq('id', id));
   else unwrap(await from('budgets').insert(row));
-  await refresh('budgets');
+  refresh('budgets'); // en segundo plano: actualiza la pantalla sin retener el botón
 }
 
 export async function deleteBudget(id) {
   unwrap(await from('budgets').delete().eq('id', id));
-  await refresh('budgets');
+  refresh('budgets'); // en segundo plano: actualiza la pantalla sin retener el botón
 }

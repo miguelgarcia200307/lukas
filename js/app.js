@@ -11,10 +11,12 @@ import { syncCreate } from './api/transactions.js';
 import { flush, updateCount } from './offline-queue.js';
 import { closeAllSheets } from './ui/sheet.js';
 import { toast } from './ui/toast.js';
+import { setSaveNotifier } from './ui/submit.js';
 import { initInstall } from './install.js';
 import { syncPushSubscription } from './push.js';
 import { unlockVoice } from './voice/speech.js';
 import { initUpdates } from './update.js';
+import { AUTH, guardRoute } from './route-guard.js';
 
 const ROUTES = [
   { path: 'login', load: () => import('./views/login.js'), public: true, chrome: false, depth: 0 },
@@ -64,11 +66,12 @@ let current = null; // { route, cleanup, screen }
 let routing = 0;
 
 async function route() {
+  const match = parseHash();
+  // Mientras la sesión carga no se decide nada: el arranque llama a route() cuando ya se conoce el estado real
+  const guard = guardRoute(match?.route ?? null, state.authStatus);
+  if (guard.wait) return;
+  if (guard.redirect) { navigate(guard.redirect, { replace: true }); return; }
   const token = ++routing;
-  let match = parseHash();
-  if (!match) { navigate(state.session ? 'inicio' : 'login', { replace: true }); return; }
-  if (!match.route.public && !state.session) { navigate('login', { replace: true }); return; }
-  if (match.route.path === 'login' && state.session) { navigate('inicio', { replace: true }); return; }
 
   closeAllSheets();
   const mod = await match.route.load();
@@ -205,12 +208,14 @@ function hideSplash() {
 
 // ── Arranque ───────────────────────────────────
 async function boot() {
+  setSaveNotifier(toast); // los errores de cualquier guardado se muestran con el toast de la app
   const t0 = performance.now();
   initServiceWorker();
   initTabbar();
   initInstall();
   const sync = initNetwork();
 
+  // La sesión se resuelve una sola vez, aquí; el resto de la app consume state.session / state.authStatus
   const { data } = await sb.auth.getSession();
   state.session = data.session;
 
@@ -235,6 +240,7 @@ async function boot() {
 
   sb.auth.onAuthStateChange((event, session) => {
     state.session = session;
+    state.authStatus = session ? AUTH.AUTHENTICATED : AUTH.UNAUTHENTICATED;
     if (event === 'SIGNED_OUT') {
       clearCatalog();
       ['categories', 'accounts', 'cards', 'debts', 'subscriptions', 'goals', 'budgets'].forEach((k) => { state[k] = []; });
@@ -248,9 +254,10 @@ async function boot() {
     if (document.visibilityState === 'visible' && state.session) { refreshUnread(); sync(); }
   });
 
-  // Splash mínimo para que la animación del logo se vea completa
+  // Splash mínimo para que la animación del logo se vea completa; luego la sesión queda resuelta y se enruta una vez
   const elapsed = performance.now() - t0;
   await new Promise((r) => setTimeout(r, Math.max(0, 1100 - elapsed)));
+  state.authStatus = state.session ? AUTH.AUTHENTICATED : AUTH.UNAUTHENTICATED;
   await route();
   hideSplash();
 }
@@ -258,6 +265,7 @@ async function boot() {
 /** Llamado por la vista de login tras autenticarse */
 export async function afterLogin(session) {
   state.session = session;
+  state.authStatus = AUTH.AUTHENTICATED;
   await Promise.all([loadProfile(), refresh()]);
   persistCatalog();
   refreshUnread();
@@ -268,6 +276,7 @@ export async function afterLogin(session) {
 
 boot().catch((e) => {
   console.error('[boot]', e);
+  state.authStatus = state.session ? AUTH.AUTHENTICATED : AUTH.UNAUTHENTICATED;
   hideSplash();
   navigate('login', { replace: true });
 });

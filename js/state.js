@@ -1,6 +1,7 @@
 // Store mínimo con suscripciones por clave + bus de eventos de datos
 const data = {
   session: null,
+  authStatus: 'loading', // 'loading' | 'authenticated' | 'unauthenticated' (ver route-guard.js)
   profile: null,
   categories: [],
   accounts: [],

@@ -17,6 +17,7 @@ import { createSubscription, deleteSubscription } from '../api/subscriptions.js'
 import { contribute } from '../api/goals.js';
 import { learnCategoryHints } from '../api/ai.js';
 import { toast } from '../ui/toast.js';
+import { runSave } from '../ui/submit.js';
 
 const toastErr = (m) => toast(m, { type: 'err' });
 
@@ -339,15 +340,12 @@ export function bindProposals(container, list, { onChange, onAnswerVoice, onSave
     } else if (act === 'save-one') {
       const err = validateProposal(p);
       if (err) { toastErr(err); return; }
-      b.classList.add('loading');
-      b.disabled = true;
-      try {
-        const r = await saveProposals([p], { transcript: transcript?.() });
-        haptic.success();
-        rerender(p);
-        onChange?.();
-        onSaved?.(p, r);
-      } catch (e2) { b.classList.remove('loading'); b.disabled = false; toastErr(e2.message); }
+      const res = await runSave(() => saveProposals([p], { transcript: transcript?.() }), { button: b });
+      if (!res.ok) return;
+      haptic.success();
+      rerender(p);
+      onChange?.();
+      onSaved?.(p, res.value);
     } else if (act === 'type') {
       p.type = p.type === 'income' ? 'expense' : 'income';
       const fallback = state.categories.find((c) => c.kind === p.type && c.system_key === (p.type === 'income' ? 'other_income' : 'other_expense'));
