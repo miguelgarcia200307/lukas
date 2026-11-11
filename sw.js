@@ -1,7 +1,7 @@
 // Lukas · service worker
 // Precache del app shell con caché versionada, stale-while-revalidate para estáticos y CDNs,
 // nunca cachea Supabase / Auth / Edge Functions / Groq. Push + notificationclick.
-const VERSION = 'lukas-v1.4.1';
+const VERSION = 'lukas-v1.4.2'; // mantener igual a APP_VERSION en js/config.js
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -90,7 +90,10 @@ const CDN_HOSTS = ['cdn.jsdelivr.net', 'esm.sh', 'fonts.googleapis.com', 'fonts.
 const NEVER_CACHE = [/\.supabase\.co$/, /\.supabase\.in$/, /^api\.groq\.com$/];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(STATIC_CACHE).then((c) => c.addAll(SHELL)));
+  // La versión nueva se activa sola (sin depender de que el usuario toque "Actualizar") y descarga el shell
+  // saltándose la caché HTTP (GitHub Pages manda max-age=600): si no, podía guardar archivos viejos como nuevos.
+  self.skipWaiting();
+  event.waitUntil(caches.open(STATIC_CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', (event) => {
@@ -107,8 +110,10 @@ self.addEventListener('message', (event) => {
 
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(RUNTIME_CACHE);
-  const cached = (await caches.match(request)) ?? null;
-  const network = fetch(request).then((res) => {
+  // Solo las cachés de ESTA versión (nunca un archivo de una versión anterior)
+  const cached = (await (await caches.open(STATIC_CACHE)).match(request)) ?? (await cache.match(request)) ?? null;
+  const sameOrigin = new URL(request.url).origin === self.location.origin;
+  const network = fetch(sameOrigin ? new Request(request, { cache: 'no-cache' }) : request).then((res) => {
     if (res && (res.ok || res.type === 'opaque')) cache.put(request, res.clone());
     return res;
   }).catch(() => null);

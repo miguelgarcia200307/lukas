@@ -189,27 +189,22 @@ function initServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
     if (!reg) return;
-    const promptUpdate = (worker) => {
-      toast('Hay una nueva versión', {
-        type: 'info', duration: 15000,
-        action: { label: 'Actualizar', fn: () => worker.postMessage({ type: 'SKIP_WAITING' }) },
-      });
-    };
-    if (reg.waiting && navigator.serviceWorker.controller) promptUpdate(reg.waiting);
-    reg.addEventListener('updatefound', () => {
-      const w = reg.installing;
-      w?.addEventListener('statechange', () => {
-        if (w.state === 'installed' && navigator.serviceWorker.controller) promptUpdate(w);
-      });
-    });
+    // Una versión que quedó esperando (de un service worker anterior) se activa sola
+    if (reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
     setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+    // La app instalada en iPhone casi nunca se recarga: busca actualización cada vez que vuelves a ella
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
   }).catch((e) => console.warn('[sw]', e));
-  let reloaded = false;
+  // Llegó una versión nueva: recarga, pero sin interrumpir si estás registrando algo (se recarga al volver a la app)
+  let reloaded = false, pendingReload = false;
+  const reload = () => { if (reloaded) return; reloaded = true; location.reload(); };
+  const busy = () => !!document.querySelector('.sheet:not(.closing), dialog[open]');
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloaded) return;
-    reloaded = true;
-    location.reload();
+    if (!busy()) reload();
+    else { pendingReload = true; toast('Hay una versión nueva: se aplicará al cerrar esta ventana', { type: 'info' }); }
   });
+  document.addEventListener('visibilitychange', () => { if (pendingReload && document.visibilityState === 'hidden') reload(); });
+  setInterval(() => { if (pendingReload && !busy()) reload(); }, 2000);
   navigator.serviceWorker.addEventListener('message', (e) => {
     if (e.data?.type === 'NAVIGATE' && e.data.url) location.hash = e.data.url.replace(/^.*#/, '#');
     if (e.data?.type === 'PUSH') refreshUnread();

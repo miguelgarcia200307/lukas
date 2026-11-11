@@ -129,7 +129,8 @@ export function mount(screen) {
       </div>
 
       <button class="btn btn-danger btn-block mt-8" data-logout>${icon('logout')}Cerrar sesión</button>
-      <p class="center muted xsmall mt-6">${APP_NAME} ${APP_VERSION} · ${state.session?.user?.email ?? ''}</p>`);
+      <div class="center mt-6"><button class="btn btn-ghost btn-sm" data-check-update>${icon('refresh', { size: 16 })}Buscar actualización</button></div>
+      <p class="center muted xsmall mt-2">${APP_NAME} versión ${APP_VERSION} · ${state.session?.user?.email ?? ''}</p>`);
     fillVoices();
   };
 
@@ -215,6 +216,18 @@ export function mount(screen) {
       try { await sendTestPush(); toast('Enviada. Debería llegarte en unos segundos.'); } catch (err) { toast(err.message, { type: 'err' }); }
     }),
     on(screen, 'click', '[data-install]', () => maybePromptInstall({ force: true })),
+    on(screen, 'click', '[data-check-update]', async (e, b) => {
+      b.disabled = true;
+      try {
+        const reg = await navigator.serviceWorker?.getRegistration();
+        if (!reg) { location.reload(); return; }
+        await reg.update();
+        const w = reg.installing || reg.waiting;
+        if (w) { toast('Descargando la versión nueva…', { type: 'info' }); w.postMessage({ type: 'SKIP_WAITING' }); } // al activarse, la app se recarga sola
+        else toast(`Ya tienes la última versión (${APP_VERSION})`, { type: 'info' });
+      } catch { toast('No pude revisar. Revisa tu conexión.', { type: 'err' }); }
+      b.disabled = false;
+    }),
     on(screen, 'click', '[data-help]', (e, b) => showPermissionHelp(b.dataset.help, b.dataset.help === 'mic' && mic === 'insecure' ? 'insecure' : 'denied')),
     on(screen, 'click', '[data-export]', async (e, b) => {
       try {
