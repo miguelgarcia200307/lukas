@@ -4,18 +4,22 @@ import { APP_NAME } from '../config.js';
 import { html, raw } from '../utils/dom.js';
 import { icon } from '../utils/icons.js';
 import { haptic } from '../utils/haptics.js';
-import { logoSvg } from '../ui/logo.js';
+import { inFlight, takeOff, shake } from '../ui/orb-loader.js';
 
 export const title = 'Entrar';
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 export function mount(screen) {
+  // Si el personaje viene volando desde el arranque, aterriza en el lockup (sin repetir la intro)
+  const arriving = inFlight();
   screen.innerHTML = String(html`
     <div class="scroller login">
       <div class="login-inner">
         <div class="login-brand">
-          <div class="login-logo">${raw(logoSvg({ size: 76, animated: true }))}</div>
-          <h1>${APP_NAME}</h1>
-          <p class="muted">Tus lucas, en orden. Solo dilo.</p>
+          <h1 class="sr-only">${APP_NAME}</h1>
+          <lukas-lockup orientation="vertical" size="76" data-orb-slot ${raw(arriving ? '' : 'intro')}></lukas-lockup>
+          <p class="muted login-tagline">Tus lucas, en orden. Solo dilo.</p>
         </div>
         <form class="login-form card" novalidate autocomplete="on">
           <div class="field">
@@ -30,7 +34,7 @@ export function mount(screen) {
             <div class="field-error" data-err="password"></div>
           </div>
           <div class="login-error" role="alert" hidden></div>
-          <button class="btn btn-primary btn-block" type="submit"><span class="btn-label">Entrar</span><span class="spinner"></span></button>
+          <button class="btn btn-primary btn-block" type="submit"><span class="btn-label">Entrar</span></button>
         </form>
         <p class="login-foot muted xsmall">Acceso privado · Desarrollado por MIGUEL GARCIA</p>
       </div>
@@ -41,6 +45,28 @@ export function mount(screen) {
   const pass = form.password;
   const errBox = form.querySelector('.login-error');
   const btn = form.querySelector('[type="submit"]');
+  const lockup = screen.querySelector('lukas-lockup');
+  const orb = () => lockup.orb;
+  const label = btn.querySelector('.btn-label');
+  if (arriving) {
+    lockup.word.classList.add('is-hidden');
+    setTimeout(() => lockup.word.classList.remove('is-hidden'), 650); // tras el aterrizaje (500 ms) + 150 ms
+  }
+
+  // Detalle de confianza: mientras escribes la contraseña, Lukas cierra los ojos; al terminar los abre
+  let idle = 0;
+  const openEyes = () => { clearTimeout(idle); orb()?.setMood('neutral'); };
+  pass.addEventListener('input', () => {
+    orb()?.setMood('closed');
+    clearTimeout(idle);
+    idle = setTimeout(openEyes, 1400);
+  });
+  pass.addEventListener('blur', openEyes);
+  const failed = () => {
+    orb()?.fail();
+    shake(form);
+    haptic.error();
+  };
 
   const setErr = (name, msg) => {
     form.querySelector(`[data-err="${name}"]`).textContent = msg;
@@ -60,28 +86,47 @@ export function mount(screen) {
     let ok = true;
     if (!/^\S+@\S+\.\S+$/.test(email.value.trim())) { setErr('email', 'Escribe un correo válido'); ok = false; }
     if (pass.value.length < 6) { setErr('password', 'Escribe tu contraseña'); ok = false; }
-    if (!ok) { form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); haptic.error(); return; }
+    if (!ok) { failed(); return; }
 
-    btn.classList.add('loading');
+    openEyes();
+    errBox.hidden = true;
     btn.disabled = true;
+    label.textContent = 'Entrando…';
+    orb()?.think();
+    const t0 = performance.now();
     const { data, error } = await sb.auth.signInWithPassword({ email: email.value.trim(), password: pass.value });
+    const left = 600 - (performance.now() - t0); // procesando nunca parpadea: mínimo 600 ms
+    if (left > 0) await sleep(left);
     if (error) {
-      btn.classList.remove('loading');
       btn.disabled = false;
+      label.textContent = 'Entrar';
       const msg = /invalid login|invalid credentials/i.test(error.message) ? 'Correo o contraseña incorrectos. Intenta de nuevo.'
         : /fetch|network/i.test(error.message) ? 'Sin conexión. Revisa tu internet.' : 'No pudimos entrar. Intenta en un momento.';
       errBox.textContent = msg;
       errBox.hidden = false;
-      form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake');
-      haptic.error();
+      failed();
       return;
     }
     haptic.success();
+    orb()?.succeed();
+    // Listo → mientras se celebra se cargan los datos; si tardan más, vuelve a procesar
+    let ready = false;
+    const celebrated = sleep(1350);
+    celebrated.then(() => { if (!ready) orb()?.think(); });
     const { afterLogin } = await import('../app.js');
-    await afterLogin(data.session).catch((err) => {
+    await afterLogin(data.session, {
+      onReady: async () => {
+        ready = true;
+        await celebrated;
+        orb()?.cancel();
+        lockup.word.classList.add('is-hidden');
+        takeOff(orb()); // viaja al header de la siguiente pantalla
+      },
+    }).catch((err) => {
       console.error(err);
-      btn.classList.remove('loading');
       btn.disabled = false;
+      label.textContent = 'Entrar';
+      orb()?.fail();
     });
   });
 }

@@ -2,7 +2,8 @@
 // cerrar: la única salida es "Actualizar ahora". Las novedades salen de version.json (siempre de la red).
 // Se busca actualización al abrir, al volver a la app y cada hora. Si el usuario está registrando algo (una hoja
 // abierta), el modal espera a que la cierre para no perder lo que estaba haciendo.
-import { el, html } from './utils/dom.js';
+import { el, html, raw } from './utils/dom.js';
+import { ORB_SPINNER } from './ui/orb-loader.js';
 import { icon } from './utils/icons.js';
 import { haptic } from './utils/haptics.js';
 import { toast } from './ui/toast.js';
@@ -89,7 +90,7 @@ function showModal(worker, info) {
         <ul>${notes.map((n) => html`<li>${icon('check', { size: 16, stroke: 2.6 })}<span>${n}</span></li>`)}</ul>
       </div>` : ''}
       <button type="button" class="btn btn-accent btn-block update-go" data-update-now>
-        <span class="btn-label">${icon('refresh', { size: 20, stroke: 2.2 })}Actualizar ahora</span><span class="spinner"></span></button>
+        <span class="btn-label">${icon('refresh', { size: 20, stroke: 2.2 })}Actualizar ahora</span>${raw(ORB_SPINNER)}</button>
       <p class="update-foot">${icon('lock', { size: 13 })}Toma un segundo · tus datos están a salvo</p>
     </div>
   </div>`);

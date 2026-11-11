@@ -1,6 +1,5 @@
 // Gestos: swipe en filas (editar/eliminar) y pull-to-refresh propio
 import { haptic } from '../utils/haptics.js';
-import { icon } from '../utils/icons.js';
 
 const ACTION_W = 152;
 
@@ -82,27 +81,42 @@ export function enableSwipe(root, handlers) {
   };
 }
 
-/** Pull-to-refresh en un contenedor con scroll. Inserta el indicador al inicio. */
+/**
+ * Pull-to-refresh con el personaje: mientras arrastras se estira siguiendo el dedo y abre más los ojos;
+ * al soltar → procesando → listo (o error si la recarga falla). Inserta el indicador al inicio del contenedor.
+ */
 export function pullToRefresh(scroller, onRefresh) {
   const ptr = document.createElement('div');
   ptr.className = 'ptr';
-  ptr.innerHTML = `<div class="ptr-ind">${icon('refresh', { size: 18, stroke: 2.2 })}</div>`;
+  ptr.innerHTML = '<div class="ptr-ind"><lukas-orb size="40" state="rest"></lukas-orb></div>';
   scroller.prepend(ptr);
   const ind = ptr.firstElementChild;
-  const svg = ind.querySelector('svg');
-  const THRESHOLD = 72;
+  const orb = ind.firstElementChild;
+  const THRESHOLD = 72, MAX = 118, HOLD = 76;
   let y0 = null, dy = 0, busy = false, fired = false;
 
+  // El contenido baja con el dedo y el personaje queda centrado en el espacio que se abre
+  const offset = (d) => MAX * (1 - Math.exp(-d / MAX)); // goma: cuesta más mientras más tiras
+  const place = (gap, p) => {
+    scroller.classList.add('ptr-active');
+    scroller.style.setProperty('--ptr-y', `${gap.toFixed(1)}px`);
+    ind.style.opacity = String(Math.min(1, p * 1.6));
+    ind.style.transform = `translateY(${(gap / 2 - 20).toFixed(1)}px) scale(${(0.7 + Math.min(1, p) * 0.3).toFixed(3)})`;
+  };
   const paint = (d) => {
     const p = Math.min(1, d / THRESHOLD);
-    ind.style.opacity = String(p);
-    ind.style.transform = `translateY(${Math.min(d, THRESHOLD * 1.3) * 0.7 - 40}px) scale(${0.6 + p * 0.4})`;
-    svg.style.transform = `rotate(${d * 3}deg)`;
+    place(offset(d), p);
+    orb.setPull?.(Math.min(1.2, d / THRESHOLD));
   };
-  const reset = () => {
-    ind.style.transition = 'transform 320ms var(--spring), opacity 240ms';
-    paint(0);
-    setTimeout(() => { ind.style.transition = ''; }, 340);
+  const animateTo = (gap, p, ms = 380) => {
+    scroller.classList.add('ptr-anim');
+    place(gap, p);
+    return new Promise((r) => setTimeout(() => { scroller.classList.remove('ptr-anim'); r(); }, ms));
+  };
+  const reset = async () => {
+    orb.setPull?.(0);
+    await animateTo(0, 0);
+    if (y0 == null && !busy) scroller.classList.remove('ptr-active');
   };
 
   const start = (e) => { if (!busy && scroller.scrollTop <= 0) { y0 = e.touches[0].clientY; dy = 0; fired = false; } };
@@ -110,7 +124,7 @@ export function pullToRefresh(scroller, onRefresh) {
     if (y0 == null) return;
     dy = (e.touches[0].clientY - y0) * 0.55;
     if (dy <= 0) { paint(0); return; }
-    if (scroller.scrollTop > 0) { y0 = null; paint(0); return; }
+    if (scroller.scrollTop > 0) { y0 = null; reset(); return; }
     paint(dy);
     if (dy > THRESHOLD && !fired) { fired = true; haptic.select(); }
   };
@@ -120,13 +134,20 @@ export function pullToRefresh(scroller, onRefresh) {
     if (dy > THRESHOLD && !busy) {
       busy = true;
       ptr.classList.add('refreshing');
-      ind.style.transition = 'transform 240ms var(--spring)';
-      ind.style.transform = 'translateY(10px) scale(1)';
-      try { await onRefresh(); } finally {
-        busy = false;
-        ptr.classList.remove('refreshing');
-        reset();
-      }
+      orb.setPull?.(0);
+      orb.think?.();
+      animateTo(HOLD, 1, 300);
+      const t0 = performance.now();
+      let ok = true;
+      try { await onRefresh(); } catch (e) { ok = false; console.error(e); }
+      const left = 600 - (performance.now() - t0); // procesando dura mínimo 600 ms
+      if (left > 0) await new Promise((r) => setTimeout(r, left));
+      if (ok) orb.succeed?.(); else orb.fail?.();
+      await new Promise((r) => setTimeout(r, ok ? 1250 : 1400));
+      busy = false;
+      ptr.classList.remove('refreshing');
+      orb.cancel?.();
+      reset();
     } else reset();
   };
   scroller.addEventListener('touchstart', start, { passive: true });
@@ -136,6 +157,7 @@ export function pullToRefresh(scroller, onRefresh) {
     scroller.removeEventListener('touchstart', start);
     scroller.removeEventListener('touchmove', moveH);
     scroller.removeEventListener('touchend', end);
+    scroller.style.removeProperty('--ptr-y');
     ptr.remove();
   };
 }

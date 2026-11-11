@@ -5,33 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#F7F7F4">
   <title>Sin conexión · Lukas</title>
-  <link rel="icon" type="image/png" href="./assets/icons/favicon-32.png">
+  <link rel="icon" type="image/svg+xml" href="./assets/icons/favicon.svg">
   <style>
     :root { color-scheme: light; }
     html, body { margin: 0; height: 100%; background: #F7F7F4; color: #141413;
       font-family: "Plus Jakarta Sans", -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
     main { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
       padding: calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px); gap: 14px; box-sizing: border-box; }
-    svg.logo { width: 84px; height: 84px; filter: drop-shadow(0 14px 28px rgba(75,59,245,.3)); animation: f 4s ease-in-out infinite; }
+    svg.logo { width: 200px; height: 200px; margin: -40px 0 -36px; animation: f 4s ease-in-out infinite; }
     h1 { font-size: 26px; margin: 12px 0 0; letter-spacing: -0.02em; }
     p { color: #6F6F69; max-width: 300px; margin: 0; line-height: 1.45; }
     button { margin-top: 12px; min-height: 52px; padding: 0 28px; border: 0; border-radius: 16px; background: #141413; color: #fff;
       font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
     button:active { transform: scale(.97); }
-    @keyframes f { 50% { transform: translateY(-6px); } }
+    @keyframes f { 50% { transform: translateY(-3px); } }
     @media (prefers-reduced-motion: reduce) { svg.logo { animation: none; } }
   </style>
 </head>
 <body>
   <main>
-    <svg class="logo" viewBox="0 0 512 512" aria-hidden="true">
-      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6C5DFF"/><stop offset="1" stop-color="#3A2BD9"/></linearGradient></defs>
-      <rect width="512" height="512" rx="128" fill="url(#g)"/>
-      <path d="M150 128V380H369" fill="none" stroke="#fff" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
-      <line x1="233" y1="300" x2="233" y2="252" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
-      <line x1="301" y1="300" x2="301" y2="180" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
-      <line x1="369" y1="300" x2="369" y2="236" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
-    </svg>
+    <svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs> <radialGradient id="offb" r="0.78" cx="0.38" cy="0.37" fx="0.38" fy="0.37"><stop offset="0" stop-color="#ABA3FF"/><stop offset="0.5" stop-color="#5848EE"/><stop offset="1" stop-color="#3320C0"/></radialGradient><radialGradient id="offh"><stop offset="0" stop-color="#5B4BF0" stop-opacity="0.22"/><stop offset="1" stop-color="#5B4BF0" stop-opacity="0"/></radialGradient> <radialGradient id="offs"><stop offset="0" stop-color="#3320C0" stop-opacity="0.22"/><stop offset="1" stop-color="#3320C0" stop-opacity="0"/></radialGradient></defs> <ellipse cx="60" cy="102" rx="28" ry="4.5" fill="url(#offs)"/><circle cx="60" cy="60" r="52" fill="url(#offh)"/><path d="M94.36 60C94.39 61.49 94.29 63.01 94.08 64.49C93.87 65.96 93.52 67.44 93.08 68.86C92.64 70.29 92.08 71.69 91.43 73.02C90.79 74.35 90.03 75.65 89.22 76.87C88.4 78.09 87.49 79.26 86.52 80.35C85.56 81.45 84.52 82.48 83.44 83.44C82.37 84.41 81.22 85.3 80.05 86.13C78.87 86.95 77.65 87.71 76.39 88.39C75.14 89.08 73.84 89.69 72.52 90.22C71.2 90.76 69.84 91.22 68.46 91.59C67.09 91.96 65.68 92.25 64.27 92.45C62.86 92.65 61.43 92.76 60 92.76C58.57 92.77 57.13 92.69 55.72 92.5C54.31 92.31 52.89 92.02 51.52 91.64C50.15 91.26 48.79 90.77 47.49 90.19C46.19 89.62 44.92 88.95 43.72 88.2C42.52 87.45 41.36 86.61 40.27 85.71C39.18 84.81 38.15 83.83 37.19 82.81C36.23 81.78 35.33 80.69 34.51 79.56C33.68 78.44 32.91 77.25 32.21 76.04C31.52 74.83 30.88 73.58 30.32 72.3C29.75 71.01 29.24 69.7 28.81 68.36C28.38 67.02 28 65.64 27.71 64.25C27.42 62.86 27.19 61.43 27.06 60C26.93 58.57 26.86 57.1 26.91 55.64C26.95 54.18 27.08 52.7 27.32 51.24C27.56 49.79 27.9 48.32 28.36 46.89C28.82 45.47 29.38 44.06 30.06 42.72C30.74 41.37 31.54 40.06 32.43 38.85C33.33 37.63 34.34 36.47 35.43 35.43C36.51 34.38 37.71 33.42 38.96 32.57C40.2 31.73 41.54 30.99 42.89 30.37C44.25 29.75 45.68 29.25 47.1 28.85C48.52 28.46 49.98 28.19 51.43 28.01C52.87 27.83 54.33 27.76 55.76 27.77C57.19 27.78 58.61 27.9 60 28.07C61.39 28.24 62.76 28.5 64.11 28.8C65.45 29.11 66.77 29.48 68.06 29.9C69.36 30.32 70.63 30.79 71.88 31.32C73.13 31.84 74.36 32.41 75.57 33.04C76.77 33.66 77.96 34.34 79.12 35.08C80.28 35.82 81.42 36.62 82.51 37.49C83.6 38.36 84.67 39.29 85.67 40.3C86.67 41.31 87.64 42.39 88.51 43.54C89.38 44.69 90.19 45.92 90.9 47.2C91.6 48.48 92.23 49.84 92.73 51.23C93.23 52.62 93.64 54.07 93.91 55.54C94.18 57 94.34 58.51 94.36 60Z" fill="url(#offb)"/><ellipse cx="43.34" cy="41.36" rx="7" ry="4" fill="#fff" opacity="0.28" transform="rotate(-41.78 43.34 41.36)"/> <g fill="none" stroke-linecap="round"><path d="M46.5 57.4Q50.5 59.4 54.5 57.4" stroke="#fff" stroke-width="6"/><path d="M65.5 57.4Q69.5 59.4 73.5 57.4" stroke="#fff" stroke-width="6"/> <path d="M56.8 71Q60 71.4 63.2 71" stroke="#C8F35A" stroke-width="5"/></g></svg>
     <h1>Sin conexión</h1>
     <p>No hay internet en este momento. Cuando vuelva, tus lucas te estarán esperando.</p>
     <button onclick="location.reload()">Reintentar</button>

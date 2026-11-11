@@ -8,7 +8,7 @@ import { state, onChanged } from '../state.js';
 import { reportData } from '../api/reports.js';
 import { listTransactions } from '../api/transactions.js';
 import { topbar, bindTopbar, segmented, selectSegment, txRow, animateCounts } from '../ui/common.js';
-import { skReport } from '../ui/skeleton.js';
+import { loaderHtml, settle, orbError, loadErrorText, online } from '../ui/orb-loader.js';
 import { emptyState } from '../ui/empty.js';
 import { openSheet } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
@@ -86,7 +86,7 @@ export function mount(screen) {
         <button class="icon-btn" data-nav="1" aria-label="Periodo siguiente">${icon('chevron-right', { stroke: 2.2 })}</button>
       </div>
       <div class="custom-range" hidden><input class="input" type="date" data-from aria-label="Desde"><input class="input" type="date" data-to aria-label="Hasta"></div>
-      <div class="rep-body">${skReport()}</div>
+      <div class="rep-body">${loaderHtml()}</div>
     </div></div>`);
 
   const body = screen.querySelector('.rep-body');
@@ -233,11 +233,13 @@ export function mount(screen) {
     cr.querySelector('[data-from]').value = from;
     cr.querySelector('[data-to]').value = to;
     try {
-      data = { r: await reportData(from, to), from, to };
+      data = { r: await online(() => reportData(from, to)), from, to };
+      await settle(body);
       await render(data.r, from, to);
     } catch (err) {
       console.error(err);
-      body.innerHTML = String(emptyState({ illus: 'chart', title: 'No pudimos cargar tus reportes', text: err.message, action: { label: 'Reintentar', attrs: 'data-retry' } }));
+      await settle(body);
+      body.innerHTML = String(orbError({ title: 'No pudimos cargar tus reportes', text: loadErrorText(err) }));
     }
   };
 
@@ -246,7 +248,7 @@ export function mount(screen) {
     sel.anchor = sel.period === 'week' ? addDays(a, 7 * dir) : sel.period === 'month' ? addMonths(a, dir) : sel.period === 'quarter' ? addMonths(a, 3 * dir) : addMonths(a, 12 * dir);
     if (sel.anchor > todayISO()) sel.anchor = todayISO();
     haptic.select();
-    body.innerHTML = String(skReport());
+    body.innerHTML = String(loaderHtml());
     load();
   };
 
@@ -257,7 +259,7 @@ export function mount(screen) {
       sel.anchor = todayISO();
       if (sel.period === 'custom') { sel.from = startOfMonth(todayISO()); sel.to = todayISO(); }
       haptic.select();
-      body.innerHTML = String(skReport());
+      body.innerHTML = String(loaderHtml());
       load();
     }),
     on(screen, 'click', '[data-nav]', (e, b) => shift(Number(b.dataset.nav))),
@@ -311,14 +313,15 @@ async function openCategoryDetail(cat, from, to) {
   if (!cat) return;
   const s = openSheet({
     title: cat.name ?? 'Sin categoría',
-    body: html`<div class="center mb-4"><b class="num cat-detail-total">${money(cat.total)}</b><div class="muted small">${cat.count} movimientos · ${dateShort(from)} – ${dateShort(to)}</div></div><div class="cd-list"><div class="sk" style="height:180px;border-radius:20px"></div></div>`,
+    body: html`<div class="center mb-4"><b class="num cat-detail-total">${money(cat.total)}</b><div class="muted small">${cat.count} movimientos · ${dateShort(from)} – ${dateShort(to)}</div></div><div class="cd-list">${loaderHtml()}</div>`,
   });
   try {
     const ids = cat.id ? [cat.id] : [];
     if (cat.id) state.categories.filter((c) => c.parent_id === cat.id).forEach((c) => ids.push(c.id));
     const rows = (await listTransactions({ from, to, type: 'expense', categoryIds: ids.length ? ids : undefined, limit: 200 }))
       .filter((t) => (cat.id ? true : !t.category_id));
-    s.body.querySelector('.cd-list').innerHTML = String(html`<div class="list">${rows.map((t) => txRow(t))}</div>`);
+    await settle(s.body.querySelector('.cd-list'));
+    s.body.querySelector('.cd-list').innerHTML = String(html`<div class="list stagger">${rows.map((t, i) => html`<div style="--i:${Math.min(i, 10)}">${txRow(t)}</div>`)}</div>`);
     on(s.body, 'click', '[data-tx]', (e, b) => openTransactionDetail(b.dataset.tx));
   } catch (err) {
     s.body.querySelector('.cd-list').innerHTML = String(html`<p class="muted">${err.message}</p>`);

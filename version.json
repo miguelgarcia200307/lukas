@@ -1,9 +1,11 @@
 {
-  "version": "1.6.3",
+  "version": "1.7.0",
   "date": "2026-11-11",
   "notes": [
-    "Ya puedes guardar todas las veces que quieras sin cerrar la app",
-    "Si algo falla al guardar, te avisamos y tus datos quedan listos para reintentar",
-    "Lukas abre una sola vez y de forma limpia al entrar"
+    "¡Conoce a Lukas! Ahora tiene carita y te acompaña en toda la app",
+    "Cuando algo carga, Lukas te muestra que está en eso (y si tarda, te avisa)",
+    "Mientras escribes tu contraseña, Lukas cierra los ojos",
+    "Desliza hacia abajo para actualizar y mira cómo se estira",
+    "Guardar es más confiable: si algo falla, te avisamos y tus datos quedan listos para reintentar"
   ]
 }

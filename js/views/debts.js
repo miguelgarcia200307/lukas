@@ -1,5 +1,6 @@
 // Créditos / obligaciones: saldo pendiente, cuota, próxima fecha y pagos
-import { html, on } from '../utils/dom.js';
+import { html, on, raw } from '../utils/dom.js';
+import { ORB_SPINNER } from '../ui/orb-loader.js';
 import { icon } from '../utils/icons.js';
 import { money, number } from '../utils/format.js';
 import { inDays, daysBetween, todayISO, dateShort, inputParts, toTimestamp } from '../utils/dates.js';
@@ -9,6 +10,7 @@ import { createDebt, updateDebt, deleteDebt, payDebt, debtPayments } from '../ap
 import { refresh } from '../api/catalog.js';
 import { topbar, bindTopbar, progressBar, segmented, selectSegment } from '../ui/common.js';
 import { emptyState } from '../ui/empty.js';
+import { loaderHtml, settle } from '../ui/orb-loader.js';
 import { formSheet } from '../ui/form.js';
 import { openSheet } from '../ui/sheet.js';
 import { bindAmountInput } from '../ui/number-input.js';
@@ -53,9 +55,9 @@ async function openDebtDetail(d) {
       <div class="field"><span class="label">¿Cómo lo registro?</span>${segmented('mode', [{ value: 'expense', label: 'Como gasto' }, { value: 'transfer', label: 'Como transferencia' }], mode)}
         <span class="field-hint">Gasto: cuenta en “Gastos financieros”. Transferencia: solo mueve plata, no aparece en gastos.</span></div>
       <div class="field"><label>Fecha</label><input class="input" type="date" name="date" value="${now.date}"></div>
-      <div class="section-title mt-8 mb-2">Pagos anteriores</div><div class="dp-list"><div class="sk" style="height:64px;border-radius:16px"></div></div>
+      <div class="section-title mt-8 mb-2">Pagos anteriores</div><div class="dp-list">${loaderHtml()}</div>
       <button class="btn btn-ghost btn-block mt-6" data-edit>${icon('edit')}Editar crédito</button>`,
-    footer: html`<button class="btn btn-primary btn-block" data-pay><span class="btn-label">Registrar pago</span><span class="spinner"></span></button>`,
+    footer: html`<button class="btn btn-primary btn-block" data-pay><span class="btn-label">Registrar pago</span>${raw(ORB_SPINNER)}</button>`,
   });
   const amt = bindAmountInput(s.body.querySelector('[name="amount"]'));
   on(s.body, 'click', '[data-seg] button', (e, b) => { mode = selectSegment(b.parentElement, b.dataset.value); haptic.select(); });
@@ -69,6 +71,7 @@ async function openDebtDetail(d) {
   });
   try {
     const pays = await debtPayments(d.id);
+    await settle(s.body.querySelector('.dp-list'));
     s.body.querySelector('.dp-list').innerHTML = String(pays.length ? html`<div class="list">${pays.map((p) => html`<div class="list-row">
       <span class="cat-icon" style="--c:#12875A">${icon('check', { size: 20 })}</span>
       <div class="grow"><div class="row-title">${dateShort(p.paid_at)}</div><div class="row-sub">${p.mode === 'expense' ? 'Como gasto' : 'Transferencia'}</div></div>

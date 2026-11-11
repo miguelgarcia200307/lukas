@@ -8,6 +8,7 @@ import { updateProfile } from '../api/profile.js';
 import { refresh } from '../api/catalog.js';
 import { topbar, bindTopbar, progressBar } from '../ui/common.js';
 import { emptyState } from '../ui/empty.js';
+import { loaderHtml, settle, orbError, loadErrorText, online } from '../ui/orb-loader.js';
 import { formSheet } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
 
@@ -47,12 +48,13 @@ function openDailyLimit() {
 export function mount(screen) {
   screen.innerHTML = String(html`
     ${topbar({ title: 'Presupuestos', back: true, right: html`<button class="icon-btn filled" data-new aria-label="Nuevo presupuesto">${icon('plus', { stroke: 2.2 })}</button>` })}
-    <div class="scroller"><div class="content"><div class="bud-body"><div class="sk" style="height:120px;border-radius:20px"></div></div></div></div>`);
+    <div class="scroller"><div class="content"><div class="bud-body">${loaderHtml()}</div></div></div>`);
   const body = screen.querySelector('.bud-body');
 
   const load = async () => {
     try {
-      const status = await budgetStatus();
+      const status = await online(budgetStatus);
+      await settle(body);
       const daily = status.find((s) => !s.budget_id);
       const rest = status.filter((s) => s.budget_id);
       const card = (s, i) => html`<button class="card card-pad budget-card pressable" style="--i:${i}" ${s.budget_id ? html`data-id="${s.budget_id}"` : 'data-daily'}>
@@ -69,12 +71,14 @@ export function mount(screen) {
         </div>
         ${rest.length ? '' : emptyState({ illus: 'chart', title: 'Presupuestos por categoría', text: 'Ponle un tope mensual a Comida, Transporte o lo que quieras cuidar.', action: { label: 'Crear presupuesto', attrs: 'data-new' } })}`);
     } catch (err) {
-      body.innerHTML = String(emptyState({ illus: 'chart', title: 'No pudimos cargar tus presupuestos', text: err.message }));
+      await settle(body);
+      body.innerHTML = String(orbError({ title: 'No pudimos cargar tus presupuestos', text: loadErrorText(err) }));
     }
   };
   const offs = [
     bindTopbar(screen),
     on(screen, 'click', '[data-new]', () => openBudgetForm()),
+    on(screen, 'click', '[data-retry]', load),
     on(screen, 'click', '[data-daily]', openDailyLimit),
     on(screen, 'click', '[data-id]', (e, b) => openBudgetForm(state.budgets.find((x) => x.id === b.dataset.id))),
     subscribe('budgets', load),

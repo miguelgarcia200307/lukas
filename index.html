@@ -12,10 +12,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Lukas">
   <title>Lukas</title>
+  <meta property="og:title" content="Lukas">
+  <meta property="og:description" content="Tus lucas, en orden. Solo dilo.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://miguelgarcia200307.github.io/lukas/assets/icons/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
 
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" type="image/svg+xml" href="./assets/icons/logo.svg">
+  <link rel="icon" type="image/svg+xml" href="./assets/icons/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./assets/icons/favicon-16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png">
     <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./assets/splash/splash-1320x2868.png">
     <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./assets/splash/splash-1206x2622.png">
@@ -39,25 +47,20 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
   <link rel="modulepreload" href="./js/app.js">
+  <link rel="modulepreload" href="./js/ui/lukas-orb.js">
 
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/base.css">
   <link rel="stylesheet" href="./css/components.css">
   <link rel="stylesheet" href="./css/views.css">
   <link rel="stylesheet" href="./css/animations.css">
+  <link rel="stylesheet" href="./css/lukas.css">
 </head>
 <body>
   <div id="splash" aria-hidden="true">
     <div class="splash-mark">
-      <svg class="logo-tile" viewBox="0 0 512 512" width="96" height="96">
-        <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6C5DFF"/><stop offset="1" stop-color="#3A2BD9"/></linearGradient></defs>
-        <rect width="512" height="512" rx="128" fill="url(#sg)"/>
-        <path class="stroke" d="M150 128V380H369" fill="none" stroke="#fff" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
-        <line class="bar-a" x1="233" y1="300" x2="233" y2="252" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
-        <line class="bar-b" x1="301" y1="300" x2="301" y2="180" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
-        <line class="bar-c" x1="369" y1="300" x2="369" y2="236" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
-      </svg>
-      <div class="wordmark">Lukas</div>
+      <lukas-orb id="splash-orb" size="120" state="intro"></lukas-orb>
+      <div class="lukas-phrase is-hidden"></div>
     </div>
   </div>
 

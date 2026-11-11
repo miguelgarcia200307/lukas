@@ -4,7 +4,7 @@ import { icon } from '../utils/icons.js';
 import { relativeTime } from '../utils/dates.js';
 import { listNotifications, markRead, clearAll } from '../api/notifications.js';
 import { topbar, bindTopbar } from '../ui/common.js';
-import { skRows } from '../ui/skeleton.js';
+import { loaderHtml, settle, orbError, loadErrorText, online } from '../ui/orb-loader.js';
 import { emptyState } from '../ui/empty.js';
 import { confirmDialog } from '../ui/modal.js';
 import { pullToRefresh } from '../ui/gestures.js';
@@ -19,12 +19,13 @@ const TYPE = {
 export function mount(screen) {
   screen.innerHTML = String(html`
     ${topbar({ title: 'Notificaciones', back: true, right: html`<button class="icon-btn" data-clear aria-label="Borrar todas">${icon('trash')}</button>` })}
-    <div class="scroller"><div class="content"><div class="notif-body">${skRows(4)}</div></div></div>`);
+    <div class="scroller"><div class="content"><div class="notif-body">${loaderHtml()}</div></div></div>`);
   const body = screen.querySelector('.notif-body');
 
   const load = async () => {
     try {
-      const list = await listNotifications();
+      const list = await online(listNotifications);
+      await settle(body);
       if (!list.length) {
         body.innerHTML = String(emptyState({ illus: 'bell', title: 'Todo al día', text: 'Aquí verás avisos de cortes, pagos, cuotas, suscripciones y presupuestos.' }));
         return;
@@ -40,7 +41,8 @@ export function mount(screen) {
       })}</div>`);
       if (list.some((n) => !n.read_at)) setTimeout(() => markRead().catch(() => {}), 1200);
     } catch (err) {
-      body.innerHTML = String(emptyState({ illus: 'bell', title: 'No pudimos cargar tus avisos', text: err.message }));
+      await settle(body);
+      body.innerHTML = String(orbError({ title: 'No pudimos cargar tus avisos', text: loadErrorText(err) }));
     }
   };
 
@@ -51,6 +53,7 @@ export function mount(screen) {
       if (!(await confirmDialog({ title: '¿Borrar todas las notificaciones?', confirm: 'Borrar', danger: true }))) return;
       try { await clearAll(); load(); } catch (err) { toast(err.message, { type: 'err' }); }
     }),
+    on(screen, 'click', '[data-retry]', load),
     pullToRefresh(screen.querySelector('.scroller'), load),
   ];
   load();

@@ -7,7 +7,7 @@ import { haptic } from '../utils/haptics.js';
 import { state, onChanged, categoryById, childCategories } from '../state.js';
 import { listTransactions } from '../api/transactions.js';
 import { topbar, bindTopbar, txRow, segmented, selectSegment } from '../ui/common.js';
-import { skRows } from '../ui/skeleton.js';
+import { loaderHtml, settle, orbEmpty, orbError, loadErrorText, online } from '../ui/orb-loader.js';
 import { emptyState } from '../ui/empty.js';
 import { enableSwipe, pullToRefresh } from '../ui/gestures.js';
 import { openSheet } from '../ui/sheet.js';
@@ -30,7 +30,7 @@ export function mount(screen, { query }) {
         </div>
         <div class="chips scroll active-filters"></div>
         <div class="mv-summary"></div>
-        <div class="mv-list">${skRows(6)}</div>
+        <div class="mv-list">${loaderHtml()}</div>
         <div class="mv-more center"></div>
       </div>
     </div>`);
@@ -73,7 +73,7 @@ export function mount(screen, { query }) {
       const filtered = activeCount() || filters.search;
       listEl.innerHTML = String(filtered
         ? emptyState({ illus: 'search', title: 'Nada por aquí', text: 'No hay movimientos con esos filtros.', action: { label: 'Quitar filtros', attrs: 'data-clear-all' } })
-        : emptyState({ illus: 'list', title: 'Aún no tienes movimientos', text: 'Registra el primero con tu voz o a mano.', action: { label: 'Agregar movimiento', attrs: 'data-new' } }));
+        : orbEmpty({ title: 'Cuéntame tu primer gasto', text: 'Toca el micrófono y dímelo como a un amigo, o agrégalo a mano.', action: { label: 'Agregar movimiento', attrs: 'data-new' } }));
       summaryEl.innerHTML = '';
       moreEl.innerHTML = '';
       return;
@@ -104,13 +104,16 @@ export function mount(screen, { query }) {
     if (loading) return;
     loading = true;
     try {
-      const batch = await query_(append ? rows.length : 0);
+      const batch = await online(() => query_(append ? rows.length : 0));
+      if (!append) await settle(listEl);
       rows = append ? [...rows, ...batch] : batch;
       done = batch.length < PAGE;
       render();
     } catch (err) {
-      toast(err.message, { type: 'err' });
-      if (!rows.length) listEl.innerHTML = String(emptyState({ illus: 'list', title: 'No pudimos cargar tus movimientos', text: err.message, action: { label: 'Reintentar', attrs: 'data-retry' } }));
+      if (!rows.length) {
+        await settle(listEl);
+        listEl.innerHTML = String(orbError({ title: 'No pudimos cargar tus movimientos', text: loadErrorText(err) }));
+      } else toast(err.message, { type: 'err' });
     } finally {
       loading = false;
     }
@@ -161,7 +164,7 @@ export function mount(screen, { query }) {
     s.foot.querySelector('[data-apply]').addEventListener('click', () => {
       if (local.from && !local.to) local.to = todayISO();
       Object.assign(filters, local);
-      s.close(); paintFilterChips(); listEl.innerHTML = String(skRows(5)); load();
+      s.close(); paintFilterChips(); listEl.innerHTML = String(loaderHtml()); load();
     });
   };
 

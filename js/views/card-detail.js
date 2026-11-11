@@ -1,5 +1,6 @@
 // Detalle de tarjeta: historial, registrar pago (con intereses opcionales), interés/cuota de manejo, ajuste con extracto
-import { html, on } from '../utils/dom.js';
+import { html, on, raw } from '../utils/dom.js';
+import { ORB_SPINNER } from '../ui/orb-loader.js';
 import { icon } from '../utils/icons.js';
 import { money, number } from '../utils/format.js';
 import { dayLabel, timeLabel, inputParts, toTimestamp } from '../utils/dates.js';
@@ -8,7 +9,7 @@ import { state, subscribe, cardById } from '../state.js';
 import { cardMovements, payCard, extraCharge, adjustBalance } from '../api/cards.js';
 import { refresh } from '../api/catalog.js';
 import { topbar, bindTopbar, segmented, selectSegment } from '../ui/common.js';
-import { skRows } from '../ui/skeleton.js';
+import { loaderHtml, settle, orbError, loadErrorText, online } from '../ui/orb-loader.js';
 import { emptyState } from '../ui/empty.js';
 import { openSheet } from '../ui/sheet.js';
 import { bindAmountInput } from '../ui/number-input.js';
@@ -29,7 +30,7 @@ const KIND = {
 function actionSheet({ title, body, submitLabel, onSubmit }) {
   const s = openSheet({
     title, detent: 'large', body,
-    footer: html`<button class="btn btn-primary btn-block" data-submit><span class="btn-label">${submitLabel}</span><span class="spinner"></span></button>`,
+    footer: html`<button class="btn btn-primary btn-block" data-submit><span class="btn-label">${submitLabel}</span>${raw(ORB_SPINNER)}</button>`,
   });
   const btn = s.foot.querySelector('[data-submit]');
   btn.addEventListener('click', async () => {
@@ -113,7 +114,7 @@ export function mount(screen, { params }) {
         <button class="action-tile pressable" data-act="adjust"><span>${icon('swap')}</span>Ajustar saldo</button>
       </div>
       <div class="cd-note"></div>
-      <section class="section"><div class="section-head"><h2 class="section-title">Movimientos de la tarjeta</h2></div><div class="cd-moves">${skRows(4)}</div></section>
+      <section class="section"><div class="section-head"><h2 class="section-title">Movimientos de la tarjeta</h2></div><div class="cd-moves">${loaderHtml()}</div></section>
     </div></div>`);
 
   const head = screen.querySelector('.cd-head');
@@ -130,7 +131,8 @@ export function mount(screen, { params }) {
 
   const loadMoves = async () => {
     try {
-      const list = await cardMovements(id);
+      const list = await online(() => cardMovements(id));
+      await settle(moves);
       if (!list.length) { moves.innerHTML = String(emptyState({ illus: 'list', title: 'Sin movimientos todavía', text: 'Los gastos que pagues con esta tarjeta aparecerán aquí.' })); return; }
       moves.innerHTML = String(html`<div class="list stagger">${list.map((m, i) => {
         const k = KIND[m.kind];
@@ -141,7 +143,8 @@ export function mount(screen, { params }) {
           <div class="row-amount ${m.kind === 'payment' || m.amount < 0 ? 'in' : ''}">${sign}${money(Math.abs(m.amount))}</div></div>`;
       })}</div>`);
     } catch (err) {
-      moves.innerHTML = String(emptyState({ illus: 'list', title: 'No pudimos cargar los movimientos', text: err.message }));
+      await settle(moves);
+      moves.innerHTML = String(orbError({ title: 'No pudimos cargar los movimientos', text: loadErrorText(err) }));
     }
   };
 
@@ -157,6 +160,7 @@ export function mount(screen, { params }) {
       if (b.dataset.act === 'adjust') openAdjust(c);
     }),
     subscribe('cards', () => { paintHead(); loadMoves(); }),
+    on(screen, 'click', '[data-retry]', loadMoves),
   ];
   paintHead();
   loadMoves();

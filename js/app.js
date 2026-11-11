@@ -17,6 +17,8 @@ import { syncPushSubscription } from './push.js';
 import { unlockVoice } from './voice/speech.js';
 import { initUpdates } from './update.js';
 import { AUTH, guardRoute } from './route-guard.js';
+import './ui/lukas-orb.js'; // registra <lukas-orb> y <lukas-lockup>
+import { takeOff, land, inFlight, firstLoadToday, startPhrases } from './ui/orb-loader.js';
 
 const ROUTES = [
   { path: 'login', load: () => import('./views/login.js'), public: true, chrome: false, depth: 0 },
@@ -104,7 +106,9 @@ async function route() {
   };
 
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (document.startViewTransition && prev && !reduce) {
+  // Con el personaje en vuelo (arranque o login → header) no se usa View Transition: el vuelo ES la transición
+  const flight = inFlight();
+  if (document.startViewTransition && prev && !reduce && !flight) {
     const root = document.documentElement;
     root.classList.add(`vt-${dir}`);
     const t = document.startViewTransition(swap);
@@ -112,6 +116,7 @@ async function route() {
   } else {
     if (prev && !reduce) screen.classList.add(`enter-${dir}`);
     swap();
+    if (flight) land(screen.querySelector('[data-orb-slot] lukas-orb'));
   }
 }
 
@@ -158,6 +163,12 @@ function initTabbar() {
   });
 }
 
+// Sincronizaciones en segundo plano: el personaje del header procesa mientras state.syncing > 0
+async function track(promise) {
+  state.syncing = (state.syncing ?? 0) + 1;
+  try { return await promise; } finally { state.syncing = Math.max(0, (state.syncing ?? 1) - 1); }
+}
+
 // ── Conexión y cola offline ─────────────────────
 function initNetwork() {
   const pill = $('#net-pill');
@@ -173,7 +184,7 @@ function initNetwork() {
   subscribe('pendingSync', paint);
   const sync = async () => {
     if (!state.session) return;
-    const n = await flush({ create_transactions: syncCreate });
+    const n = await track(flush({ create_transactions: syncCreate }));
     if (n) toast(n === 1 ? 'Se sincronizó 1 movimiento' : `Se sincronizaron ${n} movimientos`);
   };
   window.addEventListener('online', () => { state.online = true; sync(); refreshAll(); });
@@ -184,7 +195,7 @@ function initNetwork() {
 
 async function refreshAll() {
   if (!state.session || !navigator.onLine) return;
-  await Promise.allSettled([loadProfile(), refresh(), refreshUnread()]);
+  await track(Promise.allSettled([loadProfile(), refresh(), refreshUnread()]));
   persistCatalog();
 }
 
@@ -199,6 +210,20 @@ function initServiceWorker() {
   });
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sequenceEnd = (orb, name) => new Promise((r) => {
+  const h = (e) => { if (e.detail.state === name) { orb.removeEventListener('sequenceend', h); r(); } };
+  orb.addEventListener('sequenceend', h);
+});
+/** Precarga el resumen de Inicio para que el arranque y el login no muestren un segundo loader. */
+async function prefetchHome() {
+  const path = parseHash()?.route.path;
+  if (path && path !== 'inicio' && path !== 'login') return;
+  if (!state.profile?.onboarded) return;
+  const home = await import('./views/home.js');
+  await home.prefetch();
+}
+
 function hideSplash() {
   const s = $('#splash');
   if (!s) return;
@@ -207,19 +232,24 @@ function hideSplash() {
 }
 
 // ── Arranque ───────────────────────────────────
+// Intro del personaje → procesando mientras cargan los datos → listo (solo la primera carga del día)
+// → viaja a su lugar en el header (o al lockup del login) mientras aparece el contenido.
 async function boot() {
   setSaveNotifier(toast); // los errores de cualquier guardado se muestran con el toast de la app
   const t0 = performance.now();
+  const orb = document.getElementById('splash-orb');
+  const introDone = orb ? Promise.race([sequenceEnd(orb, 'intro'), sleep(2600)]) : Promise.resolve();
   initServiceWorker();
   initTabbar();
   initInstall();
   const sync = initNetwork();
 
-  // La sesión se resuelve una sola vez, aquí; el resto de la app consume state.session / state.authStatus
-  const { data } = await sb.auth.getSession();
-  state.session = data.session;
-
-  if (state.session) {
+  let loadFailed = false;
+  const loadData = async () => {
+    // La sesión se resuelve una sola vez, aquí; el resto de la app consume state.session / state.authStatus
+    const { data } = await sb.auth.getSession();
+    state.session = data.session;
+    if (!state.session) return;
     restoreCatalog();
     if (navigator.onLine) {
       try {
@@ -228,15 +258,34 @@ async function boot() {
         refreshUnread();
         sync();
         syncPushSubscription();
+        await prefetchHome().catch((e) => console.error(e));
       } catch (e) {
         console.error(e);
+        loadFailed = true;
         if (!state.profile) toast('No pudimos cargar tus datos. Revisa tu conexión.', { type: 'err' });
       }
     }
     if (state.profile && !state.profile.onboarded && !location.hash.includes('bienvenida')) {
       history.replaceState(null, '', '#/bienvenida');
     }
+  };
+  let loaded = false;
+  const ready = loadData().finally(() => { loaded = true; });
+
+  await introDone;
+  if (!loaded && orb) {
+    orb.think();
+    let stop = null;
+    const slow = setTimeout(() => { stop = startPhrases(document.querySelector('#splash .lukas-phrase')); }, Math.max(0, 4000 - (performance.now() - t0)));
+    await ready.catch(() => {});
+    clearTimeout(slow); stop?.();
   }
+  await ready;
+  if (orb && state.session && !loadFailed && firstLoadToday()) {
+    orb.succeed();
+    await sleep(1350);
+  }
+  orb?.cancel();
 
   sb.auth.onAuthStateChange((event, session) => {
     state.session = session;
@@ -254,22 +303,22 @@ async function boot() {
     if (document.visibilityState === 'visible' && state.session) { refreshUnread(); sync(); }
   });
 
-  // Splash mínimo para que la animación del logo se vea completa; luego la sesión queda resuelta y se enruta una vez
-  const elapsed = performance.now() - t0;
-  await new Promise((r) => setTimeout(r, Math.max(0, 1100 - elapsed)));
   state.authStatus = state.session ? AUTH.AUTHENTICATED : AUTH.UNAUTHENTICATED;
+  if (orb) takeOff(orb);
   await route();
   hideSplash();
 }
 
 /** Llamado por la vista de login tras autenticarse */
-export async function afterLogin(session) {
+export async function afterLogin(session, { onReady } = {}) {
   state.session = session;
   state.authStatus = AUTH.AUTHENTICATED;
   await Promise.all([loadProfile(), refresh()]);
   persistCatalog();
   refreshUnread();
   syncPushSubscription();
+  if (state.profile?.onboarded) await import('./views/home.js').then((m) => m.prefetch()).catch((e) => console.error(e));
+  await onReady?.(); // el login celebra y saca al personaje a volar antes de cambiar de pantalla
   navigate(state.profile?.onboarded ? 'inicio' : 'bienvenida', { replace: true });
 }
 
@@ -277,6 +326,7 @@ export async function afterLogin(session) {
 boot().catch((e) => {
   console.error('[boot]', e);
   state.authStatus = state.session ? AUTH.AUTHENTICATED : AUTH.UNAUTHENTICATED;
+  if (inFlight()) land(null);
   hideSplash();
   navigate('login', { replace: true });
 });

@@ -1,5 +1,6 @@
 // Formularios declarativos dentro de un bottom sheet (crear/editar entidades)
 import { html, raw } from '../utils/dom.js';
+import { ORB_SPINNER } from './orb-loader.js';
 import { icon, ICON_NAMES } from '../utils/icons.js';
 import { number, PALETTE } from '../utils/format.js';
 import { haptic } from '../utils/haptics.js';
@@ -63,7 +64,7 @@ export function formSheet({ title, fields, submitLabel = 'Guardar', onSubmit, on
     title,
     body: html`<form class="form-sheet" novalidate>${intro ? html`<p class="muted small mb-4">${intro}</p>` : ''}${fields.map(fieldHtml)}
       ${onDelete ? html`<button type="button" class="btn btn-danger btn-block mt-8" data-delete>${icon('trash')}${deleteLabel}</button>` : ''}</form>`,
-    footer: html`<button class="btn btn-primary btn-block" data-submit><span class="btn-label">${submitLabel}</span><span class="spinner"></span></button>`,
+    footer: html`<button class="btn btn-primary btn-block" data-submit><span class="btn-label">${submitLabel}</span>${raw(ORB_SPINNER)}</button>`,
   });
   const form = s.body.querySelector('form');
   const amounts = {};

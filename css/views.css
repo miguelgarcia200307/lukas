@@ -9,8 +9,9 @@
   display: flex; flex-direction: column; gap: var(--s-8);
 }
 .login-brand { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
-.login-brand h1 { font-size: var(--fs-4xl); font-weight: 800; letter-spacing: -0.04em; margin-top: var(--s-3); }
-.login-logo { filter: drop-shadow(0 14px 28px rgba(75, 59, 245, 0.32)); }
+.login-brand lukas-lockup { margin-top: var(--s-2); }
+.login-brand lukas-lockup .lukas-word { font-weight: 800; letter-spacing: -0.04em; }
+.login-tagline { margin-top: var(--s-2); }
 .login-form { padding: var(--s-6) var(--s-5); display: flex; flex-direction: column; gap: var(--s-1); border-radius: var(--r-xl); }
 .login-form .btn { margin-top: var(--s-4); }
 .input-icon { position: relative; }
@@ -19,12 +20,6 @@
 .pw-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink-3); }
 .login-error { background: var(--expense-soft); color: var(--danger); font-size: var(--fs-sm); font-weight: 600; padding: var(--s-3) var(--s-4); border-radius: var(--r-sm); }
 .login-foot { text-align: center; }
-
-/* Logo animado */
-.logo-tile.animated .stroke { stroke-dasharray: 420; stroke-dashoffset: 420; animation: draw 900ms 150ms var(--ease-out) forwards; }
-.logo-tile.animated line { transform-box: fill-box; transform-origin: center bottom; animation: eq 1.2s 700ms ease-in-out 2; }
-.logo-tile.animated line:nth-of-type(2) { animation-delay: 800ms; }
-.logo-tile.animated line:nth-of-type(3) { animation-delay: 900ms; }
 
 /* ── Onboarding ────────────────────────────── */
 .onboarding { display: flex; flex-direction: column; }
@@ -35,7 +30,7 @@
 .ob-dots span.on { width: 22px; background: var(--ink); }
 .ob-dots span.done { background: var(--ink-4); }
 .ob-step { padding-top: var(--s-8); }
-.ob-hero { display: grid; place-items: center; margin-bottom: var(--s-6); filter: drop-shadow(0 14px 28px rgba(75, 59, 245, 0.3)); }
+.ob-hero { display: grid; place-items: center; margin: var(--s-4) 0 var(--s-10); }
 .ob-icon { width: 68px; height: 68px; border-radius: 22px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: var(--s-6); }
 .ob-title { font-size: var(--fs-3xl); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
 .ob-text { margin-top: var(--s-3); color: var(--ink-2); font-size: var(--fs-lg); line-height: 1.45; }
@@ -52,6 +47,7 @@
 /* ── Inicio ────────────────────────────────── */
 .home { padding-top: calc(var(--safe-top) + var(--s-3)); }
 .home-head { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-2) 0 0; }
+.home-lukas { width: 28px; height: 28px; flex: none; margin-top: 8px; display: grid; place-items: center; }
 .home-date { font-weight: 600; }
 .home-date::first-letter { text-transform: uppercase; }
 .home-greet { font-size: var(--fs-2xl); font-weight: 800; letter-spacing: -0.025em; margin-top: 2px; }
@@ -255,7 +251,7 @@
 .active-filters .chip svg { margin-left: 2px; }
 .mv-totals { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); font-size: var(--fs-sm); color: var(--ink-3); font-weight: 600; margin-top: var(--s-4); }
 .mv-totals b { color: var(--ink); }
-.day-group { animation: fade-up 420ms var(--spring) both; animation-delay: calc(var(--i) * 40ms); }
+.day-group { animation: reveal 460ms var(--ease-out) both; animation-delay: calc(var(--i) * 40ms); }
 .mv-more { padding: var(--s-6) 0; min-height: 40px; }
 .swipe.removing { animation: row-out 300ms var(--ease-out) forwards; }
 @keyframes row-out { to { opacity: 0; transform: translateX(-30%); max-height: 0; } }

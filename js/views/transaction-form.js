@@ -1,5 +1,6 @@
 // Crear / editar un movimiento a mano (sheet). Funciona offline para creaciones (cola IndexedDB).
-import { html, on } from '../utils/dom.js';
+import { html, on, raw } from '../utils/dom.js';
+import { ORB_SPINNER } from '../ui/orb-loader.js';
 import { icon } from '../utils/icons.js';
 import { number, parseAmount, money } from '../utils/format.js';
 import { inputParts, toTimestamp } from '../utils/dates.js';
@@ -88,7 +89,7 @@ export function openTransactionForm({ tx = null, type = 'expense' } = {}) {
       </details>
       ${editing ? html`<button type="button" class="btn btn-danger btn-block mt-8" data-delete>${icon('trash')}Eliminar movimiento</button>` : ''}
     </form>`,
-    footer: html`<button class="btn btn-primary btn-block" data-save><span class="btn-label">${editing ? 'Guardar cambios' : 'Guardar'}</span><span class="spinner"></span></button>`,
+    footer: html`<button class="btn btn-primary btn-block" data-save><span class="btn-label">${editing ? 'Guardar cambios' : 'Guardar'}</span>${raw(ORB_SPINNER)}</button>`,
   });
 
   const form = s.body.querySelector('form');

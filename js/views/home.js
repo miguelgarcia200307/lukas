@@ -6,10 +6,9 @@ import { greeting, inDays, dateShort } from '../utils/dates.js';
 import { haptic } from '../utils/haptics.js';
 import { state, subscribe, onChanged } from '../state.js';
 import { homeSummary } from '../api/reports.js';
-import { skHome } from '../ui/skeleton.js';
 import { txRow, animateCounts, ring, animateRings } from '../ui/common.js';
 import { pullToRefresh } from '../ui/gestures.js';
-import { emptyState } from '../ui/empty.js';
+import { loaderHtml, settle, revealStagger, orbEmpty, orbError, loadErrorText, online } from '../ui/orb-loader.js';
 import { toast } from '../ui/toast.js';
 import { Orb } from '../voice/orb.js';
 import { SUGGESTIONS, openVoice } from '../voice/voice-sheet.js';
@@ -20,6 +19,13 @@ import { openTransactionDetail } from './transaction-form.js';
 export const title = 'Inicio';
 
 const dismissed = new Set();
+
+// Precarga del resumen (arranque y login): el primer montaje lo usa en vez de mostrar un segundo loader
+let prefetched = null;
+export function prefetch() {
+  prefetched = homeSummary();
+  return prefetched.catch(() => {});
+}
 const UPCOMING_ICON = { card_due: 'card', card_cut: 'calendar', debt: 'bank', subscription: 'repeat' };
 
 export function mount(screen, { query, navigate }) {
@@ -27,13 +33,14 @@ export function mount(screen, { query, navigate }) {
     <div class="scroller">
       <div class="content home">
         <header class="home-head">
+          <span class="home-lukas" data-orb-slot><lukas-orb size="28"></lukas-orb></span>
           <div class="grow">
             <div class="home-date muted small">${new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Bogota' }).format(new Date())}</div>
             <h1 class="home-greet">${greeting()}${state.profile?.name ? `, ${state.profile.name}` : ''}</h1>
           </div>
           <a class="icon-btn filled" href="#/notificaciones" aria-label="Notificaciones">${icon('bell')}<span class="badge-dot" data-unread hidden></span></a>
         </header>
-        <div class="home-body">${skHome()}</div>
+        <div class="home-body">${loaderHtml()}</div>
       </div>
     </div>`);
 
@@ -109,7 +116,7 @@ export function mount(screen, { query, navigate }) {
         <div class="section-head"><h2 class="section-title">Últimos movimientos</h2>
           <a class="link-btn" href="#/movimientos">Ver todos${icon('chevron-right', { size: 16 })}</a></div>
         ${(s.recent ?? []).length ? html`<div class="list stagger">${s.recent.map((t, i) => html`<div style="--i:${i}">${txRow(t)}</div>`)}</div>`
-          : emptyState({ illus: 'list', title: 'Aún no hay movimientos', text: 'Toca el orbe y dime tu primer gasto. Por ejemplo: “almorcé por 18 lucas”.' })}
+          : orbEmpty({ title: 'Cuéntame tu primer gasto', text: 'Toca el micrófono y dímelo como a un amigo. Por ejemplo: “almorcé por 18 lucas”.' })}
       </section>
       ${Number(s.month_expense) || Number(s.month_income) ? html`<section class="section month-strip card card-pad">
         <div><div class="eyebrow">Gastos del mes</div><div class="ms-val num">${money(s.month_expense)}</div></div>
@@ -125,14 +132,37 @@ export function mount(screen, { query, navigate }) {
     paintUnread(state.unread);
   };
 
+  // Personaje del header: procesa durante sincronizaciones y recargas en segundo plano (sin bloquear nada)
+  const headOrb = screen.querySelector('.home-lukas lukas-orb');
+  let bgLoads = 0;
+  const paintSync = () => {
+    if (!headOrb.engine) return;
+    const busy = (state.syncing ?? 0) > 0 || bgLoads > 0;
+    if (busy && headOrb.state !== 'thinking') headOrb.think();
+    else if (!busy && headOrb.state === 'thinking') headOrb.cancel();
+  };
+
   const load = async () => {
+    const first = !summary;
+    if (!first) { bgLoads++; paintSync(); }
     try {
-      summary = await homeSummary();
+      const pending = prefetched;
+      prefetched = null;
+      const next = await online(() => pending ?? homeSummary());
+      if (first) await settle(body);
+      summary = next;
       state.unread = Number(summary.unread) || 0;
       render();
+      // El contenido entra escalonado; el bloque de voz (.hero) conserva su entrada original
+      if (first) revealStagger(body, { selector: ':scope > :not(.hero)' });
     } catch (err) {
       console.error(err);
-      if (!summary) body.innerHTML = String(emptyState({ illus: 'wallet', title: 'No pudimos cargar tu inicio', text: err.message, action: { label: 'Reintentar', attrs: 'data-retry' } }));
+      if (!summary) {
+        await settle(body);
+        body.innerHTML = String(orbError({ title: 'No pudimos cargar tu inicio', text: loadErrorText(err) }));
+      }
+    } finally {
+      if (!first) { bgLoads--; paintSync(); }
     }
   };
 
@@ -171,6 +201,7 @@ export function mount(screen, { query, navigate }) {
     on(screen, 'click', '[data-tx]', (e, b) => openTransactionDetail(b.dataset.tx)),
     on(screen, 'click', '[data-retry]', load),
     subscribe('unread', paintUnread),
+    subscribe('syncing', paintSync),
     onChanged((entities) => { if (entities.some((e) => ['transactions', 'cards', 'debts', 'subscriptions', 'profile', 'budgets'].includes(e))) load(); }),
     pullToRefresh(scroller, load),
   ];

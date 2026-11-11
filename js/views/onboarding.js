@@ -10,7 +10,7 @@ import { createAccount } from '../api/accounts.js';
 import { bindAmountInput } from '../ui/number-input.js';
 import { toast } from '../ui/toast.js';
 import { runSave } from '../ui/submit.js';
-import { logoSvg } from '../ui/logo.js';
+import { ORB_SPINNER, inFlight } from '../ui/orb-loader.js';
 import { enablePush, pushStatus } from '../push.js';
 import { showPermissionHelp } from '../permissions.js';
 import { isStandalone, maybePromptInstall } from '../install.js';
@@ -31,7 +31,7 @@ export function mount(screen, { navigate }) {
     let cta = 'Continuar';
     let skip = false;
     if (s === 'welcome') {
-      body = html`<div class="ob-hero">${raw(logoSvg({ size: 92, animated: true }))}</div>
+      body = html`<div class="ob-hero" data-orb-slot><lukas-orb size="72" ${raw(inFlight() ? '' : 'state="intro"')}></lukas-orb></div>
         <h1 class="ob-title">Hola, soy ${APP_NAME}.</h1>
         <p class="ob-text">Cuéntame tus gastos como se los contarías a un amigo y yo los organizo. Sin formularios, sin enredos.</p>
         <div class="field mt-8"><label for="ob-name">¿Cómo te llamo?</label>
@@ -76,7 +76,7 @@ export function mount(screen, { navigate }) {
         </div>`;
       skip = true;
     } else if (s === 'install') {
-      body = html`<div class="ob-hero">${raw(logoSvg({ size: 92 }))}</div>
+      body = html`<div class="ob-hero"><lukas-orb size="72"></lukas-orb></div>
         <h1 class="ob-title">Llévala en tu pantalla de inicio</h1>
         <p class="ob-text">Instalada se siente como una app de verdad: abre al instante, a pantalla completa y con notificaciones.</p>
         <button class="btn btn-secondary btn-block mt-6" data-install>${icon('download')}Instalar ${APP_NAME}</button>`;
@@ -90,7 +90,7 @@ export function mount(screen, { navigate }) {
           ${skip ? html`<button class="btn btn-ghost btn-sm" data-next>Saltar</button>` : html`<span style="width:44px"></span>`}</div>
         <div class="ob-step fade-up" data-step="${s}">${body}</div>
       </div>
-      <div class="ob-foot"><button class="btn btn-primary btn-block" data-next><span class="btn-label">${cta}</span><span class="spinner"></span></button></div>
+      <div class="ob-foot"><button class="btn btn-primary btn-block" data-next><span class="btn-label">${cta}</span>${raw(ORB_SPINNER)}</button></div>
     </div>`;
   };
 

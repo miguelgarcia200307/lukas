@@ -1,7 +1,7 @@
 // Lukas · service worker
 // Precache del app shell con caché versionada, stale-while-revalidate para estáticos y CDNs,
 // nunca cachea Supabase / Auth / Edge Functions / Groq. Push + notificationclick.
-const VERSION = 'lukas-v1.6.3'; // mantener igual a APP_VERSION en js/config.js
+const VERSION = 'lukas-v1.7.0'; // mantener igual a APP_VERSION en js/config.js
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -14,9 +14,10 @@ const SHELL = [
   './assets/icons/icon-512.png',
   './assets/icons/badge-96.png',
   './assets/icons/apple-touch-icon.png',
-  './assets/icons/logo.svg',
+  './assets/icons/favicon.svg',
   './assets/icons/favicon-32.png',
   './css/animations.css',
+  './css/lukas.css',
   './css/base.css',
   './css/components.css',
   './css/tokens.css',
@@ -51,14 +52,14 @@ const SHELL = [
   './js/ui/empty.js',
   './js/ui/form.js',
   './js/ui/gestures.js',
-  './js/ui/logo.js',
+  './js/ui/lukas-orb.js',
   './js/ui/modal.js',
   './js/ui/number-input.js',
+  './js/ui/orb-loader.js',
   './js/ui/pickers.js',
   './js/ui/sensitive.js',
   './js/ui/submit.js',
   './js/ui/sheet.js',
-  './js/ui/skeleton.js',
   './js/ui/toast.js',
   './js/utils/dates.js',
   './js/utils/dom.js',

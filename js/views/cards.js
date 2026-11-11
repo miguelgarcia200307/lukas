@@ -8,7 +8,7 @@ import { createCard, updateCard, deleteCard } from '../api/cards.js';
 import { refresh } from '../api/catalog.js';
 import { topbar, bindTopbar, progressBar } from '../ui/common.js';
 import { emptyState } from '../ui/empty.js';
-import { skCards } from '../ui/skeleton.js';
+import { loaderHtml } from '../ui/orb-loader.js';
 import { formSheet } from '../ui/form.js';
 import { pullToRefresh } from '../ui/gestures.js';
 import { toast } from '../ui/toast.js';
@@ -82,7 +82,7 @@ export function openCardForm(card = null) {
 export function mount(screen) {
   screen.innerHTML = String(html`
     ${topbar({ title: 'Tarjetas', back: true, right: html`<button class="icon-btn filled" data-new aria-label="Agregar tarjeta">${icon('plus', { stroke: 2.2 })}</button>` })}
-    <div class="scroller"><div class="content"><div class="cards-list">${state.cards.length ? '' : skCards()}</div></div></div>`);
+    <div class="scroller"><div class="content"><div class="cards-list">${state.cards.length ? '' : loaderHtml()}</div></div></div>`);
   const list = screen.querySelector('.cards-list');
 
   const render = () => {

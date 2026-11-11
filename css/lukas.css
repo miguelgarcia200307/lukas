@@ -1,0 +1,72 @@
+/* Lukas · el personaje (orbe + cara) y su lockup */
+:root {
+  --orb-light: #ABA3FF;
+  --orb-mid: #5848EE;
+  --orb-deep: #3320C0;
+  --lukas-lime: #C8F35A;
+  --lukas-alert: #F0997B;
+}
+
+lukas-orb {
+  display: inline-block;
+  position: relative;
+  width: var(--lk-size, 96px);
+  height: var(--lk-size, 96px);
+  flex: none;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+lukas-orb > svg { display: block; overflow: hidden; } /* posición y tamaño los fija el componente (sobresale centrado) */
+lukas-orb .sr-only, .lukas-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Lockup: personaje + wordmark */
+lukas-lockup { display: inline-flex; align-items: center; }
+lukas-lockup.is-horizontal { flex-direction: row; }
+lukas-lockup.is-vertical { flex-direction: column; }
+.lukas-word {
+  font-family: var(--font, "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink, #141413);
+  line-height: 1;
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lukas-word.is-hidden { opacity: 0; transform: translateY(6px); }
+/* --lk-size = diámetro del personaje; el wordmark se dimensiona contra él */
+lukas-lockup.is-horizontal .lukas-word { font-size: calc(var(--lk-size) * 0.74); margin-left: calc(var(--lk-size) * 0.26); padding-bottom: calc(var(--lk-size) * 0.06); }
+lukas-lockup.is-vertical .lukas-word { font-size: calc(var(--lk-size) * 0.5); margin-top: calc(var(--lk-size) * 0.34); }
+
+/* Frases de carga lenta (> 4 s) */
+.lukas-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 140px; }
+.lukas-loader.is-entering { animation: lukas-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.lukas-loader.is-leaving { animation: lukas-out 220ms ease both; }
+.lukas-phrase {
+  min-height: 20px; font-size: 13px; font-weight: 500; color: var(--ink-3, #6F6F69);
+  transition: opacity 360ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lukas-phrase.is-hidden { opacity: 0; transform: translateY(3px); }
+@keyframes lukas-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes lukas-out { to { opacity: 0; transform: scale(0.96); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lukas-word, .lukas-phrase { transition: opacity 200ms linear; transform: none !important; }
+  .lukas-loader.is-entering, .lukas-loader.is-leaving { animation-name: lukas-fade; }
+  @keyframes lukas-fade { from { opacity: 0; } }
+}
+
+/* Loader de sección: no ocupa nada visible los primeros 300 ms */
+lukas-loader {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; min-height: 180px; padding: 24px 0;
+}
+lukas-loader.is-shown { animation: lukas-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Estados vacíos y de error con el personaje */
+.lukas-empty > lukas-orb, .lukas-error > lukas-orb { margin: 10px 0 14px; }
+.lukas-error h3 { letter-spacing: -0.01em; }
+
+/* Loader en línea dentro de botones (reemplaza al spinner genérico) */
+.btn lukas-orb.spinner { width: 22px; height: 22px; border: 0; border-radius: 0; animation: none; }
