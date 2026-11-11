@@ -8,7 +8,21 @@
 
 const synth = typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
 const KEY = 'lukas-voice';
-const DEFAULTS = { voiceURI: '', rate: 1, handsfree: true };
+const DEFAULTS = { voiceURI: '', rate: 1, handsfree: true, engine: 0 };
+
+/**
+ * Formas de usar la voz del sistema. En iPhone algunas combinaciones "hablan" sin sonar (según el modelo y la
+ * versión de iOS); "Probar voz" las recorre preguntando si se escuchó y guarda la que funciona en ese teléfono.
+ * voice: fijar la voz elegida (si no, iOS usa su voz por defecto del idioma) · keeper: audio silencioso de fondo
+ * que pone la página en modo reproducción.
+ */
+export const ENGINES = [
+  { voice: false, keeper: false },
+  { voice: true, keeper: false },
+  { voice: false, keeper: true },
+  { voice: true, keeper: true },
+];
+const engine = () => ENGINES[voicePrefs().engine] ?? ENGINES[0];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export const canSpeak = () => !!synth && typeof window.SpeechSynthesisUtterance !== 'undefined';
@@ -46,10 +60,13 @@ const GOOD = /enhanced|premium|mejorada|neural|natural|google/i;
 const LANG_RANK = ['es-co', 'es-mx', 'es-us', 'es-419'];
 const langOf = (v) => String(v.lang || '').replace('_', '-').toLowerCase();
 
+// En iOS las voces "Eloquence" (Eddy, Flo, Reed…) y las de efectos pueden listarse y no sonar en la web
+const BAD_URI = /eloquence|speech\.synthesis\.voice/i;
 function score(v) {
   const l = langOf(v);
   const r = LANG_RANK.indexOf(l);
-  return (r >= 0 ? r : 4) * 10 + (NOVELTY.test(v.name) ? 6 : 0) - (GOOD.test(v.name) ? 3 : 0) + (v.localService === false ? 1 : 0);
+  const bad = NOVELTY.test(v.name) || BAD_URI.test(v.voiceURI || '');
+  return (bad ? 100 : 0) + (r >= 0 ? r : 4) * 10 - (GOOD.test(v.name) ? 3 : 0) + (v.localService === false ? 1 : 0);
 }
 /** Voces en español, de la mejor a la peor (es-CO, es-MX, es-US, luego cualquier es-*) */
 export function spanishVoices(voices) {
@@ -141,8 +158,10 @@ let unlocked = false;
 /** Llamar SIEMPRE dentro de un toque: desbloquea la síntesis y el audio de reproducción (iOS) para la sesión. */
 export function unlockVoice() {
   // El ancla se "estrena" en el toque y se pausa enseguida si no hay nada que decir
-  const k = keeperEl();
-  try { k?.play()?.then(() => { if (!current) k.pause(); }).catch(() => {}); } catch { /* nada */ }
+  if (engine().keeper) {
+    const k = keeperEl();
+    try { k?.play()?.then(() => { if (!current) k.pause(); }).catch(() => {}); } catch { /* nada */ }
+  }
   if (!canSpeak() || unlocked) return;
   try {
     if (!synth.speaking) {
@@ -178,19 +197,20 @@ export function speak(text, { rate, onstart } = {}) {
   const voices = synth.getVoices();
   if (!voices.length) loadVoices(); // la próxima frase ya tendrá la mejor voz; esta usa la del idioma
   const voice = pickVoice(voices, prefs.voiceURI);
+  const eng = engine();
+  const setVoice = eng.voice || !!prefs.voiceURI; // si el usuario eligió una voz, se respeta
   const r = Math.min(1.5, Math.max(0.7, Number(rate ?? prefs.rate) || 1));
   // cancel() solo si hay una frase nuestra sonando: el ciclo cancel→speak inmediato a veces se "traga" la frase en Safari,
   // y la frase silenciosa del desbloqueo no hace falta cancelarla (dura un instante)
   if (current) stopSpeaking();
   releaseAudioContext();
-  audioSession('playback');
-  holdPlayback(true); // modo reproducción mientras habla (ver "ancla" arriba)
+  if (eng.keeper) { audioSession('playback'); holdPlayback(true); } // modo reproducción mientras habla (ver "ancla")
   if (synth.paused) synth.resume();
   unlocked = true;
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
-    try { if (voice) u.voice = voice; } catch { /* voz no válida: se usa el idioma */ }
-    u.lang = voice?.lang || 'es-CO';
+    try { if (voice && setVoice) u.voice = voice; } catch { /* voz no válida: se usa el idioma */ }
+    u.lang = (voice?.lang || 'es-MX').replace('_', '-');
     u.rate = r;
     u.pitch = 1;
     u.volume = 1;
@@ -201,7 +221,7 @@ export function speak(text, { rate, onstart } = {}) {
       clearTimeout(guard);
       current = null;
       finishCurrent = null;
-      holdPlayback(false);
+      if (eng.keeper) holdPlayback(false);
       resolve(how);
     };
     u.onstart = () => { if (!started) { started = true; onstart?.(); } };

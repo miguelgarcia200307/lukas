@@ -16,7 +16,7 @@ import { enablePush, disablePush, pushStatus, hasPushSubscription, syncPushSubsc
 import { isStandalone, maybePromptInstall } from '../install.js';
 import { micStatus, showPermissionHelp } from '../permissions.js';
 import { exportTransactionsCSV, exportAllJSON } from '../utils/export.js';
-import { unlockVoice, speak, stopSpeaking, playTestTone, loadVoices, spanishVoices, pickVoice, hasGoodSpanish, voicePrefs, setVoicePrefs, isIOS, canSpeak } from '../voice/speech.js';
+import { unlockVoice, speak, stopSpeaking, playTestTone, ENGINES, loadVoices, spanishVoices, pickVoice, hasGoodSpanish, voicePrefs, setVoicePrefs, isIOS, canSpeak } from '../voice/speech.js';
 import { testLine } from '../voice/talk.js';
 
 const rateLabel = (r) => `${Number(r).toFixed(2).replace(/0$/, '').replace('.', ',')}×`;
@@ -96,6 +96,7 @@ export function mount(screen) {
           <div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Probar voz</div>
               <div class="row-sub">${isIOS() ? 'Si no suena, quita el modo silencio y sube el volumen' : `Escucha cómo suena ${APP_NAME}`}</div></div>
             <button type="button" class="btn btn-accent btn-sm voice-test" data-voice-test>${icon('sparkles', { size: 16 })}<span>Probar</span></button></div>
+          <div class="voice-ask" data-voice-ask hidden aria-live="polite"></div>
           <div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">¿No se oye la voz?</div>
               <div class="row-sub">Prueba un pitido: si suena, el problema es la voz; si no, el volumen o el modo silencio</div></div>
             <button type="button" class="btn btn-secondary btn-sm voice-test" data-tone-test>${icon('bell', { size: 16 })}<span>Tono</span></button></div>
@@ -138,6 +139,9 @@ export function mount(screen) {
   };
 
   /** "Probar voz": habla dentro del mismo toque y muestra si de verdad sonó (o por qué pudo no sonar) */
+  // Calibración: el iPhone a veces "habla" sin sonar según cómo se use su voz. Tras probar, se pregunta si se
+  // escuchó; con "No" se prueba la siguiente forma en ese mismo toque y se guarda la que funcione.
+  const askBox = () => screen.querySelector('[data-voice-ask]');
   const testVoice = async (b) => {
     if (b.classList.contains('playing')) { stopSpeaking(); return; } // segundo toque: detener
     haptic.tap();
@@ -149,10 +153,35 @@ export function mount(screen) {
     const result = await speak(testLine(), { onstart: () => { started = true; label.textContent = 'Hablando… · Parar'; } });
     b.classList.remove('playing');
     label.textContent = 'Probar';
-    if (result === 'interrupted') return;
-    if (!started) {
-      toast(isIOS() ? 'El iPhone no reprodujo la voz. Quita el modo silencio, sube el volumen y prueba otra voz.' : 'No se pudo reproducir la voz. Prueba otra voz o sube el volumen.', { type: 'err', duration: 6500 });
+    const box = askBox();
+    if (result === 'interrupted' || !box) return;
+    box.hidden = false;
+    box.innerHTML = String(html`<div class="va-q">${started ? '¿Escuchaste a Lukas?' : 'El iPhone no arrancó la voz.'}</div>
+      <div class="va-actions">${started ? html`<button type="button" class="btn btn-secondary btn-sm" data-heard="yes">${icon('check', { size: 16 })}Sí, se oyó</button>` : ''}
+        <button type="button" class="btn btn-accent btn-sm" data-heard="no">${started ? 'No se oyó nada' : 'Probar otra forma'}</button></div>`);
+  };
+  const silentHelp = () => html`<div class="va-q">La voz del iPhone no sonó de ninguna forma</div>
+    <p>Como el tono sí suena, casi siempre es el <b>modo silencio</b>: el iPhone apaga su voz con él aunque el audio normal suene.</p>
+    <ol><li>iPhone 15 Pro o posterior: mantén presionado el <b>botón de acción</b> hasta ver “Modo silencio desactivado”.</li>
+      <li>Otros iPhone: mueve el <b>interruptor lateral</b> hacia la pantalla (que no se vea la franja naranja).</li>
+      <li>Sube el volumen con los botones <b>mientras</b> Lukas habla.</li>
+      <li>Si aún no suena, elige otra voz arriba (Paulina o Mónica) y vuelve a tocar <b>Probar</b>.</li></ol>`;
+  const onHeard = (e, btn) => {
+    const box = askBox();
+    if (btn.dataset.heard === 'yes') {
+      box.hidden = true;
+      toast('Perfecto: así quedará la voz de Lukas en este iPhone');
+      return;
     }
+    const next = (voicePrefs().engine ?? 0) + 1;
+    if (next >= ENGINES.length) {
+      setVoicePrefs({ engine: 0 });
+      box.innerHTML = String(silentHelp());
+      return;
+    }
+    setVoicePrefs({ engine: next });
+    box.innerHTML = String(html`<div class="va-q">Probando otra forma (${next + 1} de ${ENGINES.length})…</div>`);
+    testVoice(screen.querySelector('[data-voice-test]')); // dentro de este mismo toque: iOS lo permite
   };
 
   /** Voces en español disponibles en este dispositivo (cargan tarde) y ayuda si no hay una buena */
@@ -201,6 +230,7 @@ export function mount(screen) {
     on(screen, 'input', '[data-voice-rate]', (e, inp) => { const l = screen.querySelector('[data-rate-label]'); if (l) l.textContent = rateLabel(inp.value); }),
     on(screen, 'change', '[data-voice-rate]', (e, inp) => { unlockVoice(); setVoicePrefs({ rate: Number(inp.value) }); speak(testLine()); }),
     on(screen, 'click', '[data-voice-test]', (e, b) => testVoice(b)),
+    on(screen, 'click', '[data-heard]', onHeard),
     on(screen, 'click', '[data-tone-test]', async () => {
       haptic.tap();
       if (!(await playTestTone())) toast('El teléfono no dejó reproducir el sonido.', { type: 'err' });

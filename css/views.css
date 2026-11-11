@@ -546,3 +546,10 @@
 .voice-test.playing svg { animation: pulse 1s ease-in-out infinite; }
 @keyframes test-ring { 0% { box-shadow: 0 0 0 0 rgba(18, 135, 90, 0.45); } 100% { box-shadow: 0 0 0 12px rgba(18, 135, 90, 0); } }
 @media (prefers-reduced-motion: reduce) { .voice-test.playing, .voice-test.playing svg { animation: none; } }
+.voice-ask { margin: 0 var(--s-4) var(--s-3) calc(52px + var(--s-4)); padding: var(--s-3); border-radius: var(--r-md); background: var(--accent-softer); border: 1px solid var(--accent-soft); font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.45; animation: fade-up 300ms var(--spring) both; }
+.voice-ask[hidden] { display: none; }
+.va-q { font-weight: 700; color: var(--ink); }
+.va-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-2); }
+.voice-ask p { margin: 6px 0 0; }
+.voice-ask ol { margin: 6px 0 0; padding-left: 18px; }
+.voice-ask li + li { margin-top: 4px; }
