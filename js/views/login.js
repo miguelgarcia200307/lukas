@@ -32,7 +32,7 @@ export function mount(screen) {
           <div class="login-error" role="alert" hidden></div>
           <button class="btn btn-primary btn-block" type="submit"><span class="btn-label">Entrar</span><span class="spinner"></span></button>
         </form>
-        <p class="login-foot muted xsmall">Acceso privado · ${APP_NAME} es solo para su dueño.</p>
+        <p class="login-foot muted xsmall">Acceso privado · Desarrollado por MIGUEL GARCIA</p>
       </div>
     </div>`);
 

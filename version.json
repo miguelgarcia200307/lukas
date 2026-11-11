@@ -1,10 +1,7 @@
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "date": "2026-11-11",
   "notes": [
-    "Te avisamos de cada versión nueva y te contamos qué mejoró",
-    "Modo privado: oculta tus saldos en Más con el ojito",
-    "Lukas te responde en voz alta y puedes conversar sin tocar la pantalla",
-    "Varias compras en una frase: una tarjeta por categoría y te pregunta lo que falte"
+    "Nuevo pie en la pantalla de inicio de sesión: desarrollado por Miguel García"
   ]
 }
