@@ -16,7 +16,7 @@ import { enablePush, disablePush, pushStatus, hasPushSubscription, syncPushSubsc
 import { isStandalone, maybePromptInstall } from '../install.js';
 import { micStatus, showPermissionHelp } from '../permissions.js';
 import { exportTransactionsCSV, exportAllJSON } from '../utils/export.js';
-import { unlockVoice, speak, stopSpeaking, loadVoices, spanishVoices, pickVoice, hasGoodSpanish, voicePrefs, setVoicePrefs, isIOS, canSpeak } from '../voice/speech.js';
+import { unlockVoice, speak, stopSpeaking, playTestTone, loadVoices, spanishVoices, pickVoice, hasGoodSpanish, voicePrefs, setVoicePrefs, isIOS, canSpeak } from '../voice/speech.js';
 import { testLine } from '../voice/talk.js';
 
 const rateLabel = (r) => `${Number(r).toFixed(2).replace(/0$/, '').replace('.', ',')}×`;
@@ -96,6 +96,9 @@ export function mount(screen) {
           <div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">Probar voz</div>
               <div class="row-sub">${isIOS() ? 'Si no suena, quita el modo silencio y sube el volumen' : `Escucha cómo suena ${APP_NAME}`}</div></div>
             <button type="button" class="btn btn-accent btn-sm voice-test" data-voice-test>${icon('sparkles', { size: 16 })}<span>Probar</span></button></div>
+          <div class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">¿No se oye la voz?</div>
+              <div class="row-sub">Prueba un pitido: si suena, el problema es la voz; si no, el volumen o el modo silencio</div></div>
+            <button type="button" class="btn btn-secondary btn-sm voice-test" data-tone-test>${icon('bell', { size: 16 })}<span>Tono</span></button></div>
           <label class="list-row"><span class="cat-icon" style="--c:#12875A">${icon('repeat', { size: 20 })}</span>
             <div class="grow"><div class="row-title">Manos libres</div><div class="row-sub">Si ${APP_NAME} te pregunta algo, te vuelve a escuchar solo</div></div>
             ${sw('handsfree', vp.handsfree !== false, 'handsfree')}</label>
@@ -198,6 +201,10 @@ export function mount(screen) {
     on(screen, 'input', '[data-voice-rate]', (e, inp) => { const l = screen.querySelector('[data-rate-label]'); if (l) l.textContent = rateLabel(inp.value); }),
     on(screen, 'change', '[data-voice-rate]', (e, inp) => { unlockVoice(); setVoicePrefs({ rate: Number(inp.value) }); speak(testLine()); }),
     on(screen, 'click', '[data-voice-test]', (e, b) => testVoice(b)),
+    on(screen, 'click', '[data-tone-test]', async () => {
+      haptic.tap();
+      if (!(await playTestTone())) toast('El teléfono no dejó reproducir el sonido.', { type: 'err' });
+    }),
     on(screen, 'change', '[data-handsfree]', (e, inp) => { setVoicePrefs({ handsfree: inp.checked }); haptic.select(); }),
     on(screen, 'change', '[data-autosend]', (e, inp) => savePrefs({ voice_autosend: inp.checked })),
     on(screen, 'change', '[data-reminder]', (e, inp) => inp.value && savePrefs({ reminder_time: `${inp.value.slice(0, 2)}:00` })),

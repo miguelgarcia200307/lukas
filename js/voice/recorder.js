@@ -3,7 +3,7 @@
 // VAD simple: detecta si hubo voz y avisa tras ~1,5 s de silencio después de hablar (auto-envío).
 import { MAX_RECORDING_SECONDS } from '../config.js';
 import { AppError } from '../api/base.js';
-import { sharedAudioContext, audioSession } from './speech.js';
+import { sharedAudioContext, releaseAudioContext, audioSession } from './speech.js';
 
 function supportedMimeType() {
   if (typeof MediaRecorder === 'undefined') return null;
@@ -161,6 +161,7 @@ export class Recorder {
     // Micrófono liberado del todo: iOS vuelve de modo grabación a reproducción (para que Lukas se oiga)
     this.stream?.getTracks().forEach((t) => { t.stop(); t.enabled = false; });
     audioSession('auto');
+    releaseAudioContext(); // suspendido mientras no se graba: así no enmudece la voz de Lukas en iOS
     this.src = null;
     this.stream = null;
     this.ctx = null;

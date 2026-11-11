@@ -70,7 +70,10 @@ export function audioSession(type) {
 }
 
 let ctx = null;
-/** AudioContext compartido: se crea/reanuda dentro de un gesto y se reutiliza (grabador y señal sonora) */
+/**
+ * AudioContext compartido del grabador y la señal sonora. Solo se crea al grabar (no al hablar): en iOS un
+ * AudioContext activo deja el audio de la página en modo "ambiente", que el modo silencio enmudece.
+ */
 export function sharedAudioContext() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return null;
@@ -78,11 +81,68 @@ export function sharedAudioContext() {
   if (ctx.state === 'suspended') ctx.resume?.().catch?.(() => {});
   return ctx;
 }
+/** Suspende el AudioContext cuando no se graba ni suena la señal (para no interferir con la voz) */
+export function releaseAudioContext() {
+  try { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); } catch { /* nada */ }
+}
+
+// ── "Ancla" de reproducción: un <audio> silencioso que suena mientras Lukas habla. En iOS pone la página en modo
+// reproducción (suena aunque el iPhone esté en silencio y sale por el altavoz, no por el auricular).
+// Se le da play() por primera vez dentro de un toque; después iOS permite reusar ese mismo elemento sin toque.
+let keeper = null;
+function silentWav() {
+  const rate = 8000, n = 4000; // 0,5 s de silencio, PCM 8 bits mono
+  const b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate, true);
+  v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
+/** Diagnóstico: un pitido corto con un <audio> normal (no voz). Si suena esto pero no la voz, el problema es la voz. */
+export function playTestTone() {
+  const rate = 16000, n = Math.round(rate * 0.5);
+  const b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+  const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const env = Math.min(1, i / 400, (n - i) / 800);
+    const f = i < n / 2 ? 660 : 880;
+    v.setInt16(44 + i * 2, Math.round(Math.sin((2 * Math.PI * f * i) / rate) * 0.5 * env * 32767), true);
+  }
+  const a = new Audio(URL.createObjectURL(new Blob([b], { type: 'audio/wav' })));
+  a.setAttribute('playsinline', '');
+  audioSession('playback');
+  return a.play().then(() => true).catch(() => false);
+}
+
+function keeperEl() {
+  if (keeper || typeof document === 'undefined') return keeper;
+  keeper = document.createElement('audio');
+  keeper.src = silentWav();
+  keeper.loop = true;
+  keeper.preload = 'auto';
+  keeper.setAttribute('playsinline', '');
+  keeper.setAttribute('x-webkit-airplay', 'deny');
+  return keeper;
+}
+function holdPlayback(on) {
+  const k = keeperEl();
+  if (!k) return;
+  try {
+    if (on) { const p = k.play(); p?.catch?.(() => {}); } else k.pause();
+  } catch { /* nada */ }
+}
 
 let unlocked = false;
-/** Llamar SIEMPRE dentro de un toque: desbloquea la síntesis (iOS) y el audio para el resto de la sesión. */
+/** Llamar SIEMPRE dentro de un toque: desbloquea la síntesis y el audio de reproducción (iOS) para la sesión. */
 export function unlockVoice() {
-  sharedAudioContext();
+  // El ancla se "estrena" en el toque y se pausa enseguida si no hay nada que decir
+  const k = keeperEl();
+  try { k?.play()?.then(() => { if (!current) k.pause(); }).catch(() => {}); } catch { /* nada */ }
   if (!canSpeak() || unlocked) return;
   try {
     if (!synth.speaking) {
@@ -122,7 +182,9 @@ export function speak(text, { rate, onstart } = {}) {
   // cancel() solo si hay una frase nuestra sonando: el ciclo cancel→speak inmediato a veces se "traga" la frase en Safari,
   // y la frase silenciosa del desbloqueo no hace falta cancelarla (dura un instante)
   if (current) stopSpeaking();
+  releaseAudioContext();
   audioSession('playback');
+  holdPlayback(true); // modo reproducción mientras habla (ver "ancla" arriba)
   if (synth.paused) synth.resume();
   unlocked = true;
   return new Promise((resolve) => {
@@ -139,6 +201,7 @@ export function speak(text, { rate, onstart } = {}) {
       clearTimeout(guard);
       current = null;
       finishCurrent = null;
+      holdPlayback(false);
       resolve(how);
     };
     u.onstart = () => { if (!started) { started = true; onstart?.(); } };
@@ -191,5 +254,5 @@ export function chime() {
       o.stop(t + d + 0.16);
     });
   } catch { /* sin sonido */ }
-  return sleep(300);
+  return sleep(300).then(releaseAudioContext);
 }
