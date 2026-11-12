@@ -17,7 +17,8 @@ import { syncPushSubscription } from './push.js';
 import { unlockVoice } from './voice/speech.js';
 import { markVoiceUsed } from './ui/home-fx.js';
 import { initUpdates } from './update.js';
-import { AUTH, guardRoute } from './route-guard.js';
+import { AUTH, guardRoute, getLeaveGuard, setLeaveGuard } from './route-guard.js';
+import { initLookSync } from './lukas/sync.js';
 import './ui/lukas-orb.js'; // registra <lukas-orb> y <lukas-lockup>
 import { takeOff, land, inFlight, firstLoadToday, startPhrases } from './ui/orb-loader.js';
 
@@ -38,6 +39,7 @@ const ROUTES = [
   { path: 'categorias', load: () => import('./views/categories.js'), tab: 'mas', depth: 1 },
   { path: 'notificaciones', load: () => import('./views/notifications.js'), tab: 'inicio', depth: 1 },
   { path: 'ajustes', load: () => import('./views/settings.js'), tab: 'mas', depth: 1 },
+  { path: 'lukas', load: () => import('./views/lukas-studio.js'), tab: 'mas', chrome: false, depth: 1 },
 ];
 
 const TAB_ORDER = ['inicio', 'movimientos', 'reportes', 'mas'];
@@ -74,6 +76,14 @@ async function route() {
   const guard = guardRoute(match?.route ?? null, state.authStatus);
   if (guard.wait) return;
   if (guard.redirect) { navigate(guard.redirect, { replace: true }); return; }
+  // La vista actual puede pedir confirmación antes de salir (cambios sin guardar)
+  const leave = getLeaveGuard();
+  if (leave && current && match.route !== current.route && !match.route.public) {
+    let ok = true;
+    try { ok = await leave(); } catch (e) { console.error(e); }
+    if (!ok) { if (location.hash !== current.hash) history.pushState(history.state, '', current.hash); return; }
+    setLeaveGuard(null);
+  }
   const token = ++routing;
 
   closeAllSheets();
@@ -101,7 +111,7 @@ async function route() {
       if (r instanceof Promise) r.then((c) => { if (current?.screen === screen) current.cleanup = c; }).catch((e) => console.error(e));
       else cleanup = r;
     } catch (e) { console.error(e); }
-    current = { route: match.route, cleanup, screen };
+    current = { route: match.route, cleanup, screen, hash: location.hash };
     updateChrome(match.route);
     document.title = mod.title ? `${mod.title} · ${APP_NAME}` : APP_NAME;
   };
@@ -252,6 +262,7 @@ async function boot() {
   initTabbar();
   initInstall();
   const sync = initNetwork();
+  initLookSync(); // apariencia de Lukas por cuenta (sigue a state.session)
 
   let loadFailed = false;
   const loadData = async () => {

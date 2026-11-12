@@ -29,9 +29,11 @@ let failed = 0;
 const pages = fs.readdirSync(path.join(ROOT, 'scripts/ui-tests')).filter((f) => f.endsWith('.html'));
 for (const page of pages) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'lukas-ui-'));
+  // Presupuesto de tiempo virtual por página (meta ui-test-budget); 6 s por defecto
+  const budget = /<meta name="ui-test-budget" content="(\d+)">/.exec(fs.readFileSync(path.join(ROOT, 'scripts/ui-tests', page), 'utf8'))?.[1] ?? '6000';
   // spawn asíncrono: con spawnSync el servidor de este mismo proceso no podría responder
   const r = await new Promise((resolve) => {
-    const p = spawn(chrome, ['--headless=new', '--disable-gpu', '--no-first-run', `--user-data-dir=${profile}`, '--virtual-time-budget=6000',
+    const p = spawn(chrome, ['--headless=new', '--disable-gpu', '--no-first-run', `--user-data-dir=${profile}`, `--virtual-time-budget=${budget}`,
       '--window-size=390,900', '--dump-dom', `http://127.0.0.1:${port}/scripts/ui-tests/${page}`]);
     let stdout = '';
     const kill = setTimeout(() => p.kill(), 60000);

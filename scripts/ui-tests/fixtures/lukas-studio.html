@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prueba · editor de Lukas (marco)</title>
+<script type="importmap">{ "imports": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./supabase-stub.js" } }</script>
+<link rel="stylesheet" href="../../../css/tokens.css"><link rel="stylesheet" href="../../../css/base.css">
+<link rel="stylesheet" href="../../../css/components.css"><link rel="stylesheet" href="../../../css/views.css">
+<link rel="stylesheet" href="../../../css/animations.css"><link rel="stylesheet" href="../../../css/lukas.css">
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><div id="toast-root"></div>
+<script type="module">
+// Monta el editor de Lukas dentro de un iframe del ancho pedido (lo usa scripts/ui-tests/lukas-look.html)
+window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+window.cancelAnimationFrame = (id) => clearTimeout(id);
+const q = new URLSearchParams(location.search);
+await import('../../../js/ui/lukas-orb.js');
+const { setLook } = await import('../../../js/lukas/store.js');
+const { validateLook } = await import('../../../js/lukas/catalog.js');
+if (q.get('look')) setLook(validateLook(JSON.parse(q.get('look'))));
+const { mount } = await import('../../../js/views/lukas-studio.js');
+window.__unmount = mount(document.getElementById('scr'), { navigate() {} });
+window.__ready = true;
+</script></body></html>

@@ -25,3 +25,11 @@ export function guardRoute(route, status) {
  * - Reemplazo de una versión que ya controlaba la página, o el usuario tocó "Actualizar ahora": sí.
  */
 export const shouldReloadOnControllerChange = ({ wasControlled, userRequested }) => !!(userRequested || wasControlled);
+
+// ── Salida con cambios sin guardar ─────────────
+// Una vista puede registrar una pregunta antes de salir (p. ej. el editor de Lukas). El router la espera: si responde
+// false, se queda en la vista y se restaura el hash. Sin guard registrado, nada cambia.
+let leaveGuard = null;
+/** fn: async () => boolean (true = se puede salir). null lo quita. */
+export function setLeaveGuard(fn) { leaveGuard = typeof fn === 'function' ? fn : null; }
+export const getLeaveGuard = () => leaveGuard;

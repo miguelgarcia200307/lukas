@@ -111,6 +111,7 @@
 }
 .hb-orb { width: 24px; height: 24px; flex: none; }
 .hb-orb svg { width: 100%; height: 100%; display: block; }
+.hb-orb.has-look svg { overflow: visible; } /* el sombrero sobresale sin mover el cuerpo */
 .hb-title { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; min-width: 0; }
 .home-head .icon-btn svg { transform-origin: 50% 12%; }
 
@@ -154,6 +155,49 @@
 .orb-badge.invite::after { animation: badge-invite 1.8s var(--ease-default) 600ms infinite; }
 @keyframes badge-invite { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.6); opacity: 0; } }
 @keyframes badge-hint { 0% { transform: scale(1); opacity: 0.3; } 18%, 100% { transform: scale(1.5); opacity: 0; } }
+
+/* Accesorios de Lukas: dos SVG hermanos del canvas (detrás y delante), en el mismo recuadro del orbe */
+.orb-body > .hero-look { position: absolute; inset: 22px; width: calc(100% - 44px); height: calc(100% - 44px); overflow: visible; pointer-events: none; }
+/* Insignia del pincel: espejo de la del micrófono (abajo a la izquierda), flota con Lukas, por encima del botón de voz */
+.orb-style {
+  --bs: 40px;
+  position: absolute; z-index: 3; width: var(--bs); height: var(--bs);
+  left: calc(50% - (100% - 44px) * 0.195 - var(--bs) / 2);
+  top: calc(50% + (100% - 44px) * 0.195 - var(--bs) / 2);
+  display: grid; place-items: center; border-radius: 50%;
+  background: var(--surface); color: var(--accent);
+  border: 3px solid var(--bg);
+  box-shadow: 0 2px 6px rgba(20, 20, 19, 0.08), 0 6px 16px rgba(75, 59, 245, 0.16);
+  animation: lk-float 4.2s ease-in-out -1.3s infinite;
+  transition: scale var(--t-fast) var(--spring);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.orb-ring[data-tone="danger"] .orb-style { animation-duration: 3.2s; }
+.orb-style::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+.orb-style svg { width: 18px; height: 18px; }
+.orb-style:active { scale: 0.9; }
+.orb-style:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.orb-style::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; pointer-events: none; }
+.orb-style.invite::after { animation: badge-invite 1.8s var(--ease-default) 600ms 6; }
+/* Aviso de una sola vez: "¡Ahora puedes vestirme!" */
+.lk-home-bubble {
+  position: absolute; z-index: 4; left: 50%; top: 4%;
+  padding: 8px 14px; border-radius: var(--r-full);
+  background: var(--ink); color: #fff; font-size: var(--fs-sm); font-weight: 700; white-space: nowrap;
+  box-shadow: var(--sh-2); pointer-events: none;
+  transform: translateX(-50%);
+  animation: lk-bubble-in var(--spring-bouncy-d) var(--spring-bouncy) both;
+  transition: opacity 300ms var(--ease-default), transform 300ms var(--ease-default);
+}
+.lk-home-bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; background: var(--ink); transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
+.lk-home-bubble.out { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+@keyframes lk-bubble-in { from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.7); } }
+/* El personaje del encabezado abre el editor (área táctil de 44 px) */
+a.home-lukas { position: relative; border-radius: 50%; -webkit-tap-highlight-color: transparent; }
+a.home-lukas::before { content: ""; position: absolute; inset: -8px; border-radius: 50%; }
+a.home-lukas:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
+a.home-lukas:active lukas-orb { scale: 0.92; }
+a.home-lukas lukas-orb { transition: scale var(--t-fast) var(--spring); }
 
 .hero-left { margin-top: var(--s-1); font-size: var(--fs-sm); font-weight: 600; color: var(--ink-3); }
 .hero-sub { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-3); margin-top: 2px; }
@@ -224,7 +268,8 @@
 @keyframes row-glow { from { background: var(--accent-soft); } to { background: transparent; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .orb-float, .orb-badge::after, .orb-badge.invite::after, .up-pulse { animation: none; }
+  .orb-float, .orb-badge::after, .orb-badge.invite::after, .up-pulse, .orb-style, .orb-style.invite::after { animation: none; }
+  .lk-home-bubble { animation: fade-in 150ms both; }
   .home-head .grow { transform: none; }
   .home .list .is-new { animation: fade-in 150ms both; }
 }

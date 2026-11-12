@@ -20,6 +20,8 @@ import { Orb } from '../voice/orb.js';
 import { SUGGESTIONS, openVoice } from '../voice/voice-sheet.js';
 import { unlockVoice } from '../voice/speech.js';
 import { maybePromptInstall } from '../install.js';
+import { onLook, getLook, isClassic, sameLook } from '../lukas/store.js';
+import { discovered, markDiscovered } from '../lukas/sync.js';
 import { openTransactionDetail } from './transaction-form.js';
 
 export const title = 'Inicio';
@@ -43,7 +45,7 @@ export function mount(screen, { query, navigate }) {
     <div class="scroller">
       <div class="content home">
         <header class="home-head">
-          <span class="home-lukas" data-orb-slot><lukas-orb size="28"></lukas-orb></span>
+          <a class="home-lukas" href="#/lukas" aria-label="Personalizar a Lukas" data-orb-slot><lukas-orb size="28"></lukas-orb></a>
           <div class="grow">
             <div class="home-date muted small">${new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Bogota' }).format(new Date())}</div>
             <h1 class="home-greet">${hello}</h1>
@@ -110,6 +112,7 @@ export function mount(screen, { query, navigate }) {
           </div></div>
           <button class="orb-btn" aria-label="Hablar con Lukas" aria-describedby="orb-help">
             <span class="sr-only" id="orb-help">Registra un gasto o ingreso con tu voz. Mantén presionado para hablar mientras lo sostienes.</span></button>
+          <a class="orb-style ${discovered() ? '' : 'invite'}" href="#/lukas" aria-label="Personalizar a Lukas">${icon('sparkles', { size: 18, stroke: 2.2 })}</a>
         </div>
         ${limit ? html`<p class="hero-left num">${spent <= limit ? `Te quedan ${money(limit - spent)} hoy` : `Te pasaste ${money(spent - limit)} hoy`}</p>` : ''}
         <p class="hero-hint">Cuéntame qué gastaste</p>
@@ -150,8 +153,12 @@ export function mount(screen, { query, navigate }) {
       </section>` : ''}
     `);
 
+    heroLook?.destroy();
+    heroLook = null;
     orb?.destroy();
     orb = new Orb(body.querySelector('.home-orb'), { compact: false });
+    ensureHeroLook();
+    if (first) discoverStyle();
     countTo(body.querySelector('[data-spent]'), shown?.spent ?? 0, spent, { delay: first && intro ? 80 : 0 });
     playRing(body, { from: shown?.pct ?? 0, to: pct, fromTone: shown?.tone, tone, first: !shown });
     body.querySelectorAll('.edge-fade').forEach(paintEdges);
@@ -159,10 +166,51 @@ export function mount(screen, { query, navigate }) {
     if (fresh.size) {
       orb.cue('ok');
       hop(body.querySelector('.orb-body'));
+      heroLook?.kick(1);
     }
     shown = { spent, pct, tone, ids: new Set(recent.map((t) => t.id)) };
     paintUnread(state.unread);
   };
+
+  // Accesorios de Lukas sobre el orbe grande (solo si la cuenta tiene alguno: se cargan de forma diferida)
+  let heroLook = null, heroLoading = false;
+  function ensureHeroLook() {
+    if (heroLook || heroLoading || !orb || isClassic(getLook())) return;
+    heroLoading = true;
+    const target = orb;
+    import('../lukas/hero-look.js').then((m) => {
+      heroLoading = false;
+      if (!orb || orb !== target || !screen.isConnected) { ensureHeroLook(); return; }
+      heroLook = m.attachHeroLook(orb, body.querySelector('.orb-body'));
+    }).catch((e) => { heroLoading = false; console.error(e); });
+  }
+  // Barra compacta: el mismo Lukas con su look (SVG estático, versión mini)
+  function paintBarOrb(cfg) {
+    const slot = screen.querySelector('.hb-orb');
+    if (!slot) return;
+    if (isClassic(cfg)) { slot.innerHTML = staticOrbSvg({ id: 'hb' }); slot.classList.remove('has-look'); return; }
+    import('../lukas/layer.js').then((m) => {
+      if (!slot.isConnected || !sameLook(getLook(), cfg)) return;
+      slot.innerHTML = m.lookSvg(cfg, { tier: 'mini', simple: true, viewBox: '22 22 76 76' });
+      slot.classList.add('has-look');
+    }).catch((e) => console.error(e));
+  }
+  // Primera vez (una por cuenta): la insignia del pincel pulsa y Lukas avisa que ya se puede vestir
+  function discoverStyle() {
+    if (discovered()) return;
+    markDiscovered();
+    const ring = body.querySelector('.orb-ring');
+    if (!ring) return;
+    const b = document.createElement('div');
+    b.className = 'lk-home-bubble';
+    b.setAttribute('role', 'status');
+    b.textContent = '¡Ahora puedes vestirme! ✨';
+    setTimeout(() => {
+      if (!ring.isConnected) return;
+      ring.appendChild(b);
+      setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 400); }, 4600);
+    }, 900);
+  }
 
   // Personaje del header: procesa durante sincronizaciones y recargas en segundo plano (sin bloquear nada)
   const headOrb = screen.querySelector('.home-lukas lukas-orb');
@@ -208,6 +256,7 @@ export function mount(screen, { query, navigate }) {
       animate(ob, [{ transform: 'scale(1)' }, { transform: 'scale(1.08, 0.92)' }], { duration: spring.snappy.duration, easing: spring.snappy.easing, fill: 'forwards' });
       return;
     }
+    heroLook?.kick(0.7);
     ob.getAnimations?.().forEach((a) => a.cancel());
     animate(ob, [{ transform: 'scale(1.08, 0.92)' }, { transform: 'scale(0.95, 1.12)', offset: 0.3 }, { transform: 'scale(1.02, 0.96)', offset: 0.62 }, { transform: 'scale(1)' }], { duration: 560 });
   };
@@ -261,6 +310,8 @@ export function mount(screen, { query, navigate }) {
     }),
     on(screen, 'click', '.up-card', () => haptic.select()),
     on(screen, 'click', '.home-head .icon-btn', () => haptic.select()),
+    on(screen, 'click', '.orb-style, .home-lukas', () => haptic.select()),
+    onLook((cfg) => { ensureHeroLook(); paintBarOrb(cfg); }),
     edgeFades(screen),
     collapsingHeader(screen, scroller),
     (() => {
@@ -295,6 +346,7 @@ export function mount(screen, { query, navigate }) {
   return () => {
     offs.forEach((f) => f());
     clearTimeout(installTimer);
+    heroLook?.destroy();
     orb?.destroy();
   };
 }

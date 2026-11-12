@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba · apariencia de Lukas</title>
+<meta name="ui-test-budget" content="20000">
+<script type="importmap">{ "imports": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js" } }</script>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/animations.css">
+<link rel="stylesheet" href="../../css/lukas.css">
+<style>body { position: static; overflow: auto; } #app { position: relative; height: 900px; } #results { display: none; }
+  #hit { position: absolute; left: 0; top: 0; width: 576px; height: 576px; } #frames iframe { border: 0; display: block; }</style>
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><div id="hit"></div><div id="frames"></div>
+<div id="toast-root"></div><pre id="results"></pre>
+<script type="module">
+// Apariencia de Lukas (la corre scripts/ui-tests/run.mjs en Chrome sin interfaz): catálogo en los tres tamaños, ojos y
+// boca siempre libres, reglas y "Sorpréndeme", motor en todos los estados, movimiento reducido, persistencia por cuenta
+// (sin conexión, reconexión, conflicto y dos cuentas), editor en 320–1280 px, el Inicio y cero errores en consola.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra).slice(0, 300) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 3000) => { for (let t = 0; t < ms; t += 25) { if (f()) return true; await wait(25); } return false; };
+const errors = [];
+const ce = console.error.bind(console);
+console.error = (...a) => { errors.push(a.map((x) => x?.message ?? String(x)).join(' ')); ce(...a); };
+window.addEventListener('error', (e) => errors.push(e.message));
+window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason?.message ?? e.reason)));
+try {
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  let online = true;
+  Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
+  localStorage.clear();
+
+  const cat = await import('../../js/lukas/catalog.js');
+  const L = await import('../../js/lukas/layer.js');
+  const store = await import('../../js/lukas/store.js');
+  const orbMod = await import('../../js/ui/lukas-orb.js');
+  const { ITEMS, SLOTS, itemsOf, validateLook, equip, surprise, describe, conflictText, BY_ID } = cat;
+
+  // ── Catálogo ──
+  check('catálogo completo (7 slots, 67 ítems)', ITEMS.length === 67 && SLOTS.every((s) => itemsOf(s).length >= 5), ITEMS.length);
+  const bad = [];
+  for (const it of ITEMS) for (const tier of ['grande', 'medio', 'mini']) {
+    const svg = L.lookSvg({ [it.slot]: it.id }, { tier, simple: tier === 'mini' });
+    if (/NaN|undefined|\[object/.test(svg)) bad.push(`${it.id}/${tier}`);
+  }
+  check('todos los ítems se dibujan en grande, medio y mini sin valores rotos', !bad.length, bad.join(','));
+  check('cada ítem tiene los campos del catálogo', ITEMS.every((i) => i.id && i.slot && i.nombre && i.icono && i.anclaje && i.piezas && 'coloreable' in i && i.colorPorDefecto && 'clipAlCuerpo' in i && 'animacion' in i && Array.isArray(i.ocultaSlots) && 'varianteCon' in i && Array.isArray(i.incompatibleCon) && 'versionMini' in i));
+
+  // ── Ojos y boca libres (prueba de impacto real sobre el SVG dibujado) ──
+  const hit = document.getElementById('hit');
+  const toPx = (x, y) => [hit.getBoundingClientRect().left + (x + 12) * 4, hit.getBoundingClientRect().top + (y + 12) * 4];
+  const EYES = [];
+  for (const ex of [50.5, 69.5]) for (const dx of [-1.5, 0, 1.5]) for (const y of [47, 51, 55, 59, 63]) EYES.push([ex + dx, y]);
+  const MOUTH = [[60, 71], [56.5, 71], [63.5, 71], [60, 67.6], [60, 74.4]];
+  const covered = [];
+  for (const it of ITEMS) {
+    for (const tier of ['grande', 'mini']) {
+      hit.innerHTML = L.lookSvg({ [it.slot]: it.id }, { tier });
+      hit.firstElementChild.style.cssText = 'width:576px;height:576px';
+      const front = (x, y) => document.elementsFromPoint(...toPx(x, y)).some((e) => e.closest?.('[data-capa="adelante"]'));
+      if (it.slot !== 'gafas') for (const [x, y] of EYES) if (front(x, y)) { covered.push(`${it.id}/${tier} ojo ${x},${y}`); break; }
+      for (const [x, y] of MOUTH) if (front(x, y)) { covered.push(`${it.id}/${tier} boca ${x},${y}`); break; }
+    }
+  }
+  hit.innerHTML = '';
+  check('ningún ítem tapa los ojos ni la boca (los que tocan la cara van debajo)', !covered.length, covered.join(' · '));
+  // Gafas: todo lo que queda encima del centro de los ojos es semitransparente o solo un trazo (los ojos se ven)
+  const opaque = [];
+  const effOpacity = (n) => { let o = 1; for (let e = n; e && e.tagName !== 'svg'; e = e.parentElement) o *= +(e.getAttribute?.('opacity') ?? 1); return o * +(getComputedStyle(n).fillOpacity || 1); };
+  for (const it of itemsOf('gafas')) {
+    hit.innerHTML = L.lookSvg({ gafas: it.id }, { tier: 'grande' });
+    hit.firstElementChild.style.cssText = 'width:576px;height:576px';
+    for (const [x, y] of [[50.5, 55], [69.5, 55], [50.5, 51], [69.5, 59]]) {
+      const over = document.elementsFromPoint(...toPx(x, y)).filter((e) => e.closest?.('[data-capa="adelante"]') && e.getAttribute('fill') !== 'none');
+      if (over.some((e) => effOpacity(e) > 0.62)) { opaque.push(it.id); break; }
+    }
+  }
+  hit.innerHTML = '';
+  hit.style.display = 'none';
+  check('las gafas dejan ver los ojos (lentes semitransparentes)', !opaque.length, opaque.join(','));
+  const skinOk = ITEMS.filter((i) => i.slot === 'vello' || i.slot === 'cara').every((i) => /clip-path/.test(L.lookSvg({ [i.slot]: i.id })) && L.lookSvg({ [i.slot]: i.id }).includes('data-capa="piel"'));
+  check('vello y detalles de cara van en la piel, recortados con la silueta', skinOk);
+
+  // ── Variantes, ocultos y mini ──
+  const ids = (p) => p.map((x) => `${x.item.id}${x.v ? `:${x.v}` : ''}`).join(',');
+  check('cabello bajo el sombrero usa su variante', ids(L.plan({ cabello: 'copete', cabeza: 'gorra' })) === 'copete:bajo,gorra', ids(L.plan({ cabello: 'copete', cabeza: 'gorra' })));
+  check('la cresta se oculta bajo una gorra y se ve con la corona', ids(L.plan({ cabello: 'mohicana', cabeza: 'gorra' })) === 'gorra' && ids(L.plan({ cabello: 'mohicana', cabeza: 'corona' })) === 'mohicana,corona');
+  check('mini: sin extras ni detalles pequeños', ids(L.plan({ cabeza: 'gorra', extras: 'globo', cara: 'pecas', vello: 'lapiz' }, 'mini')) === 'gorra');
+
+  // ── Reglas ──
+  const r = equip({ vello: 'bigote', cabeza: 'gorra' }, 'gafas', 'nariz');
+  check('conflicto: las gafas con nariz quitan el bigote', !r.config.vello && r.config.gafas === 'nariz' && r.config.cabeza === 'gorra' && r.removed[0]?.id === 'bigote');
+  check('aviso del conflicto', conflictText(r.removed[0], BY_ID.get('nariz')) === 'Lukas se quitó el bigote clásico para ponerse las gafas con nariz');
+  check('al cargar se descartan IDs desconocidos, slots cruzados y colores fuera de la paleta',
+    JSON.stringify(validateLook({ cabeza: 'nope', gafas: 'gorra', cuello: 'bufanda', vello: 'bigote', colores: { cuello: '#123456', vello: '#E5484D' }, x: '<svg>' })) === JSON.stringify({ vello: 'bigote', cuello: 'bufanda', colores: { vello: '#E5484D' } }));
+  check('validar no deja combinaciones incompatibles', JSON.stringify(validateLook({ gafas: 'nariz', vello: 'bigote' })) === JSON.stringify({ gafas: 'nariz' }));
+  let rnd = [], prev = {};
+  for (let i = 0; i < 120; i++) {
+    const s = surprise(prev);
+    if (JSON.stringify(validateLook(s)) !== JSON.stringify(s) || store.isClassic(s) || store.sameLook(s, prev) || (s.gafas === 'nariz' && s.vello)) rnd.push(JSON.stringify(s));
+    prev = s;
+  }
+  check('"Sorpréndeme" 120 veces: siempre válido, nunca vacío ni repetido', !rnd.length, rnd[0]);
+  check('aria-label dinámico', describe({ cabeza: 'vueltiao', gafas: 'redondas' }) === 'Lukas con sombrero vueltiao y gafas redondas' && describe({}) === 'Lukas');
+
+  // ── Motor SVG (todas las <lukas-orb>) ──
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;left:0;top:620px;width:240px;height:240px';
+  document.body.appendChild(host);
+  host.innerHTML = '<lukas-orb size="220" look="none"></lukas-orb><lukas-orb size="28" id="mini"></lukas-orb><lukas-orb size="96" id="classic"></lukas-orb>';
+  const big = host.querySelector('lukas-orb');
+  const cfg1 = validateLook({ cabeza: 'lana', cabello: 'afro', gafas: 'aviador', vello: 'barba', cuello: 'capa', cara: 'rubor', extras: 'globo' });
+  big.setLook(cfg1, { animate: false });
+  await until(() => big.engine.layer);
+  const sq = big.engine.n.squash;
+  const kids = [...sq.children];
+  const iBody = kids.indexOf(big.engine.n.body), iFace = kids.indexOf(big.engine.n.face);
+  check('accesorios dentro del grupo animado del cuerpo (atrás → cuerpo → piel → cara → adelante)',
+    big.engine.layer && kids.indexOf(kids.find((k) => k.querySelector?.('[data-slot="cuello"] [data-item]'))) < iBody && kids[iFace - 1].querySelector('[clip-path]') && kids[kids.length - 1].querySelector('[data-item]'));
+  const clipUse = big.engine.n.svg.querySelector('clipPath use');
+  check('la piel se recorta con la silueta exacta del cuerpo', clipUse && clipUse.getAttribute('href') === `#${big.engine.n.body.id}`);
+  check('aria-label del personaje con su look', big.engine.n.svg.getAttribute('aria-label') === describe(cfg1), big.engine.n.svg.getAttribute('aria-label'));
+  check('la caja del SVG crece para sombreros y capas sin mover el cuerpo', big.engine.n.svg.getAttribute('viewBox') === '-12 -12 144 144');
+  const nanFree = () => ![...big.engine.n.svg.querySelectorAll('*')].some((n) => [...n.attributes].some((a) => /NaN|Infinity/.test(a.value)));
+  const states = [];
+  for (const st of ['intro', 'rest', 'thinking', 'done', 'error', 'rest']) { big.play(st); await wait(260); states.push(nanFree()); }
+  big.talk(true); await wait(300);
+  const talkMo = big.engine.v.mo;
+  big.talk(false);
+  for (const fx of ['cosquillas', 'timido', 'arriba', 'ajuste', 'presume', 'feliz', 'pose1', 'pose2', 'pose3']) { big.react(fx); await wait(90); states.push(nanFree()); }
+  check('todos los estados con accesorios (reposo, procesando, feliz, error, intro, hablando y reacciones) sin valores rotos', states.every(Boolean));
+  check('Lukas habla: la boca se abre y el vello la acompaña', talkMo > 0.05 && big.engine.n.svg.querySelector('[data-slot="vello"] [data-item]'), talkMo);
+  check('movimiento secundario: los nodos animados tienen transform', [...big.engine.n.svg.querySelectorAll('[data-a]')].some((n) => /rotate|translate|scale/.test(n.getAttribute('transform') ?? '')));
+  // Equipar con animación y quitar con suavidad
+  big.setLook(validateLook({ cabeza: 'corona', gafas: 'redondas' }), { animate: true });
+  await wait(60);
+  const busyMid = big.engine.layer.busy;
+  await until(() => !big.engine.layer.busy, 2500);
+  const shown = [...big.engine.n.svg.querySelectorAll('[data-item]')].map((n) => n.dataset.item);
+  check('equipar entra animado y lo quitado sale y se elimina', busyMid && new Set(shown).size === 2 && shown.includes('corona') && shown.includes('redondas'), shown.join(','));
+  // Movimiento reducido
+  orbMod.LukasOrbSettings.reducedOverride = true;
+  big.setLook(validateLook({ cabeza: 'lana', extras: 'mariposa', gafas: 'redondas' }), { animate: true });
+  await wait(400);
+  const rmNodes = [...big.engine.n.svg.querySelectorAll('[data-a]')].filter((n) => n.dataset.a !== 'destello');
+  check('movimiento reducido: sin movimiento secundario', rmNodes.length && rmNodes.every((n) => !n.getAttribute('transform')), rmNodes.map((n) => n.getAttribute('transform')).join('|'));
+  orbMod.LukasOrbSettings.reducedOverride = null;
+
+  // ── Apariencia de la cuenta: todos los <lukas-orb> la siguen sin recargar ──
+  const mini = host.querySelector('#mini'), classic = host.querySelector('#classic');
+  check('Lukas clásico: no carga la capa ni cambia la caja', !classic.engine.layer && classic.engine.n.svg.getAttribute('viewBox') === '0 0 120 120' && !mini.engine.layer);
+  store.setLook(validateLook({ cabeza: 'gorra', extras: 'globo', cara: 'pecas', gafas: 'redondas' }));
+  await until(() => mini.engine.layer && classic.engine.layer);
+  await wait(900);
+  const miniItems = [...new Set([...mini.engine.n.svg.querySelectorAll('[data-item]')].map((n) => n.dataset.item))].sort().join(',');
+  check('el avatar mini muestra el look (versión mini, sin extras ni pecas)', miniItems === 'gorra,redondas', miniItems);
+  check('los demás Lukas cambian al instante', classic.engine.n.svg.querySelectorAll('[data-item="gorra"]').length > 0);
+  store.setLook({});
+  await wait(500);
+  check('volver al clásico quita todo de todos', !classic.engine.n.svg.querySelector('[data-item]') && classic.engine.n.svg.getAttribute('viewBox') === '0 0 120 120' && !mini.engine.n.svg.querySelector('[data-item]'),
+    `${classic.engine.n.svg.querySelectorAll('[data-item]').length} ${classic.engine.n.svg.getAttribute('viewBox')} ${classic.engine.running} ${classic.engine.layer.layer.exiting.length} ${mini.engine.n.svg.querySelectorAll('[data-item]').length}`);
+
+  // ── Persistencia por cuenta (Supabase falso) ──
+  const { state } = await import('../../js/state.js');
+  const sync = await import('../../js/lukas/sync.js');
+  let rows = {}; const rpcCalls = [];
+  window.__from = () => {
+    const q = { _uid: null, select() { return q; }, eq(k, v) { q._uid = v; return q; }, maybeSingle() { return Promise.resolve({ data: rows[q._uid] ?? null, error: null }); } };
+    return q;
+  };
+  window.__rpcAsync = (fn, args) => {
+    if (fn !== 'guardar_lukas_apariencia') return Promise.resolve({ data: null, error: null });
+    rpcCalls.push(args);
+    if (!online) return Promise.resolve({ data: null, error: { message: 'Failed to fetch' } });
+    const uid = state.session?.user?.id;
+    const cur = rows[uid];
+    if (!cur || Date.parse(cur.updated_at) < Date.parse(args.p_updated_at)) rows[uid] = { config: args.p_config, version: args.p_version, updated_at: args.p_updated_at };
+    return Promise.resolve({ data: rows[uid], error: null });
+  };
+  sync.initLookSync();
+  state.session = { user: { id: 'cuenta-a' } };
+  await wait(150);
+  check('sin configuración: Lukas clásico', store.isClassic(store.getLook()));
+  await sync.saveLook({ cabeza: 'vueltiao', colores: { cabeza: '#E5484D' } });
+  await until(() => rows['cuenta-a']);
+  check('guardado optimista: se ve al instante y se sube a la cuenta', store.getLook().cabeza === 'vueltiao' && rows['cuenta-a']?.config.cabeza === 'vueltiao' && !JSON.stringify(rows['cuenta-a'].config).includes('<'));
+  check('caché local con el user_id en la clave', !!localStorage.getItem('lukas.look.v1.cuenta-a'));
+  // Sin conexión → en cola → al volver la red se sincroniza
+  online = false;
+  await sync.saveLook({ cabeza: 'corona', gafas: 'corazon' });
+  await wait(100);
+  check('sin conexión: cambia al instante y queda pendiente', store.getLook().cabeza === 'corona' && JSON.parse(localStorage.getItem('lukas.look.v1.cuenta-a')).pending === true && rows['cuenta-a'].config.cabeza === 'vueltiao');
+  online = true;
+  window.dispatchEvent(new Event('online'));
+  await until(() => rows['cuenta-a'].config.cabeza === 'corona');
+  await wait(50);
+  check('al volver la red se reintenta y sincroniza', rows['cuenta-a'].config.gafas === 'corazon' && !JSON.parse(localStorage.getItem('lukas.look.v1.cuenta-a')).pending);
+  // Conflicto: otro dispositivo guardó después → gana el más reciente
+  rows['cuenta-a'] = { config: { cuello: 'capa', cabeza: 'inventado', colores: { cuello: '#000000' } }, version: 1, updated_at: new Date(Date.now() + 60000).toISOString() };
+  await sync.pull();
+  check('conflicto: gana el updated_at más reciente (y se valida contra el catálogo)', JSON.stringify(store.getLook()) === JSON.stringify({ cuello: 'capa' }), JSON.stringify(store.getLook()));
+  // Dos cuentas en el mismo dispositivo
+  state.session = { user: { id: 'cuenta-b' } };
+  await wait(150);
+  check('otra cuenta en el mismo dispositivo no hereda la apariencia', store.isClassic(store.getLook()) && !localStorage.getItem('lukas.look.v1.cuenta-a'));
+  await sync.saveLook({ gafas: 'pixel' });
+  state.session = null;
+  await wait(50);
+  check('al cerrar sesión se limpia la caché de esa cuenta', !localStorage.getItem('lukas.look.v1.cuenta-b') && store.isClassic(store.getLook()));
+  state.session = { user: { id: 'cuenta-a' } };
+  await until(() => store.getLook().cuello === 'capa');
+  check('la cuenta A recupera su Lukas desde el servidor', store.getLook().cuello === 'capa');
+  window.__rpcAsync = null; window.__from = null;
+  state.session = null;
+  await wait(30);
+
+  // ── Editor en 320, 375, 414, 768 y 1280 px ──
+  const look = encodeURIComponent(JSON.stringify({ cabeza: 'vueltiao', gafas: 'redondas', vello: 'bigote', cuello: 'bufanda' }));
+  const frames = [[320, 568], [375, 667], [414, 896], [768, 1024], [1280, 800]].map(([w, h]) => {
+    const f = document.createElement('iframe');
+    f.width = w; f.height = h;
+    f.src = `./fixtures/lukas-studio.html?look=${look}`;
+    document.getElementById('frames').appendChild(f);
+    return f;
+  });
+  await until(() => frames.every((f) => f.contentWindow?.__ready && f.contentDocument.querySelector('.lk-screen')?.style.opacity === ''), 4000);
+  await wait(250);
+  for (const f of frames) {
+    const d = f.contentDocument, w = f.contentWindow;
+    const W = w.innerWidth, H = w.innerHeight;
+    const over = d.documentElement.scrollWidth > W || [...d.querySelectorAll('.lk-studio *')].some((n) => { const b = n.getBoundingClientRect(); return b.width && b.right > W + 0.5 && !n.closest('.lk-tabs, .lk-colors, .lk-stage, svg'); });
+    const small = [...d.querySelectorAll('.lk-tab, .lk-card, .lk-swatch, .lk-actions .btn, .lk-top .icon-btn')].filter((n) => { const b = n.getBoundingClientRect(); return b.width && (b.width < 43.5 || b.height < 43.5); });
+    const act = d.querySelector('.lk-actions').getBoundingClientRect();
+    const sel = d.querySelector('.lk-card[aria-checked="true"]')?.dataset.pick;
+    check(`editor a ${W}px: sin desborde horizontal, toques ≥ 44 px y acciones a la vista`, !over && !small.length && act.bottom <= H + 0.5 && act.top > H * 0.6, `${over} ${small.map((n) => n.className).join(',')} ${act.bottom}/${H}`);
+    if (W === 375) check('el ítem equipado está marcado en la grilla', sel === 'vueltiao', sel);
+  }
+  // Interacción completa en 375 px
+  const f = frames[1], d = f.contentDocument;
+  const lk = () => d.querySelector('.lk-hero lukas-orb');
+  d.querySelector('[data-tab="gafas"]').click();
+  await wait(50);
+  d.querySelector('[data-pick="nariz"]').click();
+  await wait(80);
+  const toastTxt = d.getElementById('toast-root').textContent;
+  check('al equipar con conflicto se resuelve solo y avisa', toastTxt.includes('Lukas se quitó el bigote clásico para ponerse las gafas con nariz') && d.querySelector('[data-tab="vello"] .lk-dot:not(.on)'), toastTxt);
+  check('Guardar se habilita con cambios y Deshacer queda disponible', !d.querySelector('[data-save]').disabled && !d.querySelector('[data-undo]').disabled);
+  d.querySelector('[data-undo]').click();
+  await wait(60);
+  check('Deshacer vuelve al estado anterior', d.querySelector('[data-tab="vello"] .lk-dot.on') && d.querySelector('[data-pick="redondas"][aria-checked="true"]'));
+  d.querySelector('[data-tab="cabeza"]').click();
+  await wait(40);
+  d.querySelector('[data-pick="gorra"]').click();
+  await wait(40);
+  check('fila de colores solo para ítems coloreables', !d.querySelector('.lk-colors').hidden && d.querySelectorAll('.lk-swatch').length === 12);
+  d.querySelector('[data-color="#2BB3C0"]').click();
+  await wait(60);
+  check('el color cambia solo el accesorio (variables --acc-1)', [...lk().engine.n.svg.querySelectorAll('[data-item="gorra"]')].some((g) => g.style.getPropertyValue('--acc-1') === '#2BB3C0'));
+  d.querySelector('[data-pick="vueltiao"]').click();
+  await wait(40);
+  check('sin color para ítems no coloreables', d.querySelector('.lk-colors').hidden);
+  for (let i = 0; i < 8; i++) { d.querySelector('[data-surprise]').click(); await wait(30); }
+  check('"Sorpréndeme" repetido deja un Lukas válido', d.querySelector('.lk-hero').getAttribute('aria-label').startsWith('Lukas con'));
+  d.querySelector('[data-classic]').click();
+  await until(() => d.querySelector('.lk-dialog'));
+  check('"Lukas clásico" pide confirmación', !!d.querySelector('.lk-dialog'));
+  d.querySelector('.lk-dialog [data-a="ok"]').click();
+  await wait(80);
+  check('clásico: sin accesorios (y se sonroja)', d.querySelector('.lk-hero').getAttribute('aria-label').startsWith('Lukas.') && lk().engine.fx?.name === 'timido');
+  // Teclado: flechas en las pestañas
+  d.querySelector('.lk-tab[aria-selected="true"]').focus();
+  d.querySelector('.lk-tab[aria-selected="true"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  await wait(30);
+  check('pestañas navegables con teclado', d.activeElement?.classList.contains('lk-tab') && d.activeElement.dataset.tab === 'cabello');
+  d.querySelector('.lk-hero').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await wait(40);
+  check('tocar a Lukas: cosquillas (risa en la burbuja)', lk().engine.fx?.name === 'cosquillas' && /ja|Ay|Jiji/i.test(d.querySelector('.lk-bubble').textContent), d.querySelector('.lk-bubble').textContent);
+  d.querySelector('[data-tab="looks"]').click();
+  await wait(40);
+  d.querySelector('[data-look="costeno"]').click();
+  await wait(60);
+  check('looks sugeridos con un toque', d.querySelector('.lk-hero').getAttribute('aria-label') === 'Lukas con sombrero vueltiao, bigote clásico y pañoleta. Toca para hacerle cosquillas', d.querySelector('.lk-hero').getAttribute('aria-label'));
+  d.querySelector('[data-save]').click();
+  await wait(120);
+  check('guardar: celebra y queda guardado', d.querySelector('[data-save]').disabled && d.querySelector('.lk-bubble').textContent.includes('¡Quedé brutal!'));
+  frames.forEach((x) => { try { x.contentWindow.__unmount?.(); } catch { /* nada */ } x.remove(); });
+
+  // ── Inicio: insignia del pincel, avatar y accesorios sobre el orbe de voz ──
+  window.__rpc = (fn) => (fn === 'home_summary' ? { daily_limit: 40000, today_expense: 1000, unread: 0, budgets: [], upcoming: [], recent: [], month_expense: 0, month_income: 0 } : null);
+  state.profile = { name: 'Ana' };
+  store.setLook(validateLook({ cabeza: 'gorra', vello: 'bigote', gafas: 'redondas' }));
+  const { mount } = await import('../../js/views/home.js');
+  const screen = document.getElementById('scr');
+  const unmount = mount(screen, { query: {}, navigate() {} });
+  await until(() => screen.querySelectorAll('.orb-body > .hero-look').length === 2, 4000);
+  await wait(1200);
+  document.getAnimations().forEach((a) => { try { if (a.effect.getComputedTiming().endTime !== Infinity) a.finish(); } catch { /* infinita */ } });
+  const cv = screen.querySelector('.home-orb'), ringW = screen.querySelector('.orb-ring').offsetWidth;
+  check('Inicio: accesorios sobre el orbe en capas SVG hermanas del canvas', screen.querySelectorAll('.orb-body > .hero-look').length === 2 && screen.querySelector('.hero-look.is-front [data-item="gorra"]'));
+  check('Inicio: el orbe de voz sigue intacto', cv.offsetLeft === 22 && cv.offsetWidth === ringW - 44 && screen.querySelector('.orb-btn').getAttribute('aria-label') === 'Hablar con Lukas');
+  const badge = screen.querySelector('.orb-style'), bb = badge.getBoundingClientRect();
+  const atBadge = document.elementFromPoint(bb.left + bb.width / 2, bb.top + bb.height / 2);
+  const mic = screen.querySelector('.orb-badge').getBoundingClientRect();
+  check('insignia del pincel: enlace al editor, del lado opuesto al micrófono y por encima del botón de voz', badge.getAttribute('href') === '#/lukas' && !badge.closest('.orb-btn') && badge.contains(atBadge) && bb.left < mic.left && Math.abs(bb.top - mic.top) < 3,
+    `${badge.contains(atBadge)} ${atBadge?.className} ${bb.left}/${mic.left} ${bb.top}/${mic.top}`);
+  check('el avatar del encabezado abre el editor', screen.querySelector('a.home-lukas[href="#/lukas"] lukas-orb'));
+  await wait(400);
+  const skinMask = screen.querySelector('.hero-look.is-front mask path[d^="M"]');
+  check('Inicio: la piel deja libres los ojos y la boca del canvas', !!skinMask && screen.querySelector('.hero-look.is-front [mask]'));
+  unmount();
+  store.setLook({});
+
+  check('cero errores en consola', !errors.length, errors.join(' | '));
+} catch (e) {
+  check('la prueba corre completa', false, `${e.message} ${e.stack?.split('\n')[1] ?? ''}`);
+}
+done();
+</script>
+</body></html>

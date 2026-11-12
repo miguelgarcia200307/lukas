@@ -47,6 +47,7 @@ export function mount(screen) {
       { href: '#/metas', icon: 'target', c: '#2FB3A6', t: 'Metas de ahorro', s: goals.length ? `${goals.length} metas` : 'Ahorra para lo que quieres' },
       { href: '#/categorias', icon: 'tag', c: '#A65BE0', t: 'Categorías', s: `${state.categories.filter((c) => !c.archived).length} categorías` },
       { href: '#/notificaciones', icon: 'bell', c: '#F08A4B', t: 'Notificaciones', s: state.unread ? `${state.unread} sin leer` : 'Al día' },
+      { href: '#/lukas', icon: 'sparkles', c: '#5848EE', t: 'Personalizar a Lukas', s: 'Accesorios y looks' },
       { href: '#/ajustes', icon: 'settings', c: '#1D1D1B', t: 'Ajustes', s: 'Perfil, avisos y app' },
     ];
     const tile = (it, style = '') => html`<a class="more-tile pressable" href="${it.href}" style="${style}">

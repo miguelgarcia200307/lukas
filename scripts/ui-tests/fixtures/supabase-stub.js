@@ -4,8 +4,8 @@ export function createClient() {
   const ok = (data) => Promise.resolve({ data, error: null });
   const query = () => new Proxy({}, { get: (t, k) => (k === 'then' ? (r) => r({ data: [], error: null }) : () => query()) });
   return {
-    rpc: (fn, args) => ok(window.__rpc ? window.__rpc(fn, args) : null),
-    from: () => query(),
+    rpc: (fn, args) => (window.__rpcAsync ? window.__rpcAsync(fn, args) : ok(window.__rpc ? window.__rpc(fn, args) : null)),
+    from: (table) => (window.__from ? window.__from(table) : query()),
     auth: {
       getSession: () => ok({ session: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),

@@ -3,6 +3,7 @@
 // Todo se mueve con PARÁMETROS SUAVIZADOS (v += (objetivo − v)·k·min(1, dt·60)): ningún cambio de estado salta.
 // Componente independiente del orbe de la pantalla de voz (comparte colores y la geometría de la cara: face-geometry.js).
 import { clamp, lerp, smooth, spring, easeInOutCubic, easeOutCubic, eyePoints, mouthPoints } from './face-geometry.js';
+import { onLook, isClassic } from '../lukas/store.js'; // apariencia (accesorios): la capa se carga solo si hay alguno
 
 export { spring, easeInOutCubic, easeOutCubic };
 const TAU = Math.PI * 2;
@@ -115,11 +116,14 @@ const REST = {
   op: 1, sc: 1, br: 0, amp: 0.018, spd: 0.7, b: 0, phi: REST_ALPHA, al: REST_ALPHA,
   q: 0, jy: 0, dx: 0, halo: 1, shadow: 1, shine: 1, ring: 0, ringR: 42, tint: 0,
   ap: 1, grow: 1, eo: 1, wh: 0, wt: 0, wc: 0, gx: 0, gy: 0,
-  mhw: 0, mc: 0, mw: 9, my: 71, mx: 60, mcol: 0, flip: 1,
+  mhw: 0, mc: 0, mw: 9, my: 71, mx: 60, mcol: 0, flip: 1, mo: 0,
   simp: 0, pull: 0, lx: 0, ly: 0,
 };
 const KEYS = Object.keys(REST);
-const FACE_KEYS = ['wh', 'wt', 'wc', 'gx', 'gy', 'mhw', 'mc', 'mw', 'my', 'mx', 'mcol'];
+const FACE_KEYS = ['wh', 'wt', 'wc', 'gx', 'gy', 'mhw', 'mc', 'mw', 'my', 'mx', 'mcol', 'mo'];
+// Reacciones cortas (editor de apariencia): duración en s. Solo en reposo; no cambian nada si nadie las pide.
+const FX_DUR = { cosquillas: 1.4, timido: 2.2, arriba: 1.3, ajuste: 0.8, presume: 1.4, feliz: 1.6, pose1: 1.8, pose2: 1.8, pose3: 1.4 };
+const FX_HAPPY = new Set(['cosquillas', 'presume', 'feliz', 'pose3']);
 const K_BODY = 0.12, K_FACE = 0.14, K_DRIVE = 0.6;
 // Suavizado en cascada (dos pasadas de la misma fórmula): arranca con ease-in, sin tirón en el primer frame.
 // Solo para parámetros "tranquilos" (k < 0.5); los guiados por curva (salto, sacudida, caída) van directo.
@@ -255,6 +259,43 @@ export class LukasOrbEngine {
   }
   /** Pull-to-refresh: 0..1 (estira y abre más los ojos). */
   setPull(p) { this.T.pull = clamp(p, 0, 1.2); this.wake(); }
+  /** Lukas habla (burbuja del editor): la moneda se abre y se cierra como en el orbe de voz. */
+  talk(on = true) { this.talking = !!on; this.wake(); }
+  /** Reacción corta en reposo: 'cosquillas' | 'timido' | 'arriba' | 'ajuste' | 'presume' | 'feliz' | 'pose1..3'. */
+  react(name) {
+    if (!FX_DUR[name]) return;
+    if (this.state === 'done' || this.state === 'error') this.setState('rest'); // la reacción nueva manda
+    this.fx = { name, t0: this.t };
+    if (name === 'cosquillas' || name === 'feliz' || name === 'presume') this.layer?.kick(1);
+    this.wake();
+  }
+  /** Energía de los accesorios: más con alegría, tranquilos al procesar o con error. */
+  get energy() {
+    if (this.fx && FX_HAPPY.has(this.fx.name)) return 1.7;
+    return this.state === 'done' ? 1.7 : this.state === 'thinking' ? 0.6 : this.state === 'error' ? 0.45 : 1;
+  }
+  /** Apariencia (IDs y colores ya validados). La capa de accesorios se importa solo si hace falta. */
+  setLook(cfg, { animate, quick = false } = {}) {
+    this.lookCfg = cfg ?? {};
+    // Fuera de pantalla (dormido) el cambio es inmediato: nadie vería la animación y no quedan piezas a medio salir
+    const anim = (animate ?? !!this.lookSeen) && this.running;
+    this.lookSeen = true;
+    if (this.layer) { this.layer.set(this.lookCfg, { animate: anim, quick }); this.render(); this.wake(); return; }
+    if (isClassic(this.lookCfg) && !this.wantLayer) return;
+    this.loadLayer(anim);
+  }
+  /** Fuerza la capa aunque Lukas esté clásico (rubor de tímido en el editor). */
+  useLayer() { this.wantLayer = true; if (!this.layer) this.loadLayer(false); }
+  loadLayer(anim) {
+    if (this.layerLoading || this.destroyed) return;
+    this.layerLoading = import('../lukas/layer.js').then((m) => {
+      if (this.destroyed || this.layer) return;
+      this.layer = m.attachEngine(this);
+      this.layer.set(this.lookCfg ?? {}, { animate: anim });
+      this.render();
+      this.wake();
+    }).catch((e) => console.error(e)).finally(() => { this.layerLoading = null; });
+  }
   /**
    * Congela al personaje en reposo, sin parpadeo ni animación (mientras la hoja de voz está abierta: nunca reaccionan
    * los dos a la vez). Los estados pedidos mientras tanto se aplican al soltar. Sin llamarlo, nada cambia.
@@ -334,6 +375,8 @@ export class LukasOrbEngine {
 
   destroy() {
     this.destroyed = true;
+    this.layer?.destroy();
+    this.layer = null;
     this.io?.disconnect();
     all.delete(this);
     this.wake();
@@ -367,12 +410,13 @@ export class LukasOrbEngine {
     this.phase += v.spd * dt; // la fase se ACUMULA
     if (rm) this.crossfade(dt);
     else if (this.ghost) { this.ghost = 0; this.n.ghost.g.setAttribute('opacity', 0); this.n.live.g.setAttribute('opacity', 1); }
+    this.lastDt = dt;
     this.render();
     // Fin de secuencias
     const dur = DURATIONS[this.state];
     if (dur && this.tau >= dur) this.endSequence(this.state);
     // Dormir cuando no hay nada que animar (iconos pequeños en reposo)
-    if ((this.simple || this.held) && this.state === 'rest' && !this.ghost) {
+    if ((this.simple || this.held) && this.state === 'rest' && !this.ghost && !this.fx && !this.layer?.busy) {
       let still = true;
       for (const k of KEYS) if (Math.abs(T[k] - v[k]) > 0.002) { still = false; break; }
       if (still) { this.running = false; schedule(this, false); }
@@ -569,6 +613,62 @@ export class LukasOrbEngine {
       }
     }
 
+    // Reacciones del editor (solo en reposo)
+    this.blushAmount = Math.max(0, (this.blushAmount ?? 0) - (this.fx?.name === 'timido' ? 0 : 1.6 * (dt || 0)));
+    const fx = this.fx;
+    if (fx) {
+      const e = t - fx.t0;
+      if (e >= FX_DUR[fx.name] || this.state !== 'rest') this.fx = null;
+      else {
+        const smile = (hw, c, w, y = 70) => { T.mhw = hw; T.mc = c; T.mw = w; T.my = y; K.mhw = 0.22; K.mc = 0.22; K.mw = 0.22; K.my = 0.22; };
+        switch (fx.name) {
+          case 'cosquillas': {
+            blinkOn = false; T.wh = 1; T.gx = 0; T.gy = -0.4; K.wh = 0.3; smile(8.5, 7.5, 5.2, 69);
+            if (motion) {
+              const d = Math.exp(-1.4 * e);
+              T.dx = 1.8 * Math.sin(e * 46) * d; T.br = 0.03 * Math.sin(e * 30) * d; T.jy = -2.4 * Math.abs(Math.sin(e * 13)) * d;
+              T.mo = 0.3 + 0.3 * Math.sin(e * 24); K.dx = 0.75; K.br = K_DRIVE; K.jy = K_DRIVE; K.mo = 0.5;
+            }
+            face = 'tickle';
+            break;
+          }
+          case 'timido':
+            this.blushAmount = Math.min(1, (this.blushAmount ?? 0) + 2.5 * (dt || 0.016));
+            T.wh = 0.35; T.gx = -2.4; T.gy = 2.4; smile(2.6, 1.2, 5, 72);
+            if (motion) { T.q = 0.035; K.q = 0.12; T.sc = 0.97; }
+            face = 'shy';
+            break;
+          case 'arriba':
+            T.gx *= 0.2; T.gy = -2.2; K.gy = 0.2;
+            if (motion && e < 0.5) { T.jy = -3 * Math.sin((Math.PI * e) / 0.5); K.jy = K_DRIVE; }
+            face = 'up';
+            break;
+          case 'ajuste':
+            if (e < 0.09) { T.ap = 0; K.ap = 0.55; }
+            if (motion) { T.q = 0.11 * Math.exp(-6 * e) * Math.cos(16 * e); K.q = K_DRIVE; }
+            smile(3, 1.6, 6, 70.5);
+            face = 'adjust';
+            break;
+          case 'presume':
+            blinkOn = false; T.wh = 1; smile(6.5, 5, 5.6);
+            if (motion) { T.jy = -2.4 * Math.sin(Math.min(1, e / 0.6) * Math.PI); K.jy = K_DRIVE; }
+            face = 'proud';
+            break;
+          case 'feliz': blinkOn = false; T.wh = 1; smile(8, 7, 5.4, 69.5); face = 'happy2'; break;
+          case 'pose1': T.gx += -3; T.gy += -1.6; smile(6, 4.6, 5.6); if (motion) { T.q = -0.04; K.q = 0.12; } face = 'pose1'; break;
+          case 'pose2': T.gx += 3; T.gy += 0.6; T.wh = 0.55; smile(4.6, 3, 6); if (motion) { T.q = 0.05; K.q = 0.12; } face = 'pose2'; break;
+          case 'pose3':
+            blinkOn = false; T.wh = 1; smile(7.6, 6.4, 5.4);
+            if (motion && e < 0.6) { T.jy = -5 * Math.sin((Math.PI * e) / 0.6); K.jy = K_DRIVE; }
+            face = 'pose3';
+            break;
+          default: break;
+        }
+      }
+    }
+    // Habla (burbuja): la moneda se abre con un nivel de voz sintético, como el orbe de voz al responder
+    if (this.talking && motion && !(this.fx && this.fx.name === 'cosquillas')) { T.mo = Math.min(1, Math.abs(Math.sin(t * 7.3) * Math.sin(t * 2.9 + 1)) * 1.6); K.mo = 0.35; }
+
     // Mirada externa (estados vacíos) y pull-to-refresh
     T.gx += 3.4 * T.lx;
     T.gy += 3 * T.ly;
@@ -670,8 +770,12 @@ export class LukasOrbEngine {
     L.mouth.setAttribute('stroke-width', r2(mw));
     L.mouth.setAttribute('stroke', mixColor(clamp(v.mcol)));
     const flip = clamp(v.flip, 0.02, 1);
+    const mo = clamp(v.mo);
     if (flip < 0.999) L.mouth.setAttribute('transform', `translate(${r2(v.mx)} ${r2(my)}) scale(${r2(flip)} 1) translate(${r2(-v.mx)} ${r2(-my)})`);
+    else if (mo > 0.01) L.mouth.setAttribute('transform', `translate(${r2(v.mx)} ${r2(my)}) scale(${r2(1 - 0.06 * mo)} ${r2(1 + 0.5 * mo)}) translate(${r2(-v.mx)} ${r2(-my)})`);
     else L.mouth.removeAttribute('transform');
+    // Accesorios: mismo frame, mismos parámetros suavizados
+    if (this.layer) { this.layer.render(this.lastDt || 0); this.lastDt = 0; }
   }
 }
 
@@ -738,6 +842,10 @@ if (typeof customElements !== 'undefined' && !customElements.get('lukas-orb')) {
         this.addEventListener('statechange', (e) => { this.sr.textContent = e.detail.state === 'thinking' ? 'Cargando' : ''; });
         if (this.engine.state === 'thinking') this.sr.textContent = 'Cargando';
       } else this.engine.wake();
+      // Apariencia de la cuenta (o una fija con setLook); look="none" y los spinners de botón quedan clásicos
+      if (!this.unLook && !this.lookOverride && this.getAttribute('look') !== 'none' && !this.classList.contains('spinner')) {
+        this.unLook = onLook((cfg) => this.engine?.setLook(cfg));
+      }
       // look-at="selector": mira hacia ese elemento y, de vez en cuando, vuelve a mirarte
       const sel = this.getAttribute('look-at');
       if (sel && !this.lookTimer) {
@@ -751,7 +859,7 @@ if (typeof customElements !== 'undefined' && !customElements.get('lukas-orb')) {
         this.lookTimer = setTimeout(glance, 450);
       }
     }
-    disconnectedCallback() { this.engine?.wake(); clearTimeout(this.lookTimer); this.lookTimer = 0; }
+    disconnectedCallback() { this.engine?.wake(); clearTimeout(this.lookTimer); this.lookTimer = 0; this.unLook?.(); this.unLook = null; }
     attributeChangedCallback(name, old, val) {
       if (!this.engine || old === val) return;
       if (name === 'state') this.engine.play(val);
@@ -768,7 +876,16 @@ if (typeof customElements !== 'undefined' && !customElements.get('lukas-orb')) {
     lookAtElement(t) { this.engine?.lookAtElement(t); }
     setPull(p) { this.engine?.setPull(p); }
     setSimplify(s) { this.engine?.setSimplify(s); }
-    destroy() { this.engine?.destroy(); this.engine = null; }
+    talk(on) { this.engine?.talk(on); }
+    react(name) { this.engine?.react(name); }
+    /** Apariencia fija (editor, comparar): deja de seguir a la cuenta. null vuelve a seguirla. */
+    setLook(cfg, opts) {
+      this.unLook?.(); this.unLook = null;
+      this.lookOverride = cfg ?? null;
+      if (cfg) this.engine?.setLook(cfg, opts);
+      else if (this.isConnected) this.unLook = onLook((c) => this.engine?.setLook(c, opts));
+    }
+    destroy() { this.unLook?.(); this.unLook = null; this.engine?.destroy(); this.engine = null; }
   }
   customElements.define('lukas-orb', LukasOrbElement);
 

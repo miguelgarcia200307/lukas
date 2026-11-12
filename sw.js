@@ -1,7 +1,7 @@
 // Lukas · service worker
 // Precache del app shell con caché versionada, stale-while-revalidate para estáticos y CDNs,
 // nunca cachea Supabase / Auth / Edge Functions / Groq. Push + notificationclick.
-const VERSION = 'lukas-v1.9.0'; // mantener igual a APP_VERSION en js/config.js
+const VERSION = 'lukas-v1.10.0'; // mantener igual a APP_VERSION en js/config.js
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -18,6 +18,7 @@ const SHELL = [
   './assets/icons/favicon-32.png',
   './css/animations.css',
   './css/lukas.css',
+  './css/lukas-studio.css',
   './css/base.css',
   './css/components.css',
   './css/tokens.css',
@@ -39,6 +40,11 @@ const SHELL = [
   './js/app.js',
   './js/config.js',
   './js/install.js',
+  './js/lukas/catalog.js',
+  './js/lukas/hero-look.js',
+  './js/lukas/layer.js',
+  './js/lukas/store.js',
+  './js/lukas/sync.js',
   './js/offline-queue.js',
   './js/permissions.js',
   './js/privacy.js',
@@ -78,6 +84,7 @@ const SHELL = [
   './js/views/debts.js',
   './js/views/goals.js',
   './js/views/home.js',
+  './js/views/lukas-studio.js',
   './js/views/login.js',
   './js/views/more.js',
   './js/views/movements.js',
