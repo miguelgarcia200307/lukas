@@ -309,6 +309,40 @@ try {
   const skinMask = screen.querySelector('.hero-look.is-front mask path[d^="M"]');
   check('Inicio: la piel deja libres los ojos y la boca del canvas', !!skinMask && screen.querySelector('.hero-look.is-front [mask]'));
   unmount();
+
+  // ── Hoja de voz: el mismo estilo sobre su orbe, siguiendo la deformación ──
+  const { initVoiceLook } = await import('../../js/lukas/voice-look.js');
+  const { Orb } = await import('../../js/voice/orb.js');
+  initVoiceLook();
+  store.setLook(validateLook({ cabeza: 'copa', gafas: 'redondas', vello: 'barba', cuello: 'bufanda' }));
+  const vs = document.createElement('section');
+  vs.className = 'sheet voice-sheet';
+  vs.style.cssText = 'position:fixed;left:0;top:0;width:390px;height:600px;z-index:200;background:#fff';
+  vs.innerHTML = '<div class="voice-stage" style="display:flex;justify-content:center;padding-top:60px"><div class="orb-wrap" style="width:280px"><canvas class="orb-canvas"></canvas><button class="orb-hit" aria-label="Tocar para hablar"></button></div></div>';
+  document.body.appendChild(vs);
+  const vOrb = new Orb(vs.querySelector('.orb-canvas'));
+  await until(() => vs.querySelectorAll('.orb-wrap > .hero-look').length === 2, 2500);
+  const wrapKids = [...vs.querySelector('.orb-wrap').children].map((n) => n.className.baseVal ?? n.className);
+  check('hoja de voz: el estilo aparece sobre su orbe (atrás y adelante del canvas, debajo del botón)',
+    wrapKids.join('|') === 'hero-look is-back|orb-canvas|hero-look is-front|orb-hit' && vs.querySelector('.hero-look.is-front [data-item="copa"]'), wrapKids.join('|'));
+  const vFront = vs.querySelector('.hero-look.is-front');
+  const frameOf = (slot) => vFront.querySelector(`[data-slot="${slot}"] [data-item]`)?.getAttribute('transform') ?? '';
+  const rest = { hat: frameOf('cabeza'), glasses: frameOf('gafas') };
+  vOrb.setMode('recording');
+  const freq = new Uint8Array(64).fill(200);
+  for (let i = 0; i < 40; i++) { vOrb.setLevel(0.6 + 0.4 * Math.sin(i), freq); await wait(20); }
+  const nanVoice = [...vs.querySelectorAll('.hero-look *')].some((n) => [...n.attributes].some((a) => /NaN|Infinity/.test(a.value)));
+  check('escuchando: los accesorios siguen la deformación del blob (sin valores rotos)', !nanVoice && frameOf('cabeza') !== rest.hat && frameOf('gafas') !== rest.glasses);
+  check('la coronilla sigue la ondulación local (sombrero sube y baja con el blob)', /translate\(0 -?\d/.test(frameOf('cabeza').split(') ').slice(-1)[0] ?? '') || /translate\(0 /.test(frameOf('cabeza')), frameOf('cabeza'));
+  vOrb.setMode('speaking');
+  await wait(300);
+  vOrb.setMode('thinking');
+  await wait(900);
+  check('pensando: los accesorios se desvanecen con las partículas', +vFront.style.opacity < 0.9 && +vFront.style.opacity > 0.5, vFront.style.opacity);
+  vOrb.destroy();
+  vs.remove();
+  await wait(50);
+  check('al cerrar la hoja se limpian sus capas', !document.querySelector('.orb-wrap > .hero-look'));
   store.setLook({});
 
   check('cero errores en consola', !errors.length, errors.join(' | '));

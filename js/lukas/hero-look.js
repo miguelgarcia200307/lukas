@@ -1,4 +1,4 @@
-// Accesorios sobre el Lukas grande del Inicio. Ese Lukas es el orbe de voz (canvas, js/voice/*), que no se toca:
+// Accesorios sobre los Lukas de canvas: el grande del Inicio y el de la hoja de voz (canvas, js/voice/*, que no se toca):
 // aquí solo se LEE su geometría pública de cada frame (orb.geo y la cara orb.face, en solo lectura) y se dibujan dos
 // SVG hermanos del canvas dentro del mismo .orb-body (que ya flota, se aplasta y salta): uno detrás (piezas traseras)
 // y otro delante. Los marcos replican exactamente la transformación con que la cara pinta los ojos y la boca, así los
@@ -41,7 +41,7 @@ export function attachHeroLook(orb, body) {
   const E = new Float64Array(6), M = new Float64Array(6);
   let fr = { body: '', face: '' };
   let off = { eyeDy: 0, mouthDx: 0, mouthDy: 0, talk: 0 };
-  let crownY = 0, kickY = 0;
+  let crownY = 0, kickY = 0, lastOp = '1';
 
   /** Transformaciones del frame actual (mismas cuentas que OrbFace.paint, en px del canvas). */
   const compute = () => {
@@ -57,7 +57,14 @@ export function attachHeroLook(orb, body) {
       const m = g.m < 0.9999 ? `translate(${r2(geo.cx)} ${r2(geo.cy)}) scale(${r2(g.m * 1000) / 1000}) translate(${r2(-geo.cx)} ${r2(-geo.cy)}) ` : '';
       fr.face = `${m}translate(${r2(face.Cx)} ${r2(face.Cy)}) rotate(${r2((g.tilt * 180) / Math.PI)}) scale(${r2(k * g.sx * 1000) / 1000} ${r2(k * g.sy * 1000) / 1000}) translate(${r2(face.dx)} ${r2(face.jy)}) translate(-60 -60)`;
       const v = face.v;
-      off = { eyeDy: 0, mouthDx: 0, mouthDy: clamp(v.my, -2.5, 3.5), talk: clamp(v.mo) };
+      // Deformación local (al escuchar y al hablar el blob se ondula): la coronilla y la base suben o bajan respecto
+      // al radio medio, y los sombreros, el cabello y lo del cuello las siguen (en unidades del personaje)
+      let rs = 0;
+      for (let i = 0; i < geo.n; i++) rs += geo.r[i];
+      const rM = rs / geo.n, uy = bs * g.sy || 1;
+      const crown = clamp((geo.r[Math.round(geo.n * 0.75)] - rM) / uy, -8, 8);
+      const base = clamp((geo.r[Math.round(geo.n * 0.25)] - rM) / uy, -8, 8);
+      off = { eyeDy: 0, mouthDx: 0, mouthDy: clamp(v.my, -2.5, 3.5), talk: clamp(v.mo), crown, base };
       crownY = face.jy * 2 + kickY;
       // Máscara: los mismos trazos que pinta la cara (ojos y moneda), un poco más gruesos
       eyeShape(E, 12 * v.eh, clamp(v.ap, 0, 1.2), clamp(v.wh), clamp(v.wt), clamp(v.wc));
@@ -81,6 +88,9 @@ export function attachHeroLook(orb, body) {
       off = { eyeDy: 0, mouthDx: 0, mouthDy: 0, talk: 0 };
       crownY = kickY;
     }
+    // Pensando, el blob se vuelve partículas y se desvanece a la mitad: los accesorios lo acompañan
+    const op = String(Math.round((1 - 0.4 * clamp(geo.morph)) * 100) / 100);
+    if (op !== lastOp) { lastOp = op; backSvg.style.opacity = op; frontSvg.style.opacity = op; }
     // Silueta real del blob (72 puntos del frame) para recortar la piel
     if (layer?.hasSkin()) {
       let p = `M${r2(geo.px[0])} ${r2(geo.py[0])}`;
@@ -97,7 +107,8 @@ export function attachHeroLook(orb, body) {
     energy: () => {
       const f = orb.face;
       if (f?.held) return 0.45; // detrás de la hoja de voz: se calman
-      if (orb.mode === 'recording') return 0.5;
+      if (orb.mode === 'recording') return 0.5; // escuchando: se calman
+      if (orb.mode === 'speaking') return 1.25;
       if (f?.cueName === 'ok') return 1.7;
       return 1;
     },

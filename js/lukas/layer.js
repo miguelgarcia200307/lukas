@@ -228,6 +228,10 @@ export class LookLayer {
       gafas: `translate(0 ${r2(off.eyeDy)})`,
       vello: `translate(${r2(off.mouthDx * 0.7)} ${r2(off.mouthDy * 0.6 + off.talk * 1.1)})`,
       cara: '',
+      // Orbe de voz: la coronilla y la base siguen la ondulación local del blob (en el SVG del personaje son 0)
+      cabeza: off.crown ? `translate(0 ${r2(-off.crown)})` : '',
+      cabello: off.crown ? `translate(0 ${r2(-off.crown)})` : '',
+      cuello: off.base ? `translate(0 ${r2(off.base)})` : '',
     };
     const frameOf = (inst, e) => `${e.marco === 'cara' ? fr.face : fr.body} ${slotT[inst.item.slot] ?? ''}`;
     for (const inst of this.items.values()) {

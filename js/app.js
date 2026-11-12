@@ -19,6 +19,7 @@ import { markVoiceUsed } from './ui/home-fx.js';
 import { initUpdates } from './update.js';
 import { AUTH, guardRoute, getLeaveGuard, setLeaveGuard } from './route-guard.js';
 import { initLookSync } from './lukas/sync.js';
+import { initVoiceLook } from './lukas/voice-look.js';
 import './ui/lukas-orb.js'; // registra <lukas-orb> y <lukas-lockup>
 import { takeOff, land, inFlight, firstLoadToday, startPhrases } from './ui/orb-loader.js';
 
@@ -263,6 +264,7 @@ async function boot() {
   initInstall();
   const sync = initNetwork();
   initLookSync(); // apariencia de Lukas por cuenta (sigue a state.session)
+  initVoiceLook(); // y el mismo estilo en la hoja de voz
 
   let loadFailed = false;
   const loadData = async () => {

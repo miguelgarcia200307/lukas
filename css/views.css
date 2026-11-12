@@ -158,6 +158,8 @@
 
 /* Accesorios de Lukas: dos SVG hermanos del canvas (detrás y delante), en el mismo recuadro del orbe */
 .orb-body > .hero-look { position: absolute; inset: 22px; width: calc(100% - 44px); height: calc(100% - 44px); overflow: visible; pointer-events: none; }
+/* Mismo estilo en la hoja de voz: sobre su canvas (inset 0 en .orb-wrap), debajo del botón para tocar */
+.orb-wrap > .hero-look { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 /* Insignia del pincel: espejo de la del micrófono (abajo a la izquierda), flota con Lukas, por encima del botón de voz */
 .orb-style {
   --bs: 40px;
