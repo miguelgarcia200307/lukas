@@ -149,7 +149,8 @@ test('respuestas cortas sin LLM', async () => {
   const { quickIntent } = await import('../../supabase/functions/_shared/quick.ts');
   const both = ['amount', 'confirm'], conf = ['confirm'];
   for (const t of ['sí', 'Sí.', 'dale', 'listo', 'guárdalo', 'sí, guárdalos', 'de una', 'ok listo', 'Sí, por favor', 'perfecto, guárdalo']) assert.equal(quickIntent(t, conf)?.intent, 'confirm', t);
-  for (const t of ['no', 'No.', 'espera', 'mejor no', 'no, espera', 'todavía no']) assert.equal(quickIntent(t, conf)?.intent, 'stop', t);
+  for (const t of ['no', 'No.', 'mejor no', 'No, Lucas.']) assert.equal(quickIntent(t, conf)?.intent, 'deny', t); // la app cancela lo que preguntó
+  for (const t of ['espera', 'no, espera', 'todavía no']) assert.equal(quickIntent(t, conf)?.intent, 'stop', t); // pausa: deja las tarjetas
   for (const t of ['cancela', 'cancélalo', 'no, cancela todo', 'olvídalo']) assert.equal(quickIntent(t, conf)?.intent, 'cancel', t);
   assert.deepEqual(quickIntent('8 mil', both), { intent: 'amount', amount: 8000 });
   assert.deepEqual(quickIntent('ocho lucas', both), { intent: 'amount', amount: 8000 });

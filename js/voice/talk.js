@@ -61,6 +61,10 @@ function confirmQuestion(n) {
   return pick([`¿Guardo los ${countWords[n] ?? n}?`, '¿Los guardo todos?']);
 }
 
+// Categoría sin respaldo en lo que dijo el usuario (la marca la función): Lukas lo dice antes de pedir confirmación
+const unsure = (p) => p.kind === 'transaction' && p.category_unsure && !missing(p);
+const unsureNote = (list) => (list.some(unsure) ? 'No estoy seguro de la categoría, revísala.' : '');
+
 /** Lo que Lukas dice al terminar un turno con tarjetas: resumen + la pregunta que sigue (monto o confirmar) */
 export function summaryLine(list) {
   const act = active(list);
@@ -71,14 +75,26 @@ export function summaryLine(list) {
   else if (done.length > 1 && done.length <= 3) first = `${pick(['Listo', 'Anotado', 'Perfecto'])}: ${join(done.map((p) => `${numberWords(p.amount)} ${where(p)}`))}.`;
   else if (done.length > 3) first = `Anoté ${countWords[done.length] ?? done.length} movimientos por ${pesos(done.reduce((s, p) => s + p.amount, 0))}.`;
   const next = pend.length ? askFor(pend[0], !first) : confirmQuestion(act.length);
-  return `${first} ${next}`.trim();
+  return `${first} ${pend.length ? '' : unsureNote(done)} ${next}`.replace(/\s+/g, ' ').trim();
 }
 
 /** Tras completar un monto pendiente: "Listo, ocho mil en hogar. ¿Guardo los dos?" */
 export function afterAmountLine(p, list) {
   const pend = active(list).filter(missing);
   const head = `${pick(['Listo', 'Anotado', 'Perfecto', 'Dale'])}, ${numberWords(p.amount)} ${where(p)}.`;
-  return `${head} ${pend.length ? askFor(pend[0], false) : confirmQuestion(active(list).length)}`;
+  return `${head} ${pend.length ? askFor(pend[0], false) : `${unsureNote(active(list))} ${confirmQuestion(active(list).length)}`}`.replace(/\s+/g, ' ').trim();
+}
+
+/** Respuesta dudosa ("de pronto"): vuelve a preguntar una sola vez, pidiendo un sí o un no */
+export function reaskLine(list) {
+  const pend = active(list).filter(missing);
+  if (pend.length) return `${pick(['No te entendí bien.', 'Perdón, no te entendí.'])} ${askFor(pend[0], true)}`;
+  return `${pick(['No te entendí bien.', 'Perdón, no te entendí.'])} ${confirmQuestion(active(list).length)} Dime sí o no.`;
+}
+/** No respondió en la escucha automática: una sola vez más */
+export function silenceLine(list) {
+  const pend = active(list).filter(missing);
+  return `${pick(['¿Sigues ahí?', '¿Me escuchas?'])} ${pend.length ? askFor(pend[0], true) : `${confirmQuestion(active(list).length)} Dime sí o no.`}`;
 }
 
 export const savedLine = (n) => (n > 1 ? pick([`Listo, guardé los ${countWords[n] ?? n}.`, '¡Hecho! Quedaron guardados.', 'Listo, todo guardado.'])

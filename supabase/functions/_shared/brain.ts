@@ -41,7 +41,9 @@ export type Proposal =
       /** Sin monto todavía: la tarjeta queda pendiente con su pregunta (nunca se fusiona ni se descarta) */
       pending?: boolean; question?: string;
       /** Lugar o evento ("supermercado", "ferretería"): solo se fusiona lo de la misma categoría y el mismo lugar */
-      place?: string }
+      place?: string;
+      /** Nada de lo dicho respalda la categoría elegida: Lukas lo dice y la tarjeta pide revisarla */
+      category_unsure?: boolean }
   | { kind: "card_payment"; card_id: string | null; account_id: string | null; amount: number; interest: number | null; date: string }
   | { kind: "debt_payment"; debt_id: string | null; account_id: string | null; amount: number; mode: "expense" | "transfer"; date: string }
   | { kind: "subscription"; name: string; amount: number; frequency: "weekly" | "monthly" | "yearly"; next_charge_date: string;
@@ -176,8 +178,9 @@ export function buildContext(raw: RawCtx, v: string): Built {
     ...raw.subs.map((s) => s[1]), ...raw.goals.map((g) => g[1]),
   ].filter(Boolean))];
   const catNames = raw.cats.filter((c) => c[3]).map((c) => c[1]); // subcategorías (Taxi, Gasolina…)
-  let whisper = "Gastos en pesos colombianos. Me gasté 30 lucas en el almuerzo, 5.000 de bus, medio palo de arriendo y 2 gaseosas de 3.500. " +
-    "Pagué con la Visa, por Nequi, en efectivo. Uber, DiDi, D1, Ara, Éxito, Rappi, TransMilenio, tinto, empanada. ";
+  // "Lukas, …": el nombre del asistente con K (no "Lucas", que se confunde con la jerga "lucas" = mil pesos)
+  let whisper = "Gastos en pesos colombianos. Lukas, me gasté 30 lucas en el almuerzo, 5.000 de bus, medio palo de arriendo y 2 gaseosas de 3.500. " +
+    "Pagué con la Visa, por Nequi, en efectivo. Uber, DiDi, D1, Ara, Éxito, Rappi, TransMilenio, tinto, empanada, arepa, salchicha. ";
   for (const n of [...names, ...catNames]) { if (whisper.length + n.length > 520) break; whisper += `${n}, `; }
 
   return {
@@ -337,14 +340,27 @@ export function validateLine(rawLine: string, b: Built, o: ValidateOpts, amountO
       if (category_id && b.cats.get(category_id)?.kind !== type) category_id = null;
       const lowConfidence = !category_id;
       category_id ??= fallbackCat(type);
-      const alts = (Array.isArray(x.alt) ? x.alt : []).map((a: unknown) => res(a, "c"))
+      let alts: string[] = (Array.isArray(x.alt) ? x.alt : []).map((a: unknown) => res(a, "c"))
         .filter((id: string | null): id is string => !!id && id !== category_id && b.cats.get(id)?.kind === type);
       const when = resolveWhen(str(x.f, 60), o.now);
       const place = str(x.l, 60);
+      // Contraste determinístico de la categoría que eligió el modelo (cero tokens): si nada de lo dicho la respalda
+      // y el léxico sugiere otra, se usa la del léxico; si no hay ninguna pista, queda marcada como dudosa para que
+      // Lukas lo diga y la tarjeta pida revisarla (antes, "salicha" quedaba en Ropa con confianza 0.9).
+      let unsure = false;
+      if (type === "expense" && category_id && !lowConfidence && b.cats.get(category_id)?.key !== "other_expense") {
+        const said = [str(x.d), ...items.map((it) => it.name), place].join(" ");
+        if (!categoryEvidence(b, category_id, said)) {
+          const lex = lexiconCategory(b, said);
+          if (lex && lex !== category_id) { alts = [category_id, ...alts.filter((id) => id !== lex)]; category_id = lex; }
+          else unsure = true;
+        }
+      }
       const base = {
         kind: "transaction" as const, type, date: toTimestamp(when.date, when.time, o.now), category_id,
         category_alternatives: [...new Set(alts)].slice(0, 2) as string[], payment: payment(x.p, type === "expense"),
-        group_id: "temp-1", confidence: lowConfidence ? 0.5 : Math.max(0, Math.min(1, Number(x.cf) || 0.9)), ...(place ? { place } : {}),
+        group_id: "temp-1", confidence: lowConfidence || unsure ? 0.5 : Math.max(0, Math.min(1, Number(x.cf) || 0.9)), ...(place ? { place } : {}),
+        ...(unsure ? { category_unsure: true } : {}),
       };
       const pendingOf = (name: string, q?: string): Proposal => ({
         ...base, amount: 0, description: cap(name), items: [], pending: true, question: q || amountQuestion(name, type),
@@ -475,15 +491,57 @@ export function askedItem(q: string): string | null {
 const CAT_WORDS: [string, RegExp][] = [
   ["home", /ferreter|foco|bombill|clavo|tornill|pintura|aseo|escoba|trapeador|detergente|cortina|sabana|cuarto|hogar/],
   ["health", /droguer|farmac|pastilla|medicament|remedio|acetaminofen|ibuprofeno|medico|odontolog/],
-  ["transport", /mecanic|taller|moto|carro|llanta|peaje|soat|gasolina|tanque/],
+  ["transport", /mecanic|taller|moto|carro|llanta|peaje|soat|gasolina|tanque|\buber\b|\bdidi\b|\btaxi|\bbus\b|buseta|transmilenio|\bsitp\b|parqueadero|pasaje/],
   ["groceries", /supermercado|mercado|\bd1\b|\bara\b|exito|carulla|olimpica|jumbo|tienda|plaza|leche|huevo|\bpan\b|arroz|cereal/],
-  ["food", /restaurante|almuerzo|almorc|desayun|cena|comida|tinto|domicilio|rappi|empanada|hamburguesa|pizza|salchipapa|corrientazo/],
-  ["clothes", /ropa|camisa|pantalon|zapato|tenis|vestido|chaqueta/],
+  ["food", /restaurante|almuerzo|almorc|desayun|cena|comida|tinto|domicilio|rappi|empanada|hamburguesa|pizza|salchipapa|corrientazo|salchich|perro caliente|arepa|bunuelo|pandebono|gaseosa|\bjugo|helado|\bcafe\b|sandwich|\bpollo asado/],
+  ["clothes", /\bropa|camisa|camiseta|pantalon|zapato|\btenis\b|vestido|chaqueta|\bmedias\b|\bjean|blusa|sudadera|\bgorra/],
   ["tech", /celular|computador|audifono|cargador|teclado|mouse/],
-  ["pets", /perro|gato|veterinari|concentrado|mascota/],
-  ["entertainment", /cine|rumba|\bbar\b|concierto|discoteca|boleta/],
+  ["pets", /\bperro\b(?! caliente)|\bgato|veterinari|concentrado|mascota/],
+  ["entertainment", /\bcine\b|rumba|\bbar\b|concierto|discoteca|boleta/],
   ["gifts", /regalo|cumpleanos/],
+  ["subscriptions", /netflix|spotify|disney|\bhbo\b|youtube premium|suscripcion/],
+  ["rent", /arriendo|alquiler/],
+  ["education", /colegio|universidad|matricula|\bcurso\b|cuaderno|semestre/],
+  ["utilities", /servicios publicos|internet|factura de (la )?(luz|agua|gas)|recibo de (la )?(luz|agua|gas)|gas natural/],
+  ["partner", /\bnovi[oa]\b|\bpareja\b|\bespos[oa]\b/],
+  ["travel", /\bhotel|\bvuelo|tiquete aereo|airbnb|hostal/],
 ];
+// Claves que se consideran parientes al contrastar (una salchicha puede ser Mercado o Comida: ambas son coherentes)
+const RELATED: Record<string, string[]> = { food: ["groceries"], groceries: ["food"] };
+/** Clave raíz de una categoría (las subcategorías como Taxi cuentan como su padre, Transporte) */
+function catRootKey(b: Built, id: string | null): string | null {
+  const c = id ? b.cats.get(id) : null;
+  if (!c) return null;
+  return (c.parent ? b.cats.get(c.parent)?.key : null) ?? c.key;
+}
+/** Claves del léxico que aparecen en el texto */
+function lexiconKeys(text: string): string[] {
+  const f = fold(text);
+  return CAT_WORDS.filter(([, re]) => re.test(f)).map(([k]) => k);
+}
+/**
+ * ¿Hay algo en lo que dijo el usuario que respalde esta categoría? (léxico, pistas aprendidas del usuario o una
+ * palabra del nombre de la categoría). Determinístico: cero tokens.
+ */
+export function categoryEvidence(b: Built, catId: string | null, text: string): boolean {
+  const key = catRootKey(b, catId);
+  if (!catId || !key) return false;
+  if (lexiconKeys(text).some((k) => k === key || RELATED[k]?.includes(key))) return true;
+  const words = fold(text).split(/[^a-z0-9]+/).filter(Boolean);
+  const set = new Set(words);
+  if (b.hints.some((h) => set.has(h.kw) && catRootKey(b, b.toId[h.alias] ?? null) === key)) return true;
+  const c = b.cats.get(catId)!;
+  const names = [c.name, c.parent ? b.cats.get(c.parent)?.name ?? "" : ""].flatMap((n) => fold(n).split(/[^a-z0-9]+/)).filter((w) => w.length >= 4);
+  return words.some((w) => w.length >= 4 && names.some((n) => n.slice(0, 4) === w.slice(0, 4)));
+}
+/** Categoría de gasto que sugiere el léxico (la primera coincidencia que exista para este usuario) */
+export function lexiconCategory(b: Built, text: string): string | null {
+  for (const key of lexiconKeys(text)) {
+    const c = [...b.cats.values()].find((x) => x.key === key && x.kind === "expense");
+    if (c) return c.id;
+  }
+  return null;
+}
 /** Categoría probable de un ítem según la parte de la frase donde aparece */
 export function guessCategory(text: string, item: string, b: Built): string | null {
   const f = fold(text), it = fold(item);
@@ -569,6 +627,8 @@ export function recordReply(proposals: Proposal[], b: Built, seed: string): stri
     const p = proposals[0];
     if (p.kind === "transaction") {
       const cat = b.cats.get(p.category_id ?? "")?.name ?? "";
+      // Categoría sin respaldo en lo que dijo: se pregunta en vez de darla por hecha
+      if (p.category_unsure) return `Anoté ${p.description.toLowerCase()} por ${money(p.amount)}, pero no estoy seguro de la categoría: la puse en ${cat}. ¿Lo guardo así?`;
       return pick(p.type === "income" ? [
         `Listo, entraron ${money(p.amount)} en ${cat}. ¿Lo guardo así?`,
         `Anotado: ingreso de ${money(p.amount)}. ¿Lo guardo?`,

@@ -87,6 +87,10 @@ export function audioSession(type) {
 }
 
 let ctx = null;
+// ¿Alguien necesita el contexto activo ahora? suspend() es asíncrono: si se pide el contexto (escucha manos libres)
+// justo después de soltarlo (fin de chime), el resume() inmediato pierde contra el suspend() pendiente y el
+// analizador del grabador queda mudo. Al terminar el suspend se reanuda si todavía se necesita.
+let wanted = false;
 /**
  * AudioContext compartido del grabador y la señal sonora. Solo se crea al grabar (no al hablar): en iOS un
  * AudioContext activo deja el audio de la página en modo "ambiente", que el modo silencio enmudece.
@@ -95,12 +99,19 @@ export function sharedAudioContext() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return null;
   if (!ctx || ctx.state === 'closed') ctx = new Ctx();
-  if (ctx.state === 'suspended') ctx.resume?.().catch?.(() => {});
+  wanted = true;
+  if (ctx.state !== 'running') ctx.resume?.().catch?.(() => {});
   return ctx;
 }
 /** Suspende el AudioContext cuando no se graba ni suena la señal (para no interferir con la voz) */
 export function releaseAudioContext() {
-  try { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); } catch { /* nada */ }
+  wanted = false;
+  try {
+    if (ctx && ctx.state === 'running') {
+      const c = ctx;
+      c.suspend().then(() => { if (wanted && c === ctx && c.state !== 'running') c.resume().catch(() => {}); }).catch(() => {});
+    }
+  } catch { /* nada */ }
 }
 
 // ── "Ancla" de reproducción: un <audio> silencioso que suena mientras Lukas habla. En iOS pone la página en modo

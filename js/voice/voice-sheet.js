@@ -19,7 +19,8 @@ import { showPermissionHelp } from '../permissions.js';
 import { runSave } from '../ui/submit.js';
 import { ORB_SPINNER } from '../ui/orb-loader.js';
 import { unlockVoice, speak as speakText, stopSpeaking, chime, voicePrefs, isSpeaking } from './speech.js';
-import { summaryLine, afterAmountLine, savedLine, cancelledLine, pausedLine, notHeardAmountLine, stillMissingLine, speakable } from './talk.js';
+import { summaryLine, afterAmountLine, savedLine, cancelledLine, pausedLine, notHeardAmountLine, stillMissingLine, speakable, reaskLine, silenceLine } from './talk.js';
+import { Dialog } from './dialog.js';
 
 const NO_ANSWER_SECONDS = 8; // manos libres: si no habla en este tiempo, la conversación termina
 
@@ -59,6 +60,7 @@ class VoiceSession {
     this.phase = 'idle';
     this.chain = Promise.resolve(); // las tarjetas aparecen escalonadas aunque lleguen juntas
     this.answerTarget = null; // tarjeta pendiente que se está respondiendo por voz
+    this.dialog = new Dialog(); // qué preguntó Lukas y qué hacer con un "sí", "no", "de pronto" o el silencio (local)
     this.sheet = openSheet({
       className: 'voice-sheet',
       body: html`<div class="voice">
@@ -240,6 +242,7 @@ class VoiceSession {
     this.convo = false;
     this.misses = 0;
     this.talkToken++;
+    this.dialog?.reset();
     this.showConvo(null);
   }
 
@@ -252,9 +255,21 @@ class VoiceSession {
     else this.orb.setMode(this.phase === 'recording' ? 'recording' : this.phase === 'thinking' ? 'thinking' : 'idle');
   }
 
+  /** No habló en la escucha automática: si Lukas esperaba una respuesta, vuelve a preguntar una vez; luego pausa */
   convoTimeout() {
+    if (this.dialog.silence().action === 'reask' && this.proposals.length) {
+      this.cancelRecording({ title: 'No te escuché', sub: 'Dime sí o no · o toca Confirmar' });
+      this.talk(silenceLine(this.proposals), { listen: true });
+      return;
+    }
     this.endConversation();
     this.cancelRecording({ title: 'Te espero cuando quieras', sub: 'Toca el orbe para seguir hablando' });
+  }
+
+  /** Lukas pregunta algo que espera respuesta corta (confirmar o un monto) y vuelve a escuchar */
+  askBack(text) {
+    this.dialog.ask({ missing: this.proposals.some(missingAmount) });
+    return this.talk(text, { listen: true });
   }
 
   /**
@@ -311,18 +326,21 @@ class VoiceSession {
     this.misses = 0;
     const still = this.proposals.some(missingAmount);
     this.setStatus(still ? 'Me falta un detalle' : '¡Completo!', still ? 'Dime cuánto costó o escríbelo en la tarjeta' : 'Revisa y confirma');
-    this.talk(afterAmountLine(p, this.proposals), { listen: true });
+    this.askBack(afterAmountLine(p, this.proposals));
   }
 
   missedAmount(transcript) {
     this.setStatus('No te entendí el monto', transcript ? `Escuché «${transcript}». Escríbelo en la tarjeta` : 'Escríbelo en la tarjeta');
     haptic.error();
     this.orb.cue?.('error');
-    if (this.voiceTurn && this.misses < 2) { this.misses++; this.talk(notHeardAmountLine(), { listen: true }); }
+    if (this.voiceTurn && this.misses < 2) { this.misses++; this.askBack(notHeardAmountLine()); }
     else this.endConversation();
   }
 
-  /** Respuesta corta resuelta en código por la función (sin LLM): monto, confirmar, cancelar o pausar */
+  /**
+   * Respuesta corta resuelta en código por la función (sin LLM). Qué hacer lo decide la máquina de estados local
+   * (dialog.js): ejecutar, cancelar, pausar, volver a preguntar una vez o completar un monto.
+   */
   handleQuick(done, prev) {
     this.proposals = prev;
     const box = this.result.querySelector('.proposals');
@@ -331,19 +349,26 @@ class VoiceSession {
     this.bindList(box, prev);
     this.setPhase('result');
     this.updateFooter();
-    if (done.intent === 'amount') {
-      const p = this.proposals.find(missingAmount);
-      if (p && done.amount > 0) { this.completeAmount(p, done.amount); this.afterAmount(p); } else this.missedAmount(done.transcript);
-    } else if (done.intent === 'confirm') {
-      const m = this.proposals.find(missingAmount);
-      if (m) { this.setStatus('Me falta un detalle', 'Dime cuánto costó o escríbelo en la tarjeta'); this.talk(stillMissingLine(m), { listen: true }); }
-      else { this.setStatus('Guardando…'); this.confirm({ byVoice: true }); }
-    } else if (done.intent === 'cancel') {
+    const missing = this.proposals.find(missingAmount);
+    const { action } = this.dialog.resolve(done, { missing: !!missing });
+    if (action === 'amount') {
+      if (missing) { this.completeAmount(missing, done.amount); this.afterAmount(missing); } else this.missedAmount(done.transcript);
+    } else if (action === 'ask_amount') {
+      this.setStatus('Me falta un detalle', 'Dime cuánto costó o escríbelo en la tarjeta');
+      this.askBack(stillMissingLine(missing));
+    } else if (action === 'execute') {
+      this.setStatus('Guardando…');
+      this.confirm({ byVoice: true });
+    } else if (action === 'cancel') {
       this.endConversation();
       this.reset();
       this.setStatus('Cancelado', 'No guardé nada');
       this.talk(cancelledLine());
-    } else {
+    } else if (action === 'reask') {
+      haptic.error();
+      this.setStatus('No te entendí', missing ? 'Dime cuánto costó o escríbelo en la tarjeta' : 'Dime sí o no · o toca Confirmar');
+      this.talk(reaskLine(this.proposals), { listen: true });
+    } else if (action !== 'none') {
       this.endConversation();
       this.setStatus('Lo dejo aquí', 'Revisa las tarjetas y confirma cuando quieras');
       this.talk(pausedLine());
@@ -554,8 +579,8 @@ class VoiceSession {
   /** Respuesta hablada del turno: plantillas en código (montos en palabras), máximo 1–2 frases */
   respond(done) {
     const isQuery = done.intent === 'query' || done.intent === 'unknown';
-    if (done.question) return this.talk(done.question, { listen: true });
-    if (!isQuery && pendingProposals(this.proposals).length) return this.talk(summaryLine(this.proposals), { listen: true });
+    if (done.question) { this.dialog.reset(); return this.talk(done.question, { listen: true }); } // la respuesta es contenido: va al LLM
+    if (!isQuery && pendingProposals(this.proposals).length) return this.askBack(summaryLine(this.proposals));
     if (done.empty) return this.talk(done.reply, { listen: true });
     return this.talk(speakable(done.reply));
   }
@@ -646,6 +671,7 @@ class VoiceSession {
     const missing = pending.find(missingAmount);
     if (!byVoice) this.endConversation();
     if (missing) {
+      this.dialog.executed();
       const i = this.proposals.indexOf(missing);
       const card = this.result.querySelector(`.proposal[data-i="${i}"]`);
       card?.classList.add('shake');

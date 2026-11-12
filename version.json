@@ -1,11 +1,10 @@
 {
-  "version": "1.10.2",
+  "version": "1.10.3",
   "date": "2026-11-12",
   "notes": [
-    "Cuando le hablas a Lukas, ahora aparece con su estilo: sus accesorios se mueven y se deforman con él mientras te escucha y te responde",
-    "El botón para vestir a Lukas ahora tiene una percha: más fácil de reconocer",
-    "¡Ahora puedes vestir a Lukas! Sombreros, gafas, cabello, bigotes, bufandas y mucho más",
-    "Looks listos con un toque: Costeño, Rockero, Fiestero, Superhéroe y otros",
-    "Lukas reacciona mientras lo arreglas: se emociona, presume, se ríe con cosquillas y celebra cuando guardas"
+    "Lukas ya no confunde su nombre con plata: «Lucas, recibí 320 mil» registra solo tu ingreso",
+    "Conversación manos libres más confiable: responde «sí», «no» o «de pronto» y Lukas te entiende",
+    "Si no le respondes o dudas, Lukas te vuelve a preguntar una vez antes de dejarlo en pantalla",
+    "Cuando Lukas no está seguro de la categoría, te lo dice antes de guardar"
   ]
 }

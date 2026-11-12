@@ -50,12 +50,28 @@ function parseDigits(raw: string): { n: number; k: boolean; money: boolean } | n
 
 export interface Normalized { text: string; amounts: number[]; numbers: number[] }
 
+// El asistente se llama Lukas y Whisper suele escribirlo "Lucas", igual que la jerga "lucas" (= mil pesos).
+// "Lucas, recibí 320.000 pesos" se leía como "$1000, recibí $320000" → un gasto de $1000 inventado.
+const GREET = "(?:(?:oye|hola|ey|hey|bueno|mira|listo)[\\s,]+)?";
+const LEAD_NAME = new RegExp(`^\\s*${GREET}(?:lukas|lucas)(?![a-záéíóúñ])(?!\\s+y\\s+medi[oa])\\s*[,.:;!¡]?\\s*|^\\s*${GREET}luca\\s*[,:;!]\\s*`, "i");
+const TAIL_NAME = /(?<![\d\s])\s*,\s*(?:lukas|lucas)\s*[.!?]*\s*$/i;
+/** Quita el nombre del asistente dicho como vocativo al inicio ("Lucas, …", "oye Lukas …") o al final (", Lucas.") */
+export function stripVocative(input: string): string {
+  const s = String(input ?? "");
+  const lead = s.replace(LEAD_NAME, "");
+  const out = lead.replace(TAIL_NAME, "");
+  if (!out.trim()) return s; // solo dijo el nombre: se deja (abajo tampoco cuenta como monto)
+  return lead !== s ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+}
+// Palabras tras las que "luca(s)" es el nombre y no plata ("gracias Lucas", "sí, Lucas")
+const NAME_BEFORE = new Set(["oye", "hola", "ey", "hey", "gracias", "si", "no", "listo", "dale", "bueno", "mira", "ok", "vale", "perfecto", "chao"]);
+
 /**
  * Reescribe montos y números a cifras. Devuelve el texto y la lista de montos/números encontrados
  * (sirve para verificar que el LLM no invente montos).
  */
 export function normalizeText(input: string): Normalized {
-  const toks = tokenize(input.replace(/\s+/g, " ").trim());
+  const toks = tokenize(stripVocative(input).replace(/\s+/g, " ").trim());
   const out: string[] = [];
   const amounts: number[] = [];
   const numbers: number[] = [];
@@ -70,6 +86,18 @@ export function normalizeText(input: string): Normalized {
     const t = toks[i];
     const startsNumber = isNumTok(t) || (t.kind === "word" && (t.f === "mil" || t.f === "medio" || t.f === "media" || MILLION.has(t.f) || (t.f in SLANG && t.f !== "k")));
     if (!startsNumber) { out.push(t.raw); i++; continue; }
+    // Jerga suelta, sin cantidad antes: en plural ("lucas", "palos") no es un monto (es el nombre "Lucas" o algo vago
+    // como "unas lucas"); en singular sí ("luca y media", "vale luca"), salvo como vocativo ("gracias, Luca")
+    if (t.kind === "word" && t.f in SLANG && t.f !== "k") {
+      const k1 = nextWord(i), k2 = nextWord(k1);
+      const yMedia = toks[k1]?.f === "y" && (toks[k2]?.f === "medio" || toks[k2]?.f === "media");
+      let p = i - 1;
+      while (p >= 0 && toks[p].kind === "space") p--;
+      const prev = toks[p];
+      const vocative = !prev || (prev.kind === "punct" && /[.!?¿¡,]/.test(prev.raw) && (p === 0 || NAME_BEFORE.has(toks[p - 1]?.f ?? "") || /[.!?¿¡]/.test(prev.raw)))
+        || (prev.kind === "word" && NAME_BEFORE.has(prev.f));
+      if (!yMedia && (/s$/.test(t.f) || vocative)) { out.push(t.raw); i++; continue; }
+    }
 
     // Consumir la frase numérica más larga posible
     let total = 0, current = 0, afterMillion = false, milAfterMillion = false, money = false, any = false, onlyArticle = true;
@@ -136,6 +164,8 @@ export function normalizeText(input: string): Normalized {
           if (toks[k2] && !isNumTok(toks[k2])) break;
         }
         if (!any && !(f in SLANG)) break;
+        // Jerga después de una unidad o de un monto ya completo ("320 mil Lucas", "320.000 Lucas"): no multiplica
+        if (f in SLANG && any && (current === 0 || current >= 1000)) break;
         const base = (current || 1) * mult;
         total += base; current = 0;
         if (mult === 1_000_000) afterMillion = true;

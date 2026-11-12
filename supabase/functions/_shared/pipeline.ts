@@ -2,7 +2,7 @@
 // Sin APIs de Deno: lo usan la Edge Function y el banco de pruebas en Node.
 import { amountSupported, normalizeText } from "./normalize.ts";
 import {
-  askedItem, type Built, buildMessages, canMerge, incomeFallback, mergeTransactions, OUT_OF_SCOPE, parseState, pendingFromQuestion,
+  amountQuestion, askedItem, type Built, buildMessages, canMerge, incomeFallback, mergeTransactions, OUT_OF_SCOPE, parseState, pendingFromQuestion,
   type Proposal, type QuerySpec, queryReply, recordReply, validateLine,
 } from "./brain.ts";
 import { type ChatMsg, GroqError, orderModels, shouldFallback, streamChat, type Usage } from "./llm.ts";
@@ -87,8 +87,11 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   const handleOne = (line: string, final: boolean) => {
     const r = validateLine(line, o.built, { now, said, strictAmounts: !final }, amountOk);
     if (r.type === "proposal") {
-      if (final && !amountOk(r.proposal.amount, r.proposal.kind === "transaction" ? r.proposal.items.reduce((s, i) => s + Math.round(i.qty * i.unit_amount), 0) || undefined : undefined) && r.proposal.kind === "transaction") {
-        r.proposal.confidence = Math.min(r.proposal.confidence, 0.4); // no se pudo verificar: la tarjeta pide revisar
+      const p = r.proposal;
+      if (final && p.kind === "transaction" && !p.pending && !amountOk(p.amount, p.items.reduce((s, i) => s + Math.round(i.qty * i.unit_amount), 0) || undefined)) {
+        // Monto que no sale de nada de lo que dijo (ni tras el reintento): nunca se propone un monto inventado.
+        // La tarjeta queda pendiente preguntando el monto (antes quedaba con ese monto y confianza 0.4).
+        r.proposal = { ...p, amount: 0, items: [], pending: true, confidence: Math.min(p.confidence, 0.4), question: amountQuestion(p.description, p.type) };
       }
       goodLines.push(r.line);
       accept(r.proposal);
@@ -147,7 +150,11 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       const r = await streamChat({ apiKey: o.apiKey, model, messages, effort: o.effort, timeoutMs: 8000, signal: o.signal, maxTokens: 600 });
       usage = addUsage(usage, r.usage);
       retryRaw = r.content;
-      for (const line of r.content.split("\n")) if (line.trim()) handle(line, true);
+      // Si el modelo reenvía líneas que ya se aceptaron (la lista completa en vez de solo las corregidas), no se
+      // vuelven a sumar: antes "recibí 320.000" + reintento con la lista completa daba un ingreso de $640.000
+      const canon = (l: string) => { try { return JSON.stringify(JSON.parse(l.trim().replace(/,\s*$/, ""))); } catch { return l.trim(); } };
+      const accepted = new Set(goodLines.map(canon));
+      for (const line of r.content.split("\n")) if (line.trim() && !accepted.has(canon(line))) handle(line, true);
     } catch (err) {
       console.error("retry", String(err).slice(0, 200));
       for (const f of failed) handle(f.line, true);

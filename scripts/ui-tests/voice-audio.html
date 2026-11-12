@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ui-test-budget" content="8000">
+<title>Prueba · Audio de la conversación</title>
+<style>#results { display: none; }</style>
+</head><body><pre id="results"></pre>
+<script type="module">
+// AudioContext compartido en Chrome real (no regresión): tras la señal "te escucho" (chime) el contexto queda activo
+// para que el detector de voz oiga la respuesta, y sin escucha pendiente se suspende. La carrera suspend()/resume()
+// con la semántica asíncrona de la especificación (WebKit) se prueba en scripts/tests/audio-context.test.mjs.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Espera con E/S real: el reloj virtual de Chrome sin interfaz adelanta los setTimeout pero el hilo de audio va en tiempo real
+let n = 0;
+const real = async (k = 5) => { for (let i = 0; i < k; i++) await fetch('../../version.json?w=' + n++, { cache: 'no-store' }); };
+const until = async (f) => { for (let t = 0; t < 150 && !f(); t++) await real(1); return f(); };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  const { sharedAudioContext, releaseAudioContext } = await import('../../js/voice/speech.js');
+  const ctx = sharedAudioContext();
+  await Promise.race([ctx.resume().catch(() => {}), wait(1500)]);
+  await wait(100);
+  check('el AudioContext arranca activo en la prueba', ctx.state === 'running', ctx.state);
+  // "Micrófono" de prueba: un oscilador conectado a un analizador, igual que Recorder conecta el micrófono
+  const osc = ctx.createOscillator();
+  const an = ctx.createAnalyser();
+  an.fftSize = 512;
+  osc.connect(an);
+  osc.start();
+  const energy = (a = an) => { const w = new Uint8Array(a.fftSize); a.getByteTimeDomainData(w); let s = 0; for (const v of w) { const x = (v - 128) / 128; s += x * x; } return Math.sqrt(s / w.length); };
+  const heard = async (a = an) => { for (let t = 0; t < 80; t++) { if (energy(a) > 0.1) return true; await fetch('../../version.json?t=' + t, { cache: 'no-store' }); } return false; };
+  check('el analizador oye antes de hablar Lukas', await heard(), energy().toFixed(3));
+
+  // Secuencia real de VoiceSession.talk(): speak() → chime() (termina con releaseAudioContext) → Recorder.start()
+  releaseAudioContext(); // speak(): suelta el contexto mientras Lukas habla
+  await until(() => ctx.state === 'suspended');
+  const c1 = sharedAudioContext(); // chime(): lo pide para la señal
+  await until(() => ctx.state === 'running');
+  releaseAudioContext(); // fin de chime()
+  const syncState = ctx.state;
+  const c2 = sharedAudioContext(); // Recorder.start() de la escucha automática, en el mismo instante
+  check('mismo contexto compartido', c1 === ctx && c2 === ctx);
+  // El reloj virtual de Chrome sin interfaz no espera al hilo de audio: se espera el cambio real de estado
+  await until(() => ctx.state === 'running');
+  await real(20);
+  check('tras chime → escuchar, el contexto queda activo', ctx.state === 'running', `estado tras suspend(): ${syncState}; final: ${ctx.state}`);
+  // El estado no debe rebotar a suspendido cuando termina el suspend() pendiente (un contexto suspendido no procesa
+  // audio: el analizador del grabador no oye nada)
+  await real(30);
+  check('…y sigue activo después (no rebota a suspendido)', ctx.state === 'running', ctx.state);
+  osc.stop();
+
+  // Soltar de verdad (sin escucha pendiente) sí lo deja suspendido: no se interfiere con la voz de Lukas en iOS
+  releaseAudioContext();
+  await until(() => ctx.state === 'suspended');
+  check('sin escucha pendiente, releaseAudioContext() lo suspende', ctx.state === 'suspended', ctx.state);
+} catch (err) {
+  check('la prueba corre', false, err?.stack ?? err);
+}
+done();
+</script></body></html>

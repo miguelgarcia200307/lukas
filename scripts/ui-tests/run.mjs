@@ -26,14 +26,17 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const port = server.address().port;
 
 let failed = 0;
-const pages = fs.readdirSync(path.join(ROOT, 'scripts/ui-tests')).filter((f) => f.endsWith('.html'));
+// Opcional: `npm run test:ui -- voice` corre solo las páginas cuyo nombre contiene "voice"
+const only = process.argv[2];
+const pages = fs.readdirSync(path.join(ROOT, 'scripts/ui-tests')).filter((f) => f.endsWith('.html') && (!only || f.includes(only)));
 for (const page of pages) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'lukas-ui-'));
   // Presupuesto de tiempo virtual por página (meta ui-test-budget); 6 s por defecto
   const budget = /<meta name="ui-test-budget" content="(\d+)">/.exec(fs.readFileSync(path.join(ROOT, 'scripts/ui-tests', page), 'utf8'))?.[1] ?? '6000';
   // spawn asíncrono: con spawnSync el servidor de este mismo proceso no podría responder
   const r = await new Promise((resolve) => {
-    const p = spawn(chrome, ['--headless=new', '--disable-gpu', '--no-first-run', `--user-data-dir=${profile}`, `--virtual-time-budget=${budget}`,
+    // autoplay sin gesto: las pruebas de audio (voice-convo) necesitan un AudioContext activo sin toque
+    const p = spawn(chrome, ['--headless=new', '--disable-gpu', '--no-first-run', '--autoplay-policy=no-user-gesture-required', `--user-data-dir=${profile}`, `--virtual-time-budget=${budget}`,
       '--window-size=390,900', '--dump-dom', `http://127.0.0.1:${port}/scripts/ui-tests/${page}`]);
     let stdout = '';
     const kill = setTimeout(() => p.kill(), 60000);

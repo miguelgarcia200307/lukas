@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ui-test-budget" content="20000">
+<title>Prueba · Conversación manos libres</title>
+<script type="importmap">{ "imports": {
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js",
+  "../../js/voice/speech.js": "./fixtures/voice-stubs.js",
+  "../../js/voice/recorder.js": "./fixtures/voice-stubs.js",
+  "../../js/api/ai.js": "./fixtures/voice-stubs.js"
+} }</script>
+<style>#results { display: none; }</style>
+</head><body><div id="toast-root"></div><pre id="results"></pre>
+<script type="module">
+// Conversación manos libres de punta a punta en la hoja de voz real (js/voice/voice-sheet.js): el usuario habla,
+// Lukas resume y pregunta "¿Lo guardo?", vuelve a escuchar solo y la respuesta por voz llega al manejador correcto.
+// Micrófono, voz y función son dobles (fixtures/voice-stubs.js); la clasificación de la respuesta en la función
+// (quick.ts) se prueba en Node (scripts/tests/conversation.test.mjs).
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 6000) => { for (let t = 0; t < ms; t += 25) { if (f()) return true; await wait(25); } return false; };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.error?.stack ?? e.message); done(); });
+window.addEventListener('unhandledrejection', (e) => { check('sin promesas rechazadas', false, e.reason?.stack ?? e.reason); });
+try {
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  const realMM = window.matchMedia.bind(window);
+  window.matchMedia = (q) => (q.includes('prefers-reduced-motion') ? { matches: true, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} } : realMM(q));
+
+  const { state } = await import('../../js/state.js');
+  state.profile = { name: 'Prueba', voice_reply: true, voice_autosend: true, default_account_id: 'acc' };
+  state.categories = [
+    { id: 'food', name: 'Comida y restaurantes', kind: 'expense', system_key: 'food', icon: 'utensils', color: '#F08A4B' },
+    { id: 'other', name: 'Otros', kind: 'expense', system_key: 'other_expense', icon: 'dots', color: '#9A9A92' },
+  ];
+  state.accounts = [{ id: 'acc', name: 'Efectivo', type: 'cash', balance: 100000 }];
+  const saved = [];
+  window.__rpc = (fn, args) => { if (fn === 'create_transactions') { saved.push(args.p_rows); return args.p_rows.map((r) => r.id); } return null; };
+
+  // Turno 1 de la función: "compré una salchicha de 5.000" → una tarjeta
+  const proposal = { kind: 'transaction', type: 'expense', amount: 5000, date: '2026-11-12T12:00:00-05:00', description: 'Salchicha', category_id: 'food',
+    category_alternatives: [], payment: { kind: 'account', id: 'acc', inferred: true }, items: [], group_id: 'temp-1', confidence: 0.9 };
+  const firstTurn = () => ({ events: [['transcript', { text: 'Lucas, compré una salchicha de 5.000' }], ['proposal', proposal]],
+    done: { intent: 'create_transactions', reply: 'Listo, $5.000 en Comida y restaurantes. ¿Lo guardo así?', question: null, state: '{"l":[],"q":null,"s":[5000]}' } });
+  // Respuesta corta ya clasificada en la función (quick.ts), como la manda: intent + quick
+  const quick = (intent, transcript) => ({ events: [['transcript', { text: transcript }]], done: { intent, quick: true, transcript, reply: '', question: null, state: '' } });
+
+  const { openVoice } = await import('../../js/voice/voice-sheet.js');
+
+  /** Una conversación: el usuario habla (voz), Lukas pregunta y luego las respuestas guionizadas */
+  async function conversation(name, mic, answers) {
+    window.__spoken.length = 0;
+    window.__sent.length = 0;
+    saved.length = 0;
+    window.__mic.splice(0, window.__mic.length, 'voz', ...mic);
+    const queue = [firstTurn(), ...answers];
+    window.__assistant = () => queue.shift() ?? quick('stop', '');
+    const s = openVoice({ autoStart: true });
+    await wait(50);
+    return s;
+  }
+  const close = async (s) => { if (!s.sheet.closed) s.sheet.close(); await wait(400); };
+  const statusText = (s) => s.status.textContent.replace(/\s+/g, ' ').trim();
+  const asked = () => window.__spoken.some((t) => /guardo/i.test(t));
+
+  // ── "sí": guarda
+  let s = await conversation('si', ['voz'], [quick('confirm', 'Sí.')]);
+  check('sí · Lukas resume y pregunta', await until(asked), JSON.stringify(window.__spoken));
+  check('sí · vuelve a escuchar solo y envía la respuesta con expect=confirm', await until(() => window.__sent.length === 2) && window.__sent[1].audio && window.__sent[1].expect === 'confirm', JSON.stringify(window.__sent));
+  check('sí · guarda una vez, con el monto dicho', await until(() => saved.length === 1) && saved[0].length === 1 && saved[0][0].amount === 5000, JSON.stringify(saved));
+  check('sí · Lukas confirma que guardó', await until(() => window.__spoken.some((t) => /guard|hecho|listo, ya/i.test(t) && !/\?/.test(t))), JSON.stringify(window.__spoken));
+  check('sí · exactamente 2 envíos a la función (no hay llamadas extra)', window.__sent.length === 2, window.__sent.length);
+  await close(s);
+
+  // ── "no": cancela, nada se guarda
+  s = await conversation('no', ['voz'], [quick('deny', 'No.')]);
+  check('no · cancela y lo dice', await until(() => /Cancelado/.test(statusText(s))), statusText(s));
+  check('no · no guardó nada', saved.length === 0);
+  check('no · Lukas avisa que no guardó', window.__spoken.some((t) => /cancel|no guardé|descart/i.test(t)), JSON.stringify(window.__spoken));
+  check('no · 2 envíos (no hay llamadas extra)', window.__sent.length === 2, window.__sent.length);
+  await close(s);
+
+  // ── "de pronto" → re-pregunta una vez → "de pronto" → pausa (tarjetas quedan, nada guardado)
+  s = await conversation('de pronto', ['voz', 'voz'], [quick('unclear', 'De pronto.'), quick('unclear', 'de pronto')]);
+  check('de pronto · vuelve a preguntar pidiendo sí o no', await until(() => window.__spoken.some((t) => /Dime sí o no/.test(t))), JSON.stringify(window.__spoken));
+  check('de pronto · escucha otra vez y envía la segunda respuesta', await until(() => window.__sent.length === 3) && window.__sent[2].expect === 'confirm', JSON.stringify(window.__sent));
+  check('de pronto ×2 · pausa: deja las tarjetas sin guardar ni borrar', await until(() => /Lo dejo aquí/.test(statusText(s))) && saved.length === 0 && s.proposals.length === 1, statusText(s));
+  check('de pronto ×2 · solo una re-pregunta', window.__spoken.filter((t) => /Dime sí o no/.test(t)).length === 1, JSON.stringify(window.__spoken));
+  await close(s);
+
+  // ── "de pronto" → "sí": guarda
+  s = await conversation('de pronto, sí', ['voz', 'voz'], [quick('unclear', 'de pronto'), quick('confirm', 'sí')]);
+  check('de pronto → sí · guarda tras la re-pregunta', await until(() => saved.length === 1), JSON.stringify(window.__spoken));
+  await close(s);
+
+  // ── silencio → re-pregunta una vez → silencio → termina sin enviar audio
+  s = await conversation('silencio', ['silencio', 'silencio'], []);
+  check('silencio · re-pregunta una vez', await until(() => window.__spoken.some((t) => /Sigues ahí|Me escuchas/.test(t))), JSON.stringify(window.__spoken));
+  check('silencio ×2 · termina la escucha y lo deja en pantalla', await until(() => /Te espero cuando quieras/.test(statusText(s))) && s.proposals.length === 1, statusText(s));
+  check('silencio · ningún audio en silencio se envía a la función (0 llamadas extra)', window.__sent.length === 1, window.__sent.length);
+  check('silencio · nada guardado', saved.length === 0);
+  await close(s);
+} catch (err) {
+  check('la prueba corre', false, err?.stack ?? err);
+}
+done();
+</script></body></html>
