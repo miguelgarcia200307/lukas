@@ -112,7 +112,7 @@ export function mount(screen, { query, navigate }) {
           </div></div>
           <button class="orb-btn" aria-label="Hablar con Lukas" aria-describedby="orb-help">
             <span class="sr-only" id="orb-help">Registra un gasto o ingreso con tu voz. Mantén presionado para hablar mientras lo sostienes.</span></button>
-          <a class="orb-style ${discovered() ? '' : 'invite'}" href="#/lukas" aria-label="Personalizar a Lukas">${icon('sparkles', { size: 18, stroke: 2.2 })}</a>
+          <a class="orb-style ${discovered() ? '' : 'invite'}" href="#/lukas" aria-label="Personalizar a Lukas">${icon('hanger', { size: 19, stroke: 2.1 })}</a>
         </div>
         ${limit ? html`<p class="hero-left num">${spent <= limit ? `Te quedan ${money(limit - spent)} hoy` : `Te pasaste ${money(spent - limit)} hoy`}</p>` : ''}
         <p class="hero-hint">Cuéntame qué gastaste</p>
