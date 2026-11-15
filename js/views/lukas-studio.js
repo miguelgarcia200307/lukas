@@ -6,12 +6,14 @@ import { haptic } from '../utils/haptics.js';
 import { animate, reducedMotion, spring } from '../utils/motion.js';
 import { toast } from '../ui/toast.js';
 import { setLeaveGuard } from '../route-guard.js';
-import { getLook, sameLook, isClassic, SLOTS } from '../lukas/store.js';
+import { getLook, sameLook, isClassic } from '../lukas/store.js';
 import { saveLook, markDiscovered } from '../lukas/sync.js';
 import {
   itemsOf, BY_ID, PALETTE, LOOKS, SLOT_INFO, equip, surprise, validateLook, describe, conflictText, itemName, colorOf,
 } from '../lukas/catalog.js';
 import { lookSvg } from '../lukas/layer.js';
+import { createChatter } from '../lukas/lines.js';
+import { state } from '../state.js';
 
 export const title = 'Personaliza a Lukas';
 
@@ -22,16 +24,11 @@ const THUMB_VB = {
 };
 const TABS = ['looks', 'cabeza', 'cabello', 'gafas', 'vello', 'cuello', 'cara', 'extras'];
 const TAB_ICON = { looks: 'M12 3l2.2 5.2L20 9l-4.4 3.8L17 19l-5-3-5 3 1.4-6.2L4 9l5.8-.8Z' };
-const REACTION = { cabeza: 'arriba', cabello: 'feliz', gafas: 'ajuste', vello: 'ajuste', cuello: 'presume', cara: 'feliz', extras: 'presume' };
-const SPIN = new Set(['cuello', 'extras']);
-const PHRASES = {
-  equip: ['¡Me encanta!', '¿Cómo me veo?', 'Esto es muy yo', 'Uff, elegancia pura', '¡Qué estilo!', 'Me queda pintado', '¡Así sí!', 'Ya me siento otro'],
-  tickle: ['¡Jajaja, cosquillas!', '¡Ay, para, para!', '¡Jiji, eso no se vale!'],
-  idle: ['¿Me tomas una foto?', 'Modelando…', '¿Así o más guapo?', '¿Probamos algo más?'],
-  surprise: ['¡Sorpresa!', '¡A ver qué sale!', 'Esto no me lo esperaba'],
-};
 const CONFETTI = ['#4B3BF5', '#C8F35A', '#ABA3FF', '#F0997B', '#FFD23F', '#5848EE'];
-const lc = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+// Emojis completos (banderas y secuencias con ZWJ cuentan como uno)
+const graphemes = (s) => (typeof Intl !== 'undefined' && Intl.Segmenter
+  ? [...new Intl.Segmenter('es', { granularity: 'grapheme' }).segment(s)].map((x) => x.segment)
+  : Array.from(s));
 
 // CSS del editor: solo cuando se abre
 let cssReady = null;
@@ -57,8 +54,8 @@ export function mount(screen, { navigate }) {
   let savedCfg = { ...saved };
   const undo = [];
   let tab = 'cabeza';
-  let lastPhrase = '';
-  let idleTimer = 0, bubbleTimer = 0, talkTimer = 0, gazeTimer = 0;
+  const chat = createChatter({ name: state.profile?.name ?? '' });
+  let idleTimer = 0, bubbleTimer = 0, talkTimer = 0, gazeTimer = 0, typeTimer = 0, thenTimer = 0;
   let comparing = false;
   const thumbs = new Map();
 
@@ -82,6 +79,7 @@ export function mount(screen, { navigate }) {
         <p class="lk-hint" aria-hidden="true">Mantén presionado para comparar</p>
         <span class="lk-badge-compare" aria-hidden="true">Guardado</span>
         <div class="lk-confetti" aria-hidden="true"></div>
+        <div class="lk-burst" aria-hidden="true"></div>
       </div>
       <div class="lk-panel">
         <div class="lk-tabs" role="tablist" aria-label="Tipos de accesorio">
@@ -112,26 +110,80 @@ export function mount(screen, { navigate }) {
   lk.setLook(cfg, { animate: false });
   engine()?.useLayer();
 
+  // La burbuja se escribe sola (el texto completo ya ocupa su tamaño: la parte pendiente va transparente)
   const say = (text, { ms } = {}) => {
     if (!text) return;
-    clearTimeout(bubbleTimer); clearTimeout(talkTimer);
-    bubble.querySelector('span').textContent = text;
+    clearTimeout(bubbleTimer); clearTimeout(talkTimer); clearInterval(typeTimer);
+    const span = bubble.querySelector('span');
+    bubble.dataset.say = text;
+    const chars = graphemes(text);
+    const shown = document.createTextNode(reducedMotion() ? text : '');
+    const rest = document.createElement('i');
+    rest.className = 'lk-bubble-rest';
+    rest.textContent = reducedMotion() ? '' : text;
+    span.replaceChildren(shown, rest);
+    if (!reducedMotion()) {
+      let i = 0;
+      typeTimer = setInterval(() => {
+        i = Math.min(chars.length, i + 2);
+        shown.data = chars.slice(0, i).join('');
+        rest.textContent = chars.slice(i).join('');
+        if (i >= chars.length) clearInterval(typeTimer);
+      }, 26);
+    }
     bubble.classList.remove('show');
     void bubble.offsetWidth;
     bubble.classList.add('show');
     lk.talk(true);
-    talkTimer = setTimeout(() => lk.talk(false), Math.min(1800, 380 + text.length * 55));
-    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms ?? Math.max(1800, 900 + text.length * 70));
-  };
-  const pick = (list) => {
-    const opts = list.filter((p) => p !== lastPhrase);
-    lastPhrase = opts[Math.floor(Math.random() * opts.length)];
-    return lastPhrase;
+    talkTimer = setTimeout(() => lk.talk(false), Math.min(2000, 380 + text.length * 55));
+    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms ?? Math.max(2000, 1000 + text.length * 70));
   };
   const announce = (t) => { announcer.textContent = ''; setTimeout(() => { announcer.textContent = t; }, 30); };
   const spin = () => animate(hero, [{ transform: 'rotate(0)' }, { transform: 'rotate(-7deg)', offset: 0.3 }, { transform: 'rotate(5deg)', offset: 0.65 }, { transform: 'rotate(0)' }],
     { duration: spring.bouncy.duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+  // Salto con aplastamiento (se apoya en el podio)
+  const hop = () => animate(hero, [
+    { transform: 'none', transformOrigin: '50% 100%' },
+    { transform: 'translateY(3px) scale(1.09, 0.9)', transformOrigin: '50% 100%', offset: 0.16 },
+    { transform: 'translateY(-14px) scale(0.94, 1.07)', transformOrigin: '50% 100%', offset: 0.44 },
+    { transform: 'translateY(1px) scale(1.04, 0.96)', transformOrigin: '50% 100%', offset: 0.74 },
+    { transform: 'none', transformOrigin: '50% 100%' },
+  ], { duration: 640 });
   const vibrate = (p) => { try { if ('vibrate' in navigator) navigator.vibrate(p); } catch { /* sin soporte */ } };
+
+  // Emojis que salen de Lukas según lo que se puso
+  const burst = (emojis) => {
+    if (!emojis || reducedMotion()) return;
+    const box = $('.lk-burst');
+    const chars = graphemes(emojis).filter((c) => c.trim());
+    const n = 7;
+    for (let i = 0; i < n; i++) {
+      const p = domEl(`<span class="lk-burst-e"></span>`);
+      p.textContent = chars[i % chars.length];
+      box.appendChild(p);
+      const a = (-90 + (i - (n - 1) / 2) * 22 + (Math.random() - 0.5) * 14) * (Math.PI / 180);
+      const d = 70 + Math.random() * 60;
+      const x = Math.cos(a) * d, y = Math.sin(a) * d;
+      const anim = p.animate([
+        { transform: 'translate(0, 0) scale(0.3)', opacity: 0 },
+        { transform: `translate(${x * 0.6}px, ${y * 0.6}px) scale(1.15)`, opacity: 1, offset: 0.35 },
+        { transform: `translate(${x}px, ${y - 30}px) scale(0.9) rotate(${(Math.random() - 0.5) * 50}deg)`, opacity: 0 },
+      ], { duration: 1000 + Math.random() * 500, delay: i * 35, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'both' });
+      anim.finished.then(() => p.remove(), () => p.remove());
+    }
+  };
+
+  // Actúa una respuesta de la voz de Lukas: frase, reacción, segunda reacción, giro o salto y emojis
+  const act = (r, { ms, move = true } = {}) => {
+    if (!r) return;
+    clearTimeout(thenTimer);
+    if (r.react) lk.react(r.react);
+    if (move) (r.spin ? spin : hop)();
+    lk.engine?.layer?.kick(r.spin ? 1.4 : 1);
+    burst(r.burst);
+    say(r.text, { ms });
+    if (r.then) thenTimer = setTimeout(() => { if (!comparing && screen.isConnected) lk.react(r.then); }, 900);
+  };
 
   // Inactividad: poses de modelaje cada pocos segundos
   const poke = () => {
@@ -139,8 +191,10 @@ export function mount(screen, { navigate }) {
     idleTimer = setTimeout(function pose() {
       if (!screen.isConnected) return;
       if (!comparing && document.visibilityState === 'visible') {
-        lk.react(['pose1', 'pose2', 'pose3'][Math.floor(Math.random() * 3)]);
-        if (Math.random() < 0.35) say(pick(PHRASES.idle));
+        if (Math.random() < 0.45) {
+          const it = tab !== 'looks' && cfg[tab] ? BY_ID.get(cfg[tab]) : null;
+          act(chat.idle({ cfg, dirty: dirty(), colorable: !!it?.coloreable, colorItem: it }), { move: false });
+        } else lk.react(['pose1', 'pose2', 'pose3'][Math.floor(Math.random() * 3)]);
       }
       idleTimer = setTimeout(pose, 6500 + Math.random() * 3000);
     }, 7000);
@@ -219,7 +273,8 @@ export function mount(screen, { navigate }) {
   };
 
   // Aplica un cambio de apariencia (con historial para deshacer)
-  const commit = (next, { slot, reaction = true, phrase } = {}) => {
+  // line(prev, next): lo que dice y hace Lukas con el cambio
+  const commit = (next, { line } = {}) => {
     next = validateLook(next);
     if (sameLook(next, cfg)) return false;
     undo.push(cfg);
@@ -227,18 +282,8 @@ export function mount(screen, { navigate }) {
     const prev = cfg;
     cfg = next;
     lk.setLook(cfg, { animate: true });
-    if (isClassic(cfg) && !isClassic(prev)) {
-      lk.react('timido');
-      say('Me siento sin nada…');
-    } else if (reaction) {
-      const s = slot && cfg[slot] ? slot : SLOTS.find((x) => cfg[x] && cfg[x] !== prev[x]);
-      if (s) {
-        lk.react(REACTION[s]);
-        if (SPIN.has(s)) spin();
-        lk.engine?.layer?.kick(1);
-      }
-      say(phrase ?? pick(PHRASES.equip));
-    }
+    if (isClassic(cfg) && !isClassic(prev)) act(chat.classic(), { move: false });
+    else if (line) act(line(prev, cfg));
     vibrate(10);
     paintChrome();
     renderGrid();
@@ -250,7 +295,8 @@ export function mount(screen, { navigate }) {
     const { config, removed } = equip(cfg, slot, id);
     const it = id ? BY_ID.get(id) : null;
     const before = cfg[slot] ? BY_ID.get(cfg[slot]) : null;
-    if (!commit(config, { slot })) return;
+    const line = (prev, next) => (it ? chat.equip({ prev, next, slot, item: it, removed }) : chat.remove({ slot, item: before }));
+    if (!commit(config, { line })) return;
     if (removed.length && it) {
       const msg = conflictText(removed[0], it);
       toast(msg, { type: 'info' });
@@ -265,6 +311,7 @@ export function mount(screen, { navigate }) {
     screen.classList.toggle('is-comparing', onOff);
     lk.setLook(onOff ? savedCfg : cfg, { animate: true, quick: true });
     if (onOff) { vibrate(8); announce(`Así estaba guardado: ${describe(savedCfg)}`); }
+    else if (dirty()) setTimeout(() => { if (!comparing && screen.isConnected) act(chat.compareEnd(), { move: false }); }, 250);
   };
 
   let pressTimer = 0, pressed = false, longPressed = false;
@@ -275,20 +322,24 @@ export function mount(screen, { navigate }) {
       pressTimer = setTimeout(() => { longPressed = true; compare(true); }, 380);
     }),
     on(screen, 'contextmenu', '.lk-hero', (e) => e.preventDefault()),
-    on(screen, 'click', '[data-tab]', (e, b) => { haptic.select(); selectTab(b.dataset.tab); }),
+    on(screen, 'click', '[data-tab]', (e, b) => {
+      haptic.select();
+      selectTab(b.dataset.tab);
+      const r = chat.tab(b.dataset.tab);
+      if (r) { lk.lookAtElement(grid); clearTimeout(gazeTimer); gazeTimer = setTimeout(() => lk.lookAt(0, 0), 1400); act(r, { move: false }); }
+    }),
     on(screen, 'click', '[data-pick]', (e, b) => { haptic.select(); equipItem(tab, b.dataset.pick || null); b.focus?.(); }),
     on(screen, 'click', '[data-look]', (e, b) => {
       const l = LOOKS.find((x) => x.id === b.dataset.look);
       haptic.select();
-      if (commit(l.config, { phrase: `¡Modo ${lc(l.nombre)} activado!` })) { spin(); announce(`Look ${l.nombre}: ${describe(cfg)}`); }
+      if (commit(l.config, { line: () => chat.look(l.id) })) announce(`Look ${l.nombre}: ${describe(cfg)}`);
     }),
     on(screen, 'click', '[data-color]', (e, b) => {
       const it = BY_ID.get(cfg[tab]);
       if (!it) return;
       haptic.select();
       const { config } = equip(cfg, tab, it.id, b.dataset.color);
-      if (commit(config, { slot: tab, reaction: false })) {
-        lk.react('ajuste');
+      if (commit(config, { line: () => chat.color({ item: it, hex: b.dataset.color }) })) {
         announce(`${it.nombre} en ${PALETTE.find((p) => p.hex === b.dataset.color)?.nombre.toLowerCase()}`);
         colors.querySelector(`[data-color="${b.dataset.color}"]`)?.focus();
       }
@@ -301,7 +352,7 @@ export function mount(screen, { navigate }) {
       haptic.tap();
       cfg = undo.pop();
       lk.setLook(cfg, { animate: true });
-      lk.react('ajuste');
+      act(chat.undo(), { move: false });
       paintChrome();
       renderGrid();
       announce(`Deshecho. ${describe(cfg)}`);
@@ -309,7 +360,7 @@ export function mount(screen, { navigate }) {
     }),
     on(screen, 'click', '[data-surprise]', () => {
       haptic.tap();
-      if (commit(surprise(cfg), { phrase: pick(PHRASES.surprise) })) { spin(); announce(describe(cfg)); }
+      if (commit(surprise(cfg), { line: () => chat.surprise() })) announce(describe(cfg));
     }),
     on(screen, 'click', '[data-classic]', async () => {
       const ok = await confirm3({ title: '¿Volver al Lukas clásico?', message: 'Se quitan todos los accesorios. Puedes deshacerlo antes de guardar.', actions: [['ok', 'Sí, clásico', 'btn-primary'], ['no', 'Cancelar', 'btn-ghost']] });
@@ -361,9 +412,9 @@ export function mount(screen, { navigate }) {
   }
   function tickle() {
     if (comparing) return;
-    lk.react('cosquillas');
-    say(pick(PHRASES.tickle), { ms: 1500 });
-    vibrate([8, 40, 8]);
+    const r = chat.tickle();
+    act(r, { ms: 1600, move: r.level > 0 });
+    vibrate(r.level === 2 ? [10, 30, 10, 30, 14] : r.level === 1 ? [8, 30, 8, 30, 8] : [8, 40, 8]);
     poke();
   }
 
@@ -393,7 +444,10 @@ export function mount(screen, { navigate }) {
     markDiscovered();
     lk.play('done');
     lk.engine?.layer?.kick(1.4);
-    say('¡Quedé brutal!');
+    const r = chat.save(cfg);
+    say(r.text);
+    burst(r.burst);
+    hop();
     confetti();
     haptic.success();
     vibrate([12, 60, 18]);
@@ -425,7 +479,7 @@ export function mount(screen, { navigate }) {
     setTimeout(() => {
       if (!screen.isConnected) return;
       lk.play('done');
-      say('¡Uy, me vas a arreglar!');
+      say(chat.enter(cfg).text);
       lk.engine?.layer?.kick(1);
     }, 260);
     poke();
@@ -436,7 +490,8 @@ export function mount(screen, { navigate }) {
     offs.forEach((f) => f());
     window.removeEventListener('pointerup', release);
     window.removeEventListener('pointercancel', release);
-    [idleTimer, bubbleTimer, talkTimer, gazeTimer, pressTimer].forEach(clearTimeout);
+    [idleTimer, bubbleTimer, talkTimer, gazeTimer, pressTimer, thenTimer].forEach(clearTimeout);
+    clearInterval(typeTimer);
   };
 }
 

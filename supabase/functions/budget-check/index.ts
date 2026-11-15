@@ -2,27 +2,15 @@
 import { errorResponse, HttpError, json, preflight } from "../_shared/cors.ts";
 import { adminClient, requireInternal } from "../_shared/auth.ts";
 import { notify } from "../_shared/push.ts";
+import { budget as budgetMsg, seeded } from "../_shared/lukas-voice.ts";
+import { bogota } from "../_shared/brain.ts";
 
 interface BudgetRow {
   budget_id: string | null; category_id: string | null; name: string; period: "daily" | "weekly" | "monthly";
   amount: number; spent: number; pct: number; period_start: string; thresholds: number[];
 }
 
-const money = (n: number) => "$" + Math.round(Number(n) || 0).toLocaleString("es-CO");
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function scopeText(b: BudgetRow): string {
-  const when = b.period === "daily" ? "hoy" : b.period === "weekly" ? "esta semana" : "este mes";
-  return b.budget_id ? `tu presupuesto de ${b.name} ${when}` : `tu límite de ${when}`;
-}
-
-function message(b: BudgetRow, level: number | "over") {
-  const figures = `${money(b.spent)} de ${money(b.amount)}`;
-  const scope = scopeText(b);
-  if (level === "over") return { title: `Te pasaste de ${scope}`, body: `Llevas ${figures}. Mañana es otro día para retomar.` };
-  if (level >= 100) return { title: `Llegaste al 100% de ${scope}`, body: `Llevas ${figures}. Lo que sigas gastando ya sobrepasa el plan.` };
-  return { title: `Ojo, ya vas en el ${level}% de ${scope}`, body: `Llevas ${figures}.` };
-}
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -34,13 +22,14 @@ Deno.serve(async (req) => {
     if (typeof user_id !== "string" || !UUID.test(user_id)) throw new HttpError(400, "user_id inválido");
 
     const admin = adminClient();
-    const { data: profile } = await admin.from("profiles").select("notification_prefs").eq("user_id", user_id).maybeSingle();
+    const { data: profile } = await admin.from("profiles").select("notification_prefs, name").eq("user_id", user_id).maybeSingle();
     if (profile?.notification_prefs?.budget === false) return json(req, { ok: true, skipped: "disabled" });
 
     const { data, error } = await admin.rpc("budget_status", { p_user: user_id });
     if (error) throw error;
 
     const sent: string[] = [];
+    const today = bogota(new Date()).date;
     for (const b of (data ?? []) as BudgetRow[]) {
       const pct = Number(b.pct);
       const thresholds = [...(b.thresholds?.length ? b.thresholds : [80, 100])].sort((x, y) => x - y);
@@ -51,7 +40,12 @@ Deno.serve(async (req) => {
       if (level === null) continue;
 
       const key = `budget:${b.budget_id ?? "daily"}:${b.period_start}:${level}`;
-      const { title, body } = message(b, level);
+      // Con la voz de Lukas: cuánto queda por día, a qué ritmo va y cuándo vuelve a empezar
+      const { title, body } = budgetMsg({
+        rng: seeded(`${user_id}:${key}`), name: profile?.name, level,
+        category: b.category_id ? b.name : "gastos", isTotal: !b.budget_id, period: b.period,
+        amount: Number(b.amount), spent: Number(b.spent), pct, periodStart: b.period_start, today,
+      });
       const created = await notify(admin, user_id, { type: "budget", title, body, url: "#/inicio" }, key);
       if (created) sent.push(key);
     }

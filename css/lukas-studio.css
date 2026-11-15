@@ -83,6 +83,11 @@
 /* Confeti de la celebración */
 .lk-confetti { position: absolute; left: 50%; bottom: calc(var(--lk-s) * 0.7); width: 0; height: 0; z-index: 4; pointer-events: none; }
 .lk-conf { position: absolute; left: -4px; top: -6px; width: 8px; height: 12px; border-radius: 2px; will-change: transform, opacity; }
+.lk-bubble-rest { font-style: normal; opacity: 0; }
+
+/* Emojis que salen de Lukas al ponerse algo */
+.lk-burst { position: absolute; left: 50%; bottom: calc(var(--lk-s) * 0.95); width: 0; height: 0; z-index: 4; pointer-events: none; }
+.lk-burst-e { position: absolute; left: -11px; top: -11px; font-size: 22px; line-height: 1; will-change: transform, opacity; }
 
 /* ── Panel: pestañas, colores y grilla ── */
 .lk-panel {
@@ -223,6 +228,7 @@
   .lk-halo { bottom: 50%; }
   .lk-podium { bottom: calc(50% - var(--lk-s) * 0.62); }
   .lk-confetti { bottom: 55%; }
+  .lk-burst { bottom: calc(50% + var(--lk-s) * 0.4); }
   .lk-bubble { right: auto; left: calc(50% + var(--lk-s) * 0.35); top: calc(50% - var(--lk-s) * 1.05); }
   .lk-panel { grid-column: 2; grid-row: 2; margin-right: calc(var(--s-4) + var(--safe-right)); border-radius: var(--r-xl) var(--r-xl) 0 0; }
   .lk-actions { grid-column: 2; grid-row: 3; margin-right: calc(var(--s-4) + var(--safe-right)); border-radius: 0 0 var(--r-xl) var(--r-xl); margin-bottom: calc(var(--s-4) + var(--safe-bottom)); }

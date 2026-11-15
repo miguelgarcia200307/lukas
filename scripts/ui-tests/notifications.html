@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba · Notificaciones</title>
+<script type="importmap">{ "imports": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js" } }</script>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/animations.css">
+<link rel="stylesheet" href="../../css/lukas.css">
+<style>#app { position: relative; height: 900px; } #results { display: none; }</style>
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><pre id="results"></pre>
+<script type="module">
+// Centro de notificaciones (la corre scripts/ui-tests/run.mjs): Lukas resume lo pendiente y los avisos van por día.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 4000) => { for (let t = 0; t < ms; t += 50) { if (f()) return true; await wait(50); } return false; };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  await import('../../js/ui/lukas-orb.js');
+  const now = Date.now();
+  const ago = (h) => new Date(now - h * 3600000).toISOString();
+  let rows = [
+    { id: '1', type: 'weekly_summary', title: '📊 Resumen de tu semana: $405.000', body: 'Comida encabeza la lista.', url: '#/reportes', created_at: ago(0.2), read_at: null },
+    { id: '2', type: 'card_due', title: 'Mañana vence tu Visa', body: 'Debes $480.000.', url: '#/tarjetas/x', created_at: ago(1), read_at: null },
+    { id: '3', type: 'budget', title: 'Ojo, ya vas en el 85% de tu presupuesto de Mercado este mes', body: 'Llevas $680.000 de $800.000.', url: '#/inicio', created_at: ago(30), read_at: ago(29) },
+    { id: '4', type: 'subscription', title: 'Registré el cobro de Netflix', body: '$26.900 quedó en tus movimientos.', url: '#/movimientos', created_at: ago(24 * 20), read_at: ago(24 * 19) },
+  ];
+  const chain = () => new Proxy({}, { get: (t, k) => (k === 'then' ? (r) => r({ data: rows, error: null }) : () => chain()) });
+  window.__from = (table) => (table === 'notifications' ? chain() : null);
+  window.__rpc = () => 1;
+
+  const { mount, lukasSummary } = await import('../../js/views/notifications.js');
+  const screen = document.getElementById('scr');
+  const unmount = mount(screen);
+  await until(() => screen.querySelector('.notif-lukas'));
+  const head = screen.querySelector('.notif-lukas');
+  check('Lukas resume lo pendiente y empieza por el pago', head && /2 avisos nuevos/.test(head.textContent) && /tarjeta/.test(head.textContent), head?.textContent);
+  check('Lukas aparece con su personaje', !!head?.querySelector('lukas-orb'));
+  const groups = [...screen.querySelectorAll('.day-group .day-head .d')].map((n) => n.textContent);
+  check('avisos agrupados por día (Hoy, Ayer, Antes)', groups[0] === 'Hoy' && groups.includes('Antes') && groups.length >= 3, groups.join(','));
+  check('se ven los 4 avisos y 2 sin leer', screen.querySelectorAll('.notif').length === 4 && screen.querySelectorAll('.notif.unread').length === 2);
+
+  rows = rows.map((r) => ({ ...r, read_at: r.read_at ?? ago(0) }));
+  const calm = lukasSummary(rows);
+  check('todo leído: Lukas lo dice tranquilo', calm.mood === 'rest' && /leído|al día|nuevo/.test(calm.text), calm.text);
+  check('solo un aviso: en singular', /un aviso nuevo/.test(lukasSummary([{ type: 'budget', read_at: null }]).text));
+  unmount?.();
+} catch (e) { check('sin excepciones', false, String(e?.stack || e)); }
+done();
+</script></body></html>

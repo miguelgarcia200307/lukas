@@ -5,18 +5,21 @@ import { errorResponse, HttpError, json, preflight } from "../_shared/cors.ts";
 import { adminClient, requireInternal } from "../_shared/auth.ts";
 import { notify } from "../_shared/push.ts";
 import { addDays, bogota } from "../_shared/brain.ts";
+import * as voice from "../_shared/lukas-voice.ts";
 
 type Slot = "morning" | "weekly" | "evening";
 interface Profile { user_id: string; name: string | null; reminder_time: string; notification_prefs: Record<string, boolean> }
 
-const money = (n: number) => "$" + Math.round(Number(n) || 0).toLocaleString("es-CO");
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86400000);
-const whenText = (d: number) => d === 0 ? "Hoy" : d === 1 ? "Mañana" : `En ${d} días`;
 const on = (prefs: Record<string, boolean>, key: string) => prefs?.[key] !== false;
+
+// Cada aviso se redacta con la voz de Lukas (lukas-voice.ts): variantes con semilla = usuario + clave del aviso
+const rngFor = (p: Profile, key: string) => voice.seeded(`${p.user_id}:${key}`);
 
 async function morning(admin: SupabaseClient, p: Profile, today: string, log: string[]) {
   const uid = p.user_id;
   const prefs = p.notification_prefs ?? {};
+  const name = p.name;
 
   // Tarjetas: corte (1 día antes y el mismo día) y pago (3, 1 y 0 días)
   const { data: cards, error: cErr } = await admin.from("card_status").select("*").eq("user_id", uid).eq("archived", false);
@@ -25,21 +28,16 @@ async function morning(admin: SupabaseClient, p: Profile, today: string, log: st
     const label = [c.name, c.bank].filter(Boolean).join(" ");
     const dCut = daysBetween(today, c.next_cut_date);
     if (on(prefs, "card_cut") && (dCut === 0 || dCut === 1)) {
-      const ok = await notify(admin, uid, {
-        type: "card_cut", title: `${whenText(dCut)} es el corte de tu ${label}`,
-        body: `Llevas ${money(c.debt)} en esta tarjeta. Lo que compres después del corte pasa al siguiente extracto.`,
-        url: `#/tarjetas/${c.id}`,
-      }, `cut:${c.id}:${c.next_cut_date}:${dCut}`);
+      const key = `cut:${c.id}:${c.next_cut_date}:${dCut}`;
+      const msg = voice.cardCut({ rng: rngFor(p, key), name, label, days: dCut, debt: Number(c.debt), usagePct: Number(c.usage_pct) });
+      const ok = await notify(admin, uid, { type: "card_cut", ...msg, url: `#/tarjetas/${c.id}` }, key);
       if (ok) log.push(`cut ${c.name} ${dCut}`);
     }
     const dDue = daysBetween(today, c.next_due_date);
     if (on(prefs, "card_due") && [0, 1, 3].includes(dDue) && Number(c.debt) > 0) {
-      const ok = await notify(admin, uid, {
-        type: "card_due",
-        title: dDue === 0 ? `Hoy vence el pago de tu ${label}` : `${whenText(dDue)} vence el pago de tu ${label}`,
-        body: `Deuda actual: ${money(c.debt)}. Paga a tiempo y evita intereses de mora.`,
-        url: `#/tarjetas/${c.id}`,
-      }, `due:${c.id}:${c.next_due_date}:${dDue}`);
+      const key = `due:${c.id}:${c.next_due_date}:${dDue}`;
+      const msg = voice.cardDue({ rng: rngFor(p, key), name, label, days: dDue, debt: Number(c.debt), estInterest: c.est_interest == null ? null : Number(c.est_interest) });
+      const ok = await notify(admin, uid, { type: "card_due", ...msg, url: `#/tarjetas/${c.id}` }, key);
       if (ok) log.push(`due ${c.name} ${dDue}`);
     }
   }
@@ -52,10 +50,11 @@ async function morning(admin: SupabaseClient, p: Profile, today: string, log: st
       if (!d.next_due_date) continue;
       const days = daysBetween(today, d.next_due_date);
       if (days !== 0 && days !== 1) continue;
-      const ok = await notify(admin, uid, {
-        type: "debt_due", title: `${whenText(days)} pagas la cuota de ${d.name}`,
-        body: `Cuota: ${money(d.monthly_payment)} · Saldo pendiente: ${money(d.balance)}`, url: "#/creditos",
-      }, `debt:${d.id}:${d.next_due_date}:${days}`);
+      const key = `debt:${d.id}:${d.next_due_date}:${days}`;
+      const msg = voice.debtDue({
+        rng: rngFor(p, key), name, debt: d.name, days, payment: Number(d.monthly_payment), balance: Number(d.balance), progressPct: Number(d.progress_pct),
+      });
+      const ok = await notify(admin, uid, { type: "debt_due", ...msg, url: "#/creditos" }, key);
       if (ok) log.push(`debt ${d.name} ${days}`);
     }
   }
@@ -66,10 +65,9 @@ async function morning(admin: SupabaseClient, p: Profile, today: string, log: st
   for (const s of subs ?? []) {
     const days = daysBetween(today, s.next_charge_date);
     if (days === 1 && on(prefs, "subscriptions")) {
-      const ok = await notify(admin, uid, {
-        type: "subscription", title: `Mañana se cobra ${s.name}`,
-        body: `${money(s.amount)}${s.auto_register ? " · Lo registro automáticamente." : ""}`, url: "#/suscripciones",
-      }, `sub:${s.id}:${s.next_charge_date}:1`);
+      const key = `sub:${s.id}:${s.next_charge_date}:1`;
+      const msg = voice.subscriptionSoon({ rng: rngFor(p, key), name, sub: s.name, amount: Number(s.amount), frequency: s.frequency, auto: !!s.auto_register });
+      const ok = await notify(admin, uid, { type: "subscription", ...msg, url: "#/suscripciones" }, key);
       if (ok) log.push(`sub ${s.name}`);
     }
     if (s.auto_register && days <= 0) {
@@ -79,10 +77,9 @@ async function morning(admin: SupabaseClient, p: Profile, today: string, log: st
         if (error) { console.error("charge_subscription", s.id, error); break; }
         const { data: fresh } = await admin.from("subscriptions").select("next_charge_date").eq("id", s.id).single();
         if (on(prefs, "subscriptions")) {
-          await notify(admin, uid, {
-            type: "subscription", title: `Registré el cobro de ${s.name}`,
-            body: `${money(s.amount)} quedó en tus movimientos.`, url: "#/movimientos",
-          }, `sub-charged:${s.id}:${next}`);
+          const key = `sub-charged:${s.id}:${next}`;
+          const msg = voice.subscriptionCharged({ rng: rngFor(p, key), name, sub: s.name, amount: Number(s.amount) });
+          await notify(admin, uid, { type: "subscription", ...msg, url: "#/movimientos" }, key);
         }
         log.push(`charged ${s.name} ${next}`);
         next = fresh?.next_charge_date ?? "9999-12-31";
@@ -100,26 +97,26 @@ async function weekly(admin: SupabaseClient, p: Profile, today: string, log: str
     .eq("user_id", p.user_id).eq("type", "expense")
     .gte("occurred_at", `${prevMonday}T00:00:00-05:00`).lt("occurred_at", `${addDays(monday, 7)}T00:00:00-05:00`);
   if (error) throw error;
-  let cur = 0, prev = 0;
+  let cur = 0, prev = 0, count = 0;
   const byCat = new Map<string, number>();
+  const byDay = new Map<string, number>();
   for (const t of data ?? []) {
     const d = bogota(new Date(t.occurred_at)).date;
     if (d >= monday) {
       cur += Number(t.amount);
+      count++;
+      byDay.set(d, (byDay.get(d) ?? 0) + Number(t.amount));
       // deno-lint-ignore no-explicit-any
       const name = (t as any).categories?.name ?? "Sin categoría";
       byCat.set(name, (byCat.get(name) ?? 0) + Number(t.amount));
     } else prev += Number(t.amount);
   }
-  const top = [...byCat.entries()].sort((a, b) => b[1] - a[1])[0];
-  const diff = prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null;
-  const cmp = diff === null ? "" : diff === 0 ? " Igual que la semana pasada." :
-    diff > 0 ? ` ${diff}% más que la semana pasada.` : ` ${Math.abs(diff)}% menos que la semana pasada.`;
-  const ok = await notify(admin, p.user_id, {
-    type: "weekly_summary", title: `Tu semana: ${money(cur)} en gastos`,
-    body: (top ? `Donde más gastaste: ${top[0]} (${money(top[1])}).` : "No registraste gastos esta semana.") + cmp,
-    url: "#/reportes",
-  }, `weekly:${monday}`);
+  const top = [...byCat.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+  const day = [...byDay.entries()].sort((a, b) => b[1] - a[1])[0];
+  const busiest = day ? { weekday: new Date(`${day[0]}T12:00:00Z`).getUTCDay(), amount: day[1] } : null;
+  const key = `weekly:${monday}`;
+  const msg = voice.weekly({ rng: rngFor(p, key), name: p.name, cur, prev, count, top, busiest });
+  const ok = await notify(admin, p.user_id, { type: "weekly_summary", ...msg, url: "#/reportes" }, key);
   if (ok) log.push("weekly");
 }
 
@@ -129,10 +126,18 @@ async function evening(admin: SupabaseClient, p: Profile, today: string, log: st
     .eq("user_id", p.user_id).gte("created_at", `${today}T00:00:00-05:00`);
   if (error) throw error;
   if ((count ?? 0) > 0) return;
-  const ok = await notify(admin, p.user_id, {
-    type: "no_activity", title: "¿Gastaste algo hoy?",
-    body: `${p.name ? p.name + ", c" : "C"}uéntamelo en 10 segundos y mantén tus cuentas al día.`, url: "#/inicio?voz=1",
-  }, `noact:${today}`);
+  // ¿Hace cuánto no registra nada? (para hablarle distinto si lleva varios días)
+  const { data: last } = await admin.from("transactions").select("created_at")
+    .eq("user_id", p.user_id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const lastDate = last?.created_at ? bogota(new Date(last.created_at)).date : null;
+  const d = new Date(`${today}T12:00:00Z`);
+  const key = `noact:${today}`;
+  const msg = voice.evening({
+    rng: rngFor(p, key), name: p.name, weekday: d.getUTCDay(), day: d.getUTCDate(),
+    lastDay: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate(),
+    daysSince: lastDate ? daysBetween(lastDate, today) : null,
+  });
+  const ok = await notify(admin, p.user_id, { type: "no_activity", ...msg, url: "#/inicio?voz=1" }, key);
   if (ok) log.push("evening");
 }
 

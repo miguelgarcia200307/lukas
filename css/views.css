@@ -520,6 +520,13 @@ a.home-lukas lukas-orb { transition: scale var(--t-fast) var(--spring); }
 .notif.unread { background: var(--accent-softer); }
 .notif .notif-body-txt { white-space: normal; }
 .unread-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+#view .notif-lukas {
+  display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-2); padding: var(--s-3) var(--s-4);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-1);
+  animation: reveal 460ms var(--ease-out) both;
+}
+#view .notif-lukas lukas-orb { flex-shrink: 0; }
+#view .notif-lukas p { margin: 0; font-size: var(--fs-sm); font-weight: 600; line-height: 1.35; color: var(--ink-2); }
 .time-input { width: auto; min-height: 40px; padding: 0 var(--s-3); }
 .set-body .list-row { min-height: 60px; }
 

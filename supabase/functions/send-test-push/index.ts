@@ -2,6 +2,7 @@
 import { errorResponse, HttpError, json, preflight } from "../_shared/cors.ts";
 import { adminClient, requireUser } from "../_shared/auth.ts";
 import { sendPushToUser } from "../_shared/push.ts";
+import { seeded, testPush } from "../_shared/lukas-voice.ts";
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -10,10 +11,10 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") throw new HttpError(405, "Método no permitido");
     const { user } = await requireUser(req);
     const admin = adminClient();
+    const { data: profile } = await admin.from("profiles").select("name").eq("user_id", user.id).maybeSingle();
     const payload = {
       type: "test",
-      title: "¡Las notificaciones funcionan!",
-      body: "Así te avisaré de cortes, pagos y presupuestos.",
+      ...testPush({ rng: seeded(`${user.id}:${Date.now()}`), name: profile?.name }),
       url: "#/notificaciones",
     };
     const { error } = await admin.from("notifications").insert({

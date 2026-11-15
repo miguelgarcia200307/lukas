@@ -1,10 +1,11 @@
 {
-  "version": "1.10.3",
-  "date": "2026-11-12",
+  "version": "1.11.0",
+  "date": "2026-11-15",
   "notes": [
-    "Lukas ya no confunde su nombre con plata: «Lucas, recibí 320 mil» registra solo tu ingreso",
-    "Conversación manos libres más confiable: responde «sí», «no» o «de pronto» y Lukas te entiende",
-    "Si no le respondes o dudas, Lukas te vuelve a preguntar una vez antes de dejarlo en pantalla",
-    "Cuando Lukas no está seguro de la categoría, te lo dice antes de guardar"
+    "Lukas tiene cientos de frases nuevas: comenta cada accesorio, color, combinación y look que le pongas",
+    "Al vestirlo salta, gira y lanza emojis según lo que se pone; las cosquillas seguidas lo hacen rendirse",
+    "Notificaciones más inteligentes: te dicen cuánto te queda por día, a qué ritmo vas y cuántas cuotas faltan",
+    "Cada aviso suena distinto: Lukas tiene en cuenta el día, la quincena y si llevas días sin anotar",
+    "En Notificaciones, Lukas te resume lo pendiente y los avisos se ordenan por día"
   ]
 }

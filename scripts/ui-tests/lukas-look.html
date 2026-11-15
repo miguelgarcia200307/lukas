@@ -245,6 +245,9 @@ try {
   await wait(80);
   const toastTxt = d.getElementById('toast-root').textContent;
   check('al equipar con conflicto se resuelve solo y avisa', toastTxt.includes('Lukas se quitó el bigote clásico para ponerse las gafas con nariz') && d.querySelector('[data-tab="vello"] .lk-dot:not(.on)'), toastTxt);
+  const said = d.querySelector('.lk-bubble').dataset.say ?? '';
+  check('Lukas comenta el cambio (frase propia o del conflicto) y lanza emojis del accesorio', said.length > 3 && /nariz|incógnito|reconoces|encubierto|bigote|otro Lukas/i.test(said) && [...d.querySelectorAll('.lk-burst-e')].some((e) => e.textContent === '🥸'), said);
+  check('la burbuja se escribe sola y luego queda completa', d.querySelector('.lk-bubble span').textContent === said);
   check('Guardar se habilita con cambios y Deshacer queda disponible', !d.querySelector('[data-save]').disabled && !d.querySelector('[data-undo]').disabled);
   d.querySelector('[data-undo]').click();
   await wait(60);
@@ -283,7 +286,7 @@ try {
   check('looks sugeridos con un toque', d.querySelector('.lk-hero').getAttribute('aria-label') === 'Lukas con sombrero vueltiao, bigote clásico y pañoleta. Toca para hacerle cosquillas', d.querySelector('.lk-hero').getAttribute('aria-label'));
   d.querySelector('[data-save]').click();
   await wait(120);
-  check('guardar: celebra y queda guardado', d.querySelector('[data-save]').disabled && d.querySelector('.lk-bubble').textContent.includes('¡Quedé brutal!'));
+  check('guardar: celebra con una frase variada y queda guardado', d.querySelector('[data-save]').disabled && d.querySelector('.lk-bubble').dataset.say?.length > 3 && d.querySelector('.lk-bubble span').textContent.startsWith(d.querySelector('.lk-bubble').dataset.say.slice(0, 1)), d.querySelector('.lk-bubble').dataset.say);
   frames.forEach((x) => { try { x.contentWindow.__unmount?.(); } catch { /* nada */ } x.remove(); });
 
   // ── Inicio: insignia del pincel, avatar y accesorios sobre el orbe de voz ──
