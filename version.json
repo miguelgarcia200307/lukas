@@ -1,11 +1,10 @@
 {
-  "version": "1.11.0",
-  "date": "2026-11-15",
+  "version": "1.12.0",
+  "date": "2026-11-18",
   "notes": [
-    "Lukas tiene cientos de frases nuevas: comenta cada accesorio, color, combinación y look que le pongas",
-    "Al vestirlo salta, gira y lanza emojis según lo que se pone; las cosquillas seguidas lo hacen rendirse",
-    "Notificaciones más inteligentes: te dicen cuánto te queda por día, a qué ritmo vas y cuántas cuotas faltan",
-    "Cada aviso suena distinto: Lukas tiene en cuenta el día, la quincena y si llevas días sin anotar",
-    "En Notificaciones, Lukas te resume lo pendiente y los avisos se ordenan por día"
+    "Ahora puedes editar, archivar y eliminar tus metas de ahorro desde el botón ⋯ de cada meta",
+    "Desliza una meta hacia la izquierda para editarla o eliminarla al instante",
+    "Mantén presionada una meta para abrir sus opciones, como en las apps de tu celular",
+    "Tus metas archivadas quedan guardadas al final de la lista y puedes restaurarlas cuando quieras"
   ]
 }

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ui-test-budget" content="15000">
+<title>Prueba · Metas de ahorro</title>
+<script type="importmap">{ "imports": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js" } }</script>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/animations.css">
+<style>#app { position: relative; height: 900px; } #results { display: none; }</style>
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><div id="toast-root"></div><pre id="results"></pre>
+<script type="module">
+// Metas de ahorro (la corre scripts/ui-tests/run.mjs): botón ⋯, mantener presionado, deslizar, archivar y eliminar.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 4000) => { for (let t = 0; t < ms; t += 50) { if (f()) return true; await wait(50); } return false; };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  let rows = [
+    { id: 'g1', name: 'Viaje a Cartagena', target_amount: 2000000, saved: 150000, progress_pct: 7.5, color: '#2FB3A6', archived: false, target_date: null },
+    { id: 'g2', name: 'Fondo de emergencia', target_amount: 5000000, saved: 0, progress_pct: 0, color: '#4B3BF5', archived: false, target_date: null },
+    { id: 'g3', name: 'Bicicleta', target_amount: 900000, saved: 900000, progress_pct: 100, color: '#E6B422', archived: true, target_date: null },
+  ];
+  const ops = [];
+  // Consulta falsa: registra cada llamada y aplica delete/update sobre "rows" (así la recarga trae lo nuevo)
+  const chain = (table, calls = []) => new Proxy({}, { get: (t, k) => (k === 'then'
+    ? (res) => {
+      const [verb, args] = calls[0] ?? [];
+      const id = calls.find(([m]) => m === 'eq')?.[1]?.[1];
+      if (table === 'savings_goals' && verb === 'delete' && window.__failDelete) { res({ data: null, error: { message: 'Failed to fetch' } }); return; }
+      if (table === 'savings_goals' && verb === 'delete') { ops.push(['delete', id]); rows = rows.filter((r) => r.id !== id); }
+      if (table === 'savings_goals' && verb === 'update') { ops.push(['update', id, args[0]]); rows = rows.map((r) => (r.id === id ? { ...r, ...args[0] } : r)); }
+      res({ data: table === 'goal_status' ? rows.map((r) => ({ ...r })) : null, error: null });
+    }
+    : (...a) => chain(table, [...calls, [k, a]])) });
+  window.__from = (table) => chain(table);
+
+  const { state } = await import('../../js/state.js');
+  state.goals = rows.map((r) => ({ ...r }));
+  const { mount } = await import('../../js/views/goals.js');
+  const screen = document.getElementById('scr');
+  const unmount = mount(screen);
+  const card = (id) => screen.querySelector(`.goal-swipe[data-id="${id}"]`);
+  const menuSheet = () => [...document.querySelectorAll('.sheet.action-sheet')].reverse().find((s) => !s.style.transform.includes('105%'));
+  const pointer = (type, node, x, y) => node.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1, button: 0, isPrimary: true }));
+  const closeSheets = async () => { (await import('../../js/ui/sheet.js')).closeAllSheets(); await wait(500); };
+
+  await until(() => screen.querySelectorAll('.goal-swipe').length === 2);
+  check('se ven las 2 metas activas', screen.querySelectorAll('.goal-swipe').length === 2);
+  check('cada meta tiene su botón ⋯ visible y con nombre', [...screen.querySelectorAll('.goal-swipe [data-menu]')].every((b) => b.getAttribute('aria-label')?.startsWith('Opciones de') && b.offsetWidth >= 40));
+  const toggle = screen.querySelector('[data-arch-toggle]');
+  check('las archivadas aparecen al final con su cantidad', toggle && /Archivadas\s*1/.test(toggle.textContent.replace(/\s+/g, ' ')), toggle?.textContent);
+
+  // 1) Botón ⋯ → menú con Editar / Archivar / Eliminar → Editar abre el formulario
+  card('g1').querySelector('[data-menu]').click();
+  await until(() => menuSheet());
+  let sheet = menuSheet();
+  const labels = [...(sheet?.querySelectorAll('.am-item') ?? [])].map((b) => b.textContent.trim());
+  check('el ⋯ abre el menú de la meta', labels.join('|') === 'Editar meta|Archivar|Eliminar meta', labels.join('|'));
+  check('el menú muestra qué meta es', /Viaje a Cartagena/.test(sheet?.querySelector('.am-head')?.textContent ?? ''));
+  check('"Eliminar meta" va en rojo', sheet?.querySelector('[data-act="delete"]')?.classList.contains('danger'));
+  check('el menú es compacto (no ocupa toda la pantalla)', sheet && sheet.offsetHeight < 520, sheet?.offsetHeight);
+  sheet.querySelector('[data-act="edit"]').click();
+  await until(() => [...document.querySelectorAll('.sheet h2')].some((h) => h.textContent === 'Editar meta'));
+  const form = [...document.querySelectorAll('.sheet')].find((s) => s.querySelector('h2')?.textContent === 'Editar meta');
+  check('"Editar meta" abre el formulario con los datos', form?.querySelector('[name="name"]')?.value === 'Viaje a Cartagena');
+  check('el formulario también deja eliminar', /Eliminar meta/.test(form?.querySelector('[data-delete]')?.textContent ?? ''));
+  await closeSheets();
+
+  // 2) Mantener presionado → mismo menú, y el toque al soltar no abre el formulario
+  const name2 = card('g2').querySelector('.goal-name');
+  pointer('pointerdown', name2, 100, 100);
+  await wait(200);
+  check('al sostener, la tarjeta se encoge un poco', card('g2').classList.contains('pressing'));
+  await until(() => menuSheet(), 1500);
+  check('mantener presionado abre el menú', /Fondo de emergencia/.test(menuSheet()?.textContent ?? ''));
+  check('al abrirse el menú la tarjeta vuelve a su tamaño', !card('g2').classList.contains('pressing'));
+  pointer('pointerup', name2, 100, 100);
+  name2.click();
+  await wait(300);
+  check('soltar después de sostener no abre el formulario', ![...document.querySelectorAll('.sheet h2')].some((h) => h.textContent === 'Editar meta'));
+  await closeSheets();
+
+  // Un toque normal sobre el nombre sigue abriendo la edición (como antes)
+  pointer('pointerdown', name2, 100, 100); await wait(60); pointer('pointerup', name2, 100, 100); name2.click();
+  await until(() => [...document.querySelectorAll('.sheet h2')].some((h) => h.textContent === 'Editar meta'), 1500);
+  check('un toque corto en el nombre abre la edición', [...document.querySelectorAll('.sheet h2')].some((h) => h.textContent === 'Editar meta'));
+  check('un toque corto no abre el menú', !menuSheet());
+  await closeSheets();
+
+  // Un scroll (el dedo se mueve) no abre el menú
+  pointer('pointerdown', name2, 100, 100); pointer('pointermove', name2, 100, 140);
+  await wait(700); pointer('pointerup', name2, 100, 140);
+  check('arrastrar en vertical no abre el menú', !menuSheet());
+
+  // Clic derecho / pulsación larga del sistema → mismo menú
+  card('g2').querySelector('.goal-saved').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+  await until(() => menuSheet(), 1500);
+  check('el clic derecho abre el menú de la meta', /Fondo de emergencia/.test(menuSheet()?.textContent ?? ''));
+  await closeSheets();
+
+  // 3) Deslizar a la izquierda → Editar / Eliminar; Eliminar pide confirmación y borra
+  const content = card('g1').querySelector('.swipe-content');
+  pointer('pointerdown', content, 300, 200);
+  pointer('pointermove', content, 280, 200);
+  pointer('pointermove', content, 120, 200);
+  check('las acciones aparecen mientras deslizas', Number(card('g1').style.getPropertyValue('--swipe-p')) > 0.9, card('g1').style.getPropertyValue('--swipe-p'));
+  pointer('pointerup', content, 120, 200);
+  await wait(50);
+  check('al soltar queda abierta con Editar y Eliminar', content.style.transform === 'translateX(-152px)', content.style.transform);
+  card('g1').querySelector('[data-swipe="delete"]').click();
+  await until(() => document.querySelector('.dialog-wrap'));
+  const dlg = document.querySelector('.dialog-wrap');
+  check('eliminar pide confirmación y explica qué pasa con lo ahorrado', /Viaje a Cartagena/.test(dlg?.textContent ?? '') && /historial de aportes/.test(dlg?.textContent ?? '') && /sigue en tus movimientos/.test(dlg?.textContent ?? ''), dlg?.textContent);
+  dlg.querySelector('[data-cancel]').click();
+  await wait(100);
+  check('cancelar no borra nada', !ops.some(([o]) => o === 'delete') && card('g1'));
+  await wait(400); // como una persona: el siguiente toque llega después del gesto
+
+  card('g1').querySelector('[data-menu]').click();
+  await until(() => menuSheet());
+  menuSheet().querySelector('[data-act="delete"]').click();
+  await until(() => document.querySelector('.dialog-wrap'));
+  document.querySelector('.dialog-wrap [data-ok]').click();
+  await wait(60);
+  check('la tarjeta se va con animación', card('g1')?.classList.contains('removing'));
+  await until(() => !card('g1'));
+  check('confirmar elimina la meta correcta', ops.some(([o, id]) => o === 'delete' && id === 'g1') && !card('g1'), JSON.stringify(ops));
+  check('avisa que se eliminó', /Meta eliminada/.test(document.getElementById('toast-root').textContent));
+  await closeSheets();
+
+  // 4) Archivar desde el menú → pasa a "Archivadas"; Restaurar la devuelve
+  card('g2').querySelector('[data-menu]').click();
+  await until(() => menuSheet());
+  menuSheet().querySelector('[data-act="archive"]').click();
+  await until(() => !card('g2'));
+  check('archivar guarda archived=true', ops.some(([o, id, p]) => o === 'update' && id === 'g2' && p?.archived === true), JSON.stringify(ops));
+  check('la meta archivada pasa a "Archivadas"', /Archivadas\s*2/.test(screen.querySelector('[data-arch-toggle]')?.textContent.replace(/\s+/g, ' ') ?? ''));
+  check('ofrece deshacer el archivado', /Deshacer/.test(document.getElementById('toast-root').textContent));
+  screen.querySelector('[data-arch-toggle]').click();
+  await until(() => screen.querySelector('.goal-arch[data-id="g2"]'));
+  check('al abrir "Archivadas" se ven las metas guardadas', screen.querySelectorAll('.goal-arch').length === 2);
+  screen.querySelector('.goal-arch[data-id="g3"] [data-menu]').click();
+  await until(() => menuSheet());
+  const archLabels = [...menuSheet().querySelectorAll('.am-item')].map((b) => b.textContent.trim()).join('|');
+  check('una archivada ofrece Restaurar', archLabels === 'Editar meta|Restaurar meta|Eliminar meta', archLabels);
+  menuSheet().querySelector('[data-act="restore"]').click();
+  await until(() => card('g3'));
+  check('restaurar la devuelve a la lista', !!card('g3') && ops.some(([o, id, p]) => o === 'update' && id === 'g3' && p?.archived === false));
+
+  // 5) Si el servidor falla al eliminar, la meta vuelve a su lugar
+  window.__failDelete = true;
+  card('g3').querySelector('[data-menu]').click();
+  await until(() => menuSheet());
+  menuSheet().querySelector('[data-act="delete"]').click();
+  await until(() => document.querySelector('.dialog-wrap'));
+  document.querySelector('.dialog-wrap [data-ok]').click();
+  await until(() => !card('g3'), 1500);
+  await until(() => card('g3'), 3000);
+  check('si falla al eliminar, la meta vuelve', !!card('g3') && !card('g3').classList.contains('removing'));
+  window.__failDelete = false;
+  unmount?.();
+} catch (e) { check('sin excepciones', false, String(e?.stack || e)); }
+done();
+</script></body></html>

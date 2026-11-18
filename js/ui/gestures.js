@@ -1,4 +1,4 @@
-// Gestos: swipe en filas (editar/eliminar) y pull-to-refresh propio
+// Gestos: swipe en filas (editar/eliminar), mantener presionado y pull-to-refresh propio
 import { haptic } from '../utils/haptics.js';
 
 const ACTION_W = 152;
@@ -14,6 +14,10 @@ export function enableSwipe(root, handlers) {
   const setX = (content, x, animate = true) => {
     content.classList.toggle('dragging', !animate);
     content.style.transform = x ? `translateX(${x}px)` : '';
+    // progreso 0–1 en la fila: permite que las acciones aparezcan con el dedo (lo usan las tarjetas de metas)
+    const row = content.parentElement;
+    row?.style.setProperty('--swipe-p', String(Math.min(1, Math.abs(x) / ACTION_W).toFixed(3)));
+    row?.classList.toggle('swipe-drag', !animate);
   };
   const closeOpen = () => { if (open) { setX(open, 0); open = null; } };
 
@@ -47,8 +51,11 @@ export function enableSwipe(root, handlers) {
     const x = base + dx;
     if (x < -ACTION_W * 0.4) { setX(content, -ACTION_W); open = content; haptic.select(); }
     else { setX(content, 0); if (open === content) open = null; }
-    // evita el click que sigue al arrastre
-    content.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+    // evita el click que sigue al arrastre (solo el de este gesto: en táctil a veces no llega y no debe
+    // quedarse esperando para comerse el siguiente toque real)
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    content.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => content.removeEventListener('click', swallow, { capture: true }), 350);
   };
 
   const click = (e) => {
@@ -78,6 +85,68 @@ export function enableSwipe(root, handlers) {
     root.removeEventListener('pointerup', up);
     root.removeEventListener('pointercancel', up);
     root.removeEventListener('click', click, true);
+  };
+}
+
+/**
+ * Mantener presionado (como el menú contextual nativo): tras `delay` ms sin mover el dedo llama onPress(el).
+ * Mientras se sostiene, el elemento recibe .pressing (para encogerlo un poco). El toque que sigue se descarta,
+ * y el menú contextual del sistema (clic derecho / pulsación larga de Android) abre lo mismo.
+ * ignore: selector dentro del elemento donde no aplica (botones propios, acciones del swipe…).
+ */
+export function enableLongPress(root, selector, onPress, { delay = 480, ignore = '' } = {}) {
+  let p = null, fired = false;
+  const target = (e) => {
+    const t = e.target.closest?.(selector);
+    if (!t || !root.contains(t) || (ignore && e.target.closest(ignore))) return null;
+    return t;
+  };
+  const cancel = () => {
+    if (!p) return;
+    clearTimeout(p.hint); clearTimeout(p.timer);
+    p.el.classList.remove('pressing');
+    p = null;
+  };
+  const fire = (node) => {
+    cancel();
+    fired = true;
+    setTimeout(() => { fired = false; }, 800); // solo descarta el toque de este mismo gesto
+    haptic.select();
+    onPress(node);
+  };
+  const down = (e) => {
+    fired = false;
+    if (e.button > 0) return;
+    const node = target(e);
+    if (!node) return;
+    cancel();
+    p = { el: node, x: e.clientX, y: e.clientY, id: e.pointerId };
+    // pequeña espera antes de encoger: un toque o un scroll rápido no deben verse como "presionar"
+    p.hint = setTimeout(() => p?.el.classList.add('pressing'), 120);
+    p.timer = setTimeout(() => fire(node), delay);
+  };
+  const move = (e) => { if (p && e.pointerId === p.id && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) cancel(); };
+  const click = (e) => { if (fired) { fired = false; e.stopPropagation(); e.preventDefault(); } };
+  const menu = (e) => {
+    const node = target(e);
+    if (!node) return;
+    e.preventDefault();
+    if (!fired) fire(node);
+  };
+  root.addEventListener('pointerdown', down);
+  root.addEventListener('pointermove', move);
+  root.addEventListener('pointerup', cancel);
+  root.addEventListener('pointercancel', cancel);
+  root.addEventListener('click', click, true);
+  root.addEventListener('contextmenu', menu);
+  return () => {
+    cancel();
+    root.removeEventListener('pointerdown', down);
+    root.removeEventListener('pointermove', move);
+    root.removeEventListener('pointerup', cancel);
+    root.removeEventListener('pointercancel', cancel);
+    root.removeEventListener('click', click, true);
+    root.removeEventListener('contextmenu', menu);
   };
 }
 

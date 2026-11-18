@@ -511,6 +511,35 @@ a.home-lukas lukas-orb { transition: scale var(--t-fast) var(--spring); }
 .goal-name { font-size: var(--fs-md); text-align: left; }
 .goal-saved { font-size: var(--fs-xl); letter-spacing: -0.02em; margin: 2px 0; }
 .goal-card .ring-center b { font-size: 13px; }
+/* Tarjeta de meta: se desliza para Editar/Eliminar, se encoge al mantenerla presionada y tiene su botón ⋯ */
+.goal-swipe {
+  border-radius: var(--r-lg); box-shadow: var(--sh-1); isolation: isolate;
+  transition: scale 420ms var(--ease-out);
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+}
+.goal-swipe.pressing { scale: 0.975; }
+.goal-swipe > .goal-card { box-shadow: none; }
+.goal-swipe .swipe-actions {
+  width: 152px; padding-left: 12px; gap: 8px;
+  opacity: var(--swipe-p, 0); transition: opacity var(--t-med) var(--spring);
+}
+.goal-swipe.swipe-drag .swipe-actions { transition: none; }
+.goal-swipe .swipe-actions button { width: auto; flex: 1; border-radius: var(--r-lg); gap: 6px; }
+.goal-swipe .swipe-actions button:active { filter: brightness(0.92); }
+.goal-more { position: absolute; top: 6px; right: 6px; width: 40px; height: 40px; color: var(--ink-3); }
+.goal-more svg { width: 20px; height: 20px; }
+.goal-info { min-width: 0; padding-right: 22px; }
+#view .goal-swipe.removing { animation: goal-out 320ms var(--ease-out) forwards; pointer-events: none; }
+@keyframes goal-out { to { opacity: 0; transform: translateX(-12%) scale(0.96); } }
+.goal-archived .goal-arch-toggle { width: 100%; align-items: center; color: var(--ink-3); min-height: 44px; }
+.goal-archived .goal-arch-toggle .section-title { color: var(--ink); }
+.goal-archived .goal-arch-toggle .section-title .muted { color: var(--ink-4); font-weight: 700; margin-left: 2px; }
+.goal-archived .goal-arch-toggle svg { transition: transform var(--t-med) var(--spring); }
+.goal-archived .goal-arch-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.goal-arch { padding-right: var(--s-2); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.goal-arch .icon-btn { color: var(--ink-3); }
+.goal-arch.pressing { background: var(--surface-2); }
+@media (prefers-reduced-motion: reduce) { .goal-swipe { transition: none; } .goal-swipe.pressing { scale: none; } }
 .cat-row { padding-top: var(--s-2); padding-bottom: var(--s-2); }
 .cat-row.child { padding-left: var(--s-10); }
 .cat-row.child .cat-icon { width: 32px; height: 32px; border-radius: 10px; }

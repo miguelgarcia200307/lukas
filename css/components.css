@@ -367,6 +367,29 @@ select.input {
   scrollbar-width: none;
 }
 .sheet-body::-webkit-scrollbar { display: none; }
+/* Menú de acciones (hoja compacta tipo nativa) */
+.sheet.action-sheet { height: auto; max-height: calc(100dvh - var(--safe-top) - 10px); }
+.action-sheet .sheet-body { padding-top: var(--s-1); }
+.am-head { display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-1) var(--s-4); min-width: 0; }
+.am-head .ring-val { transition: stroke-dashoffset 700ms var(--ease-out); }
+.am-group { background: var(--surface); border-radius: var(--r-lg); border: 1px solid var(--line); overflow: hidden; }
+.am-item {
+  position: relative; display: flex; align-items: center; gap: var(--s-3);
+  width: 100%; min-height: 56px; padding: 0 var(--s-4);
+  font-size: var(--fs-md); font-weight: 600; color: var(--ink); text-align: left;
+  transition: background var(--t-fast);
+}
+.am-item + .am-item::before { content: ""; position: absolute; top: 0; left: 52px; right: 0; height: 1px; background: var(--line); }
+.am-item:active { background: var(--surface-2); }
+.am-ic { width: 24px; display: grid; place-items: center; color: var(--ink-2); flex-shrink: 0; }
+.am-item.danger, .am-item.danger .am-ic { color: var(--danger); }
+.am-cancel {
+  width: 100%; min-height: 56px; margin-top: var(--s-3);
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line);
+  font-size: var(--fs-md); font-weight: 700; color: var(--ink);
+  transition: background var(--t-fast);
+}
+.am-cancel:active { background: var(--surface-2); }
 .sheet-foot {
   flex-shrink: 0;
   padding: var(--s-3) var(--gutter) calc(var(--s-3) + var(--safe-bottom));
