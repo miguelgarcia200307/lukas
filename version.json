@@ -1,11 +1,10 @@
 {
-  "version": "1.13.0",
+  "version": "1.14.0",
   "date": "2026-11-18",
   "notes": [
-    "Tarjetas renovadas: apiladas como en tu billetera, en lista o en carrusel, y ves todas de un vistazo",
-    "Arriba ves tu deuda total, el uso de tu cupo, tu próximo pago y con cuál tarjeta te conviene comprar hoy",
-    "Personaliza cada tarjeta con color, acabado, apodo y emoji, y ordénalas arrastrándolas",
-    "Registra pagos deslizando, lleva tus compras a cuotas y compara cuánto pagas con el mínimo y con el total",
-    "Pregúntale a Lukas: “¿con cuál tarjeta pago hoy?” o “registra un pago de 200 mil en la de Mercado”"
+    "Toca una cuenta y ves todos sus movimientos: lo que entró, lo que salió y el saldo que quedó después de cada uno",
+    "Gráfica del saldo: desliza el dedo sobre ella para ver cuánto tenías cualquier día",
+    "Mira a dónde se fue tu plata y de dónde vino, por mes, 3 meses, año o desde el inicio",
+    "Registra ingresos, gastos y transferencias desde la cuenta, y cuádrala con tu banco en un toque"
   ]
 }

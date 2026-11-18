@@ -779,3 +779,133 @@ a.home-lukas lukas-orb { transition: scale var(--t-fast) var(--spring); }
 .icon-btn.privacy-all:focus-visible { border-radius: var(--r-full); }
 /* Fundido corto al cambiar entre monto y máscara (con movimiento reducido, base.css lo deja instantáneo) */
 .sens-fade { animation: fade-in 150ms var(--ease-out); }
+
+/* ── Cuentas: lista y extracto (#/cuentas/:id) ─────────────── */
+.tb-right { display: flex; align-items: center; gap: 2px; }
+.icon-btn.on { color: var(--accent); }
+#view .acc-row .row-amount { margin-left: auto; }
+#view .acc-row .chev { margin-right: -6px; }
+#view .acc-row.pressing { transform: scale(0.98); transition: transform 300ms var(--spring); }
+#view .big-total .small { margin-top: 2px; }
+#view .acc-hint { text-align: center; font-size: var(--fs-xs); color: var(--ink-4); font-weight: 600; margin-top: var(--s-5); }
+.cat-icon.sm { width: 32px; height: 32px; border-radius: 10px; }
+.cat-icon.sm svg { width: 16px; height: 16px; }
+.am-acc { display: flex; align-items: center; gap: var(--s-3); min-width: 0; width: 100%; }
+.am-acc b { display: block; font-size: var(--fs-md); font-weight: 800; }
+.am-acc span { display: block; font-size: var(--fs-sm); color: var(--ink-3); font-weight: 600; }
+.rc-now { display: flex; flex-direction: column; align-items: center; margin-top: var(--s-5); }
+.rc-now b { font-size: var(--fs-lg); font-weight: 800; color: var(--ink-2); }
+.rc-diff { min-height: 20px; font-weight: 700; margin-top: var(--s-2); }
+
+/* Barra superior: el nombre y el saldo aparecen cuando el saldo grande sube */
+.ad-topbar .topbar-inner { gap: 2px; }
+.ad-mini { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.15; padding: 0 4px;
+  opacity: 0; transform: translateY(8px); transition: opacity 220ms var(--ease-out), transform 320ms var(--spring); pointer-events: none; }
+.ad-mini b { max-width: 100%; font-size: var(--fs-md); font-weight: 800; }
+.ad-mini span { font-size: 11.5px; font-weight: 700; color: var(--ink-3); }
+.ad-topbar.mini .ad-mini { opacity: 1; transform: none; }
+
+/* Encabezado */
+.ad-hero { padding-top: var(--s-1); }
+.ad-id { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.ad-id .cat-icon.lg { width: 52px; height: 52px; border-radius: 17px; }
+.ad-name { font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.ad-type { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: var(--fs-sm); color: var(--ink-3); font-weight: 600; margin-top: 2px; }
+.ad-bal { display: flex; flex-direction: column; margin-top: var(--s-5); min-height: 104px; }
+.ad-big { font-size: var(--fs-4xl); font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; margin-top: 2px; white-space: nowrap; }
+.ad-delta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; min-height: 26px; margin-top: 6px; font-size: var(--fs-sm); font-weight: 700; }
+.ad-delta .pill { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px 0 8px; border-radius: var(--r-full); background: var(--surface-3); color: var(--ink-2); }
+.ad-delta .pill svg { width: 13px; height: 13px; }
+.ad-delta .pill i { font-style: normal; opacity: 0.72; font-weight: 700; }
+.ad-delta .pill i::before { content: "\00B7"; margin-right: 4px; }
+.ad-delta.up .pill { background: var(--income-soft); color: var(--income); }
+.ad-delta.down .pill { background: var(--expense-soft); color: var(--expense); }
+.ad-delta .since { color: var(--ink-3); font-weight: 600; }
+
+/* Gráfica: se recorre con el dedo para ver el saldo de cualquier día */
+.ad-chart { position: relative; margin: var(--s-3) calc(-1 * var(--s-1)) 0; height: 152px; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+.ad-sk-chart { height: 132px; border-radius: var(--r-md); opacity: 0.7; }
+.ad-svg { display: block; width: 100%; height: 132px; overflow: visible; }
+.ad-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.ad-area { transition: opacity 300ms var(--ease-out); }
+.ad-base { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.7; }
+.ad-zero { stroke: var(--expense); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; }
+.ad-end { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
+.ad-end-pulse { fill: var(--accent); opacity: 0.25; transform-box: fill-box; transform-origin: center; animation: ad-pulse 2.4s var(--ease-out) infinite; }
+@keyframes ad-pulse { 0% { transform: scale(1); opacity: 0.35; } 70%, 100% { transform: scale(3.2); opacity: 0; } }
+.ad-cursor { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.ad-knob { fill: var(--surface); stroke: var(--accent); stroke-width: 3; }
+.ad-chart.scrubbing .ad-end, .ad-chart.scrubbing .ad-end-pulse { opacity: 0; }
+.ad-chart.scrubbing .ad-area { opacity: 0.55; }
+.ad-svg.draw .ad-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ad-draw 900ms var(--ease-out) forwards; }
+.ad-svg.draw .ad-area { animation: fade-in 700ms 250ms var(--ease-out) both; }
+.ad-svg.draw .ad-end { animation: ad-pop 360ms 780ms var(--spring-bounce) both; transform-box: fill-box; transform-origin: center; }
+@keyframes ad-draw { to { stroke-dashoffset: 0; } }
+@keyframes ad-pop { from { transform: scale(0); } }
+.ad-axis { display: flex; justify-content: space-between; padding: 4px 4px 0; font-size: 11px; font-weight: 700; color: var(--ink-4); }
+.ad-periods { margin-top: var(--s-3); }
+.ad-periods .segmented button { min-height: 34px; font-size: var(--fs-xs); }
+
+/* Acciones rápidas */
+.ad-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-2); margin-top: var(--s-5); }
+.ad-quick button { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); padding: 4px 0; border-radius: var(--r-md); -webkit-tap-highlight-color: transparent; }
+.ad-quick button > span { width: 52px; height: 52px; border-radius: var(--r-full); display: grid; place-items: center; background: var(--surface); box-shadow: var(--sh-1); border: 1px solid var(--line); color: var(--ink); transition: background var(--t-fast); }
+.ad-quick button > span.q-in { background: var(--income-soft); color: var(--income); border-color: transparent; box-shadow: none; }
+.ad-quick button > span.q-out { background: var(--expense-soft); color: var(--expense); border-color: transparent; box-shadow: none; }
+.ad-quick button svg { width: 22px; height: 22px; }
+.ad-quick button:active > span { background: var(--surface-3); }
+
+/* Entró / salió + desglose */
+.ad-flow { margin-top: var(--s-6); }
+.ad-flow-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-1); padding: var(--s-2); }
+.ad-flow-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.ad-ft { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--s-3); border-radius: var(--r-md); text-align: left; min-width: 0;
+  border: 1.5px solid transparent; transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast) var(--spring); -webkit-tap-highlight-color: transparent; }
+.ad-ft:active { transform: scale(0.98); }
+.ad-ft .lbl { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.ad-ft b { font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ad-ft small { font-size: var(--fs-xs); color: var(--ink-3); font-weight: 600; }
+.ad-ft.in b { color: var(--income); }
+.ad-ft.in .lbl svg { color: var(--income); }
+.ad-ft.out .lbl svg { color: var(--expense); }
+.ad-ft.on { background: var(--surface-2); border-color: var(--line-2); }
+.ad-ratio { display: flex; height: 4px; border-radius: 4px; overflow: hidden; margin: var(--s-2) var(--s-3) 0; background: var(--expense); opacity: 0.85; }
+.ad-ratio .in { background: var(--income); transition: width 600ms var(--spring); }
+.ad-ratio .out { flex: 1; }
+.ad-bd { padding: var(--s-3) var(--s-2) var(--s-1); }
+.ad-bd-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 var(--s-1) var(--s-2); font-size: var(--fs-sm); font-weight: 800; }
+.ad-bd-head .muted { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-4); }
+.ad-stack { display: flex; gap: 2px; height: 8px; border-radius: 6px; overflow: hidden; margin: 0 var(--s-1) var(--s-2); }
+.ad-stack span { background: var(--c); min-width: 3px; animation: ad-grow 600ms var(--spring) both; transform-origin: left; }
+@keyframes ad-grow { from { transform: scaleX(0); } }
+.ad-bd-row { display: flex; align-items: center; gap: var(--s-3); width: 100%; padding: 8px var(--s-1); border-radius: var(--r-sm); text-align: left; transition: background var(--t-fast); -webkit-tap-highlight-color: transparent; }
+.ad-bd-row:active, .ad-bd-row.on { background: var(--surface-2); }
+.ad-bd-row.on { box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.ad-bd-mid { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ad-bd-top { display: flex; justify-content: space-between; gap: var(--s-2); font-size: var(--fs-sm); font-weight: 700; min-width: 0; }
+.ad-bd-top b { font-weight: 800; white-space: nowrap; }
+.ad-bd-sub { display: flex; align-items: center; gap: var(--s-2); }
+.ad-bd-bar { flex: 1; height: 4px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.ad-bd-bar i { display: block; height: 100%; border-radius: 4px; background: var(--c); animation: ad-grow 700ms var(--spring) both; transform-origin: left; }
+.ad-bd-sub .num { font-size: 11px; font-weight: 700; color: var(--ink-3); width: 34px; text-align: right; }
+.ad-bd-empty { font-size: var(--fs-sm); color: var(--ink-3); padding: var(--s-2) var(--s-1) var(--s-3); }
+
+/* Movimientos con el saldo que quedó después de cada uno */
+.ad-moves .section-head { margin-bottom: var(--s-2); }
+.ad-filters { margin-bottom: var(--s-1); }
+.chip-n { font-size: 11px; font-weight: 800; opacity: 0.6; }
+.ad-list .day-head { padding-top: var(--s-5); }
+.ad-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.ad-after { font-size: 11.5px; font-weight: 600; color: var(--ink-4); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ad-after::before { content: "Saldo "; }
+.ad-after.neg { color: var(--expense); }
+.ad-anchor { display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-lg); border: 1.5px dashed var(--line-2); }
+.ad-anchor-dot { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+.ad-anchor b { font-weight: 800; }
+.ad-more-hist { display: flex; margin: var(--s-2) auto 0; }
+.ad-cap { display: flex; gap: 6px; align-items: center; justify-content: center; font-size: var(--fs-xs); color: var(--ink-3); margin-top: var(--s-4); }
+.ad-sentinel { height: 1px; }
+@media (prefers-reduced-motion: reduce) {
+  .ad-end-pulse { animation: none; opacity: 0; }
+  .ad-stack span, .ad-bd-bar i { animation: none; }
+}

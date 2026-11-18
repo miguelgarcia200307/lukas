@@ -33,6 +33,7 @@ const ROUTES = [
   { path: 'tarjetas', load: () => import('./views/cards.js'), tab: 'mas', depth: 1 },
   { path: 'tarjetas/:id', load: () => import('./views/card-detail.js'), tab: 'mas', depth: 2 },
   { path: 'cuentas', load: () => import('./views/accounts.js'), tab: 'mas', depth: 1 },
+  { path: 'cuentas/:id', load: () => import('./views/account-detail.js'), tab: 'mas', depth: 2 },
   { path: 'creditos', load: () => import('./views/debts.js'), tab: 'mas', depth: 1 },
   { path: 'suscripciones', load: () => import('./views/subscriptions.js'), tab: 'mas', depth: 1 },
   { path: 'presupuestos', load: () => import('./views/budgets.js'), tab: 'mas', depth: 1 },

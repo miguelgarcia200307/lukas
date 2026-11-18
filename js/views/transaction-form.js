@@ -36,7 +36,8 @@ export async function deleteWithUndo(txs) {
   });
 }
 
-export function openTransactionForm({ tx = null, type = 'expense' } = {}) {
+/** accountId (opcional): cuenta preseleccionada al crear (p. ej. desde el extracto de una cuenta) */
+export function openTransactionForm({ tx = null, type = 'expense', accountId = null } = {}) {
   const editing = !!tx;
   const linked = tx && (tx.debt_id || tx.goal_id || tx.to_card_id || tx.subscription_id);
   const m = {
@@ -44,7 +45,7 @@ export function openTransactionForm({ tx = null, type = 'expense' } = {}) {
     amount: Number(tx?.amount ?? 0),
     description: tx?.description ?? '',
     category_id: tx?.category_id ?? null,
-    payment: tx?.card_id ? { kind: 'card', id: tx.card_id } : { kind: 'account', id: tx?.account_id ?? defaultAccount() },
+    payment: tx?.card_id ? { kind: 'card', id: tx.card_id } : { kind: 'account', id: tx?.account_id ?? accountId ?? defaultAccount() },
     to_account_id: tx?.to_account_id ?? null,
     notes: tx?.notes ?? '',
     items: (tx?.transaction_items ?? []).sort((a, b) => a.sort_order - b.sort_order).map((i) => ({ name: i.name, qty: Number(i.qty), unit_amount: Number(i.unit_amount) })),
@@ -105,7 +106,7 @@ export function openTransactionForm({ tx = null, type = 'expense' } = {}) {
     form.querySelectorAll('[data-show="items"]').forEach((e) => { e.hidden = t === 'transfer'; });
     form.querySelector('[data-pay-label]').textContent = t === 'transfer' ? 'Desde' : t === 'income' ? 'Entró a' : 'Pagado con';
     if (t !== 'expense' && m.payment.kind === 'card') {
-      m.payment = { kind: 'account', id: defaultAccount() };
+      m.payment = { kind: 'account', id: accountId ?? defaultAccount() };
       form.querySelector('[data-pick="payment"]').innerHTML = String(html`${paymentChip(m.payment)}${icon('chevron-right', { size: 18 })}`);
     }
     if (m.category_id && categoryById(m.category_id)?.kind !== t) {

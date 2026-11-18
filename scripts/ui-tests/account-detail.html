@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ui-test-budget" content="20000">
+<title>Prueba · Extracto de cuenta</title>
+<script type="importmap">{ "imports": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js" } }</script>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/cards.css"><link rel="stylesheet" href="../../css/animations.css">
+<style>#app { position: relative; height: 844px; width: 390px; overflow: hidden; } #results { display: none; }</style>
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><div id="toast-root"></div><pre id="results"></pre>
+<script type="module">
+// Extracto de cuenta (la corre scripts/ui-tests/run.mjs): saldo, gráfica deslizable, períodos, entró/salió con desglose,
+// saldo después de cada movimiento, saldo inicial, filtros, acciones rápidas, privacidad y la lista de Cuentas.
+// ?shot=top|flow|list|all deja la pantalla quieta en ese estado para capturas.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 4000) => { for (let t = 0; t < ms; t += 50) { if (f()) return true; await wait(50); } return false; };
+const shot = new URLSearchParams(location.search).get('shot');
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  localStorage.removeItem('lukas-account-ui'); localStorage.removeItem('lukas-privacy');
+  const { todayISO, addDays, startOfMonth, dateShort } = await import('../../js/utils/dates.js');
+  const T = todayISO();
+  const som = startOfMonth(T);
+  const d = (k) => { const x = addDays(som, k); return x > T ? T : x; };
+  const at = (date, h) => `${date}T${String(h).padStart(2, '0')}:00:00-05:00`;
+
+  // Nequi: saldo inicial $1.000.000. Antes de este mes: +500.000 y −200.000 → arranca el mes con $1.300.000.
+  // Este mes: +2.500.000, −80.000, −500.000 (a Ahorros), +120.000 (desde Bancolombia), −300.000 (pago Nu), −45.000 → hoy $2.995.000
+  const TXS = [
+    { id: 'o1', type: 'income', amount: 500000, account_id: 'nequi', category_id: 'sueldo', description: 'Prima', occurred_at: at(addDays(som, -40), 9) },
+    { id: 'o2', type: 'expense', amount: 200000, account_id: 'nequi', category_id: 'mercado', description: 'Mercado del mes', occurred_at: at(addDays(som, -10), 18) },
+    { id: 't1', type: 'income', amount: 2500000, account_id: 'nequi', category_id: 'sueldo', description: 'Sueldo', occurred_at: at(d(0), 6) },
+    { id: 't2', type: 'expense', amount: 80000, account_id: 'nequi', category_id: 'fruver', description: 'Frutas y verduras', occurred_at: at(d(1), 8) },
+    { id: 't3', type: 'transfer', amount: 500000, account_id: 'nequi', to_account_id: 'ahorros', description: '', occurred_at: at(d(2), 10) },
+    { id: 't4', type: 'transfer', amount: 120000, account_id: 'banco', to_account_id: 'nequi', description: '', occurred_at: at(d(2), 12) },
+    { id: 't5', type: 'transfer', amount: 300000, account_id: 'nequi', to_card_id: 'nu', description: '', occurred_at: at(d(4), 14) },
+    { id: 't6', type: 'expense', amount: 45000, account_id: 'nequi', category_id: 'mercado', description: 'D1', occurred_at: at(d(4), 16) },
+    { id: 'c1', type: 'expense', amount: 99999, card_id: 'nu', category_id: 'mercado', description: 'No es de la cuenta', occurred_at: at(d(3), 12) },
+  ];
+  const ACCS = [
+    { id: 'nequi', name: 'Nequi', type: 'wallet', color: '#A65BE0', balance: 2995000, initial_balance: 1000000, archived: false, sort_order: 0 },
+    { id: 'ahorros', name: 'Ahorros', type: 'savings', color: '#3FA672', balance: 500000, initial_balance: 0, archived: false, sort_order: 1 },
+    { id: 'banco', name: 'Bancolombia', type: 'bank', color: '#E6B422', balance: -120000, initial_balance: 0, archived: false, sort_order: 2 },
+  ];
+  const ops = [];
+  const chain = (table, calls = []) => new Proxy({}, { get: (t, k) => (k === 'then'
+    ? (res) => {
+      const arg = (m) => calls.find(([n]) => n === m)?.[1];
+      if (table === 'account_balances') { res({ data: ACCS.map((a) => ({ ...a })), error: null }); return; }
+      if (table === 'accounts' && calls[0]?.[0] === 'update') {
+        const id = arg('eq')[1];
+        ops.push(['update', id, calls[0][1][0]]);
+        res({ data: null, error: null }); return;
+      }
+      if (table === 'transactions') {
+        const acc = /account_id\.eq\.([^,]+)/.exec(arg('or')?.[0] ?? '')?.[1];
+        const gte = arg('gte')?.[1];
+        const [a, b] = arg('range') ?? [0, 59];
+        let rows = TXS.filter((t) => !acc || t.account_id === acc || t.to_account_id === acc).filter((t) => !gte || Date.parse(t.occurred_at) >= Date.parse(gte));
+        rows = rows.sort((x, y) => Date.parse(y.occurred_at) - Date.parse(x.occurred_at)).slice(a, b + 1).map((t) => ({ created_at: t.occurred_at, ...t }));
+        ops.push(['list', gte ?? 'todo', rows.length]);
+        res({ data: rows, error: null }); return;
+      }
+      res({ data: [], error: null });
+    }
+    : (...a) => chain(table, [...calls, [k, a]])) });
+  window.__from = (table) => chain(table);
+
+  const { state } = await import('../../js/state.js');
+  state.categories = [
+    { id: 'sueldo', name: 'Sueldo', kind: 'income', icon: 'briefcase', color: '#12875A' },
+    { id: 'mercado', name: 'Mercado', kind: 'expense', icon: 'cart', color: '#F08A4B' },
+    { id: 'fruver', name: 'Frutas', kind: 'expense', icon: 'cart', color: '#F08A4B', parent_id: 'mercado' },
+  ];
+  state.accounts = ACCS.map((a) => ({ ...a }));
+  state.cards = [{ id: 'nu', name: 'Nu', nickname: null, color: '#820AD1', archived: false }];
+  state.profile = { default_account_id: 'nequi', notification_prefs: {} };
+
+  const navs = [];
+  const navigate = (p) => navs.push(p);
+  const screen = document.getElementById('scr');
+  const { mount } = await import('../../js/views/account-detail.js');
+  let unmount = mount(screen, { params: { id: 'nequi' }, query: {}, navigate });
+  const text = (sel) => screen.querySelector(sel)?.textContent.replace(/\s+/g, ' ').trim() ?? '';
+  await until(() => screen.querySelectorAll('.ad-row').length > 0);
+  await wait(900);
+  const finish = () => document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* infinita */ } });
+  finish();
+
+  if (shot === 'accounts' || shot === 'reconcile') {
+    if (shot === 'reconcile') { screen.querySelector('[data-quick="reconcile"]').click(); await wait(700); const i = document.querySelector('.sheet [name="amount"]'); i.value = '3.010.000'; i.dispatchEvent(new Event('input', { bubbles: true })); }
+    else {
+      unmount?.();
+      const scr2 = document.createElement('section'); scr2.className = 'screen';
+      document.getElementById('view').replaceChildren(scr2);
+      (await import('../../js/views/accounts.js')).mount(scr2, { navigate });
+    }
+    await wait(800); finish();
+    check('captura lista', true); done();
+  } else if (shot) {
+    if (shot === 'all') { screen.querySelector('[data-seg="period"] [data-value="all"]').click(); await wait(600); finish(); }
+    const sc = screen.querySelector('.scroller');
+    const y = { top: 0, flow: screen.querySelector('.ad-quick').offsetTop - 60, list: screen.querySelector('.ad-moves').offsetTop - 60 }[shot];
+    if (shot === 'all') sc.scrollTop = sc.scrollHeight; else sc.scrollTop = y ?? 0;
+    sc.dispatchEvent(new Event('scroll'));
+    await wait(400); finish();
+    check('captura lista', true); done();
+  } else {
+    // ── Encabezado y saldo ──
+    check('encabezado con nombre y tipo', /Nequi/.test(text('.ad-name')) && /Billetera digital/.test(text('.ad-type')) && /Por defecto/.test(text('.ad-type')), text('.ad-id'));
+    check('saldo grande = saldo actual $2.995.000', text('[data-bal]') === '$2.995.000', text('[data-bal]'));
+    check('variación del mes: +$1.695.000 (130 %) este mes', /\$1\.695\.000/.test(text('[data-delta]')) && /130 %/.test(text('[data-delta]')) && /este mes/.test(text('[data-delta]')) && screen.querySelector('[data-delta]').classList.contains('up'), text('[data-delta]'));
+    check('solo se piden movimientos de esta cuenta desde el inicio del mes', ops.some(([k, g]) => k === 'list' && String(g).startsWith(som)), JSON.stringify(ops));
+
+    // ── Gráfica ──
+    const svg = screen.querySelector('.ad-svg');
+    check('gráfica del saldo con línea, área y punto de hoy', svg && svg.querySelector('.ad-line') && svg.querySelector('.ad-area') && svg.querySelector('.ad-end'));
+    check('eje: fecha de inicio y "Hoy"', /Hoy$/.test(text('.ad-axis')), text('.ad-axis'));
+    const chart = screen.querySelector('[data-chart]');
+    const r = svg.getBoundingClientRect();
+    const pe = (type, x) => chart.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'mouse', button: 0, clientX: x, clientY: r.top + 40, pointerId: 5 }));
+    pe('pointerdown', r.left + 1);
+    check('deslizar al inicio: muestra el saldo con que arrancó el mes ($1.300.000)', text('[data-bal]') === '$1.300.000' && /Al empezar/.test(text('[data-bal-label]')), `${text('[data-bal-label]')} ${text('[data-bal]')}`);
+    check('el cursor y el punto aparecen al deslizar', svg.querySelector('.ad-knob').getAttribute('visibility') === 'visible');
+    pe('pointermove', r.right - 1);
+    check('deslizar al final: saldo de hoy y etiqueta "Hoy"', text('[data-bal]') === '$2.995.000' && text('[data-bal-label]') === 'Hoy', `${text('[data-bal-label]')} ${text('[data-bal]')}`);
+    pe('pointerup', r.right - 1);
+    check('al soltar vuelve a "Saldo disponible"', text('[data-bal-label]') === 'Saldo disponible' && svg.querySelector('.ad-knob').getAttribute('visibility') === 'hidden');
+
+    // ── Entró / salió ──
+    const tIn = text('.ad-ft.in'), tOut = text('.ad-ft.out');
+    check('entró +$2.620.000 en 2 movimientos', /\+\$2\.620\.000/.test(tIn) && /2 movimientos/.test(tIn), tIn);
+    check('salió −$925.000 en 4 movimientos', /−\$925\.000/.test(tOut) && /4 movimientos/.test(tOut), tOut);
+    const bd = [...screen.querySelectorAll('.ad-bd-row')].map((b) => b.textContent.replace(/\s+/g, ' ').trim());
+    check('¿a dónde se fue?: Ahorros, pago Nu y Mercado (subcategorías dentro de su categoría)', bd.length === 3 && /^A Ahorros ?\$500\.000/.test(bd[0]) && /^Pago Nu ?\$300\.000/.test(bd[1]) && /^Mercado ?\$125\.000/.test(bd[2]), bd.join(' | '));
+    screen.querySelector('[data-flowdir="in"]').click();
+    const bdIn = [...screen.querySelectorAll('.ad-bd-row')].map((b) => b.textContent.replace(/\s+/g, ' ').trim());
+    check('¿de dónde vino?: Sueldo y desde Bancolombia', /^Sueldo ?\$2\.500\.000/.test(bdIn[0]) && /^Desde Bancolombia ?\$120\.000/.test(bdIn[1]), bdIn.join(' | '));
+    screen.querySelector('[data-flowdir="out"]').click();
+
+    // ── Movimientos con saldo después de cada uno ──
+    const rows = [...screen.querySelectorAll('.ad-row')];
+    check('lista con los 6 movimientos del mes (no incluye compras con tarjeta)', rows.length === 6, rows.length);
+    const after = rows.map((b) => b.querySelector('.ad-after').textContent.trim());
+    check('saldo después de cada movimiento, del más reciente al más antiguo', after.join(',') === '$2.995.000,$3.040.000,$3.340.000,$3.220.000,$3.720.000,$3.800.000', after.join(','));
+    check('el primero muestra "Saldo" antes del monto', getComputedStyle(rows[0].querySelector('.ad-after'), '::before').content.includes('Saldo'));
+    const amts = rows.map((b) => b.querySelector('.row-amount').textContent.trim());
+    check('montos con signo: salidas con −, entradas con + en verde', amts.join(',') === '−$45.000,−$300.000,+$120.000,−$500.000,−$80.000,+$2.500.000' && rows[2].querySelector('.row-amount').classList.contains('in'), amts.join(','));
+    const titles = rows.map((b) => b.querySelector('.row-title').textContent.trim());
+    check('transferencias sin descripción se nombran por su destino u origen', titles.includes('Pago Nu') && titles.includes('Desde Bancolombia') && titles.includes('A Ahorros'), titles.join(' | '));
+    check('anclaje: "Saldo al empezar" $1.300.000 y enlace a todo el historial', /Saldo al empezar/.test(text('.ad-anchor')) && /\$1\.300\.000/.test(text('.ad-anchor')) && screen.querySelector('.ad-more-hist'), text('.ad-anchor'));
+
+    // ── Filtros ──
+    screen.querySelector('[data-bucket="cat:mercado"]').click();
+    check('tocar "Mercado" filtra la lista y muestra el chip', screen.querySelectorAll('.ad-row').length === 2 && /Mercado/.test(text('[data-clear-bucket]')), screen.querySelectorAll('.ad-row').length);
+    check('con filtro no se muestra el anclaje', !screen.querySelector('.ad-anchor'));
+    screen.querySelector('[data-clear-bucket]').click();
+    screen.querySelector('[data-fdir="in"]').click();
+    check('filtro Entradas: 2 movimientos', screen.querySelectorAll('.ad-row').length === 2);
+    screen.querySelector('[data-fdir=""]').click();
+
+    // ── Períodos ──
+    screen.querySelector('[data-seg="period"] [data-value="all"]').click();
+    await until(() => screen.querySelectorAll('.ad-row').length === 8);
+    check('"Todo" carga los 8 movimientos de la cuenta', screen.querySelectorAll('.ad-row').length === 8, screen.querySelectorAll('.ad-row').length);
+    check('"Todo" termina en el saldo inicial $1.000.000', /Saldo inicial/.test(text('.ad-anchor')) && /\$1\.000\.000/.test(text('.ad-anchor')), text('.ad-anchor'));
+    check('variación desde el inicio: +$1.995.000', /\$1\.995\.000/.test(text('[data-delta]')) && /desde el inicio/.test(text('[data-delta]')), text('[data-delta]'));
+    check('el período elegido se recuerda', JSON.parse(localStorage.getItem('lukas-account-ui')).period === 'all');
+    const nLists = ops.filter(([k]) => k === 'list').length;
+    screen.querySelector('[data-seg="period"] [data-value="month"]').click();
+    await wait(200);
+    check('volver a "Mes" no vuelve a pedir datos (caché)', ops.filter(([k]) => k === 'list').length === nLists && screen.querySelectorAll('.ad-row').length === 6);
+
+    // ── Privacidad ──
+    screen.querySelector('[data-eye]').click();
+    await wait(50);
+    const sTxt = screen.textContent;
+    check('ojo: oculta saldo, montos y saldos parciales', !/\$\d/.test(sTxt.replace(/\$••••••/g, '')) && /\$••••••/.test(text('[data-bal]')), sTxt.match(/\$\d[\d.]*/g)?.slice(0, 4));
+    screen.querySelector('[data-eye]').click();
+    await wait(50);
+    check('ojo otra vez: vuelven los montos', text('[data-bal]') === '$2.995.000');
+
+    // ── Acciones rápidas ──
+    screen.querySelector('[data-quick="income"]').click();
+    await until(() => document.querySelector('.sheet .tx-form'));
+    const sheet = document.querySelector('.sheet');
+    check('"Ingreso" abre el formulario con la cuenta ya elegida', sheet && /Nequi/.test(sheet.querySelector('[data-pick="payment"]').textContent) && sheet.querySelector('[data-seg="type"] .active')?.dataset.value === 'income',
+      sheet?.querySelector('[data-pick="payment"]')?.textContent.trim());
+    (await import('../../js/ui/sheet.js')).closeAllSheets();
+    await wait(450);
+    screen.querySelector('[data-quick="reconcile"]').click();
+    await until(() => document.querySelector('.sheet .rc-now'));
+    const rc = document.querySelector('.sheet');
+    const inp = rc.querySelector('[name="amount"]');
+    inp.value = '3.000.000'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+    check('"Cuadrar": calcula la diferencia en vivo', /Sumo \$5\.000/.test(rc.querySelector('.rc-diff').textContent), rc.querySelector('.rc-diff').textContent);
+    rc.querySelector('[data-submit]').click();
+    await until(() => ops.some(([k]) => k === 'update'));
+    const up = ops.find(([k]) => k === 'update');
+    check('"Cuadrar" ajusta el saldo inicial por la diferencia (no crea movimientos)', up && up[1] === 'nequi' && up[2].initial_balance === 1005000, JSON.stringify(up));
+    (await import('../../js/ui/sheet.js')).closeAllSheets();
+    await wait(450);
+
+    // ── Menú ⋯ ──
+    screen.querySelector('[data-more]').click();
+    await until(() => document.querySelector('.sheet.action-sheet'));
+    const menu = [...document.querySelectorAll('.sheet.action-sheet .am-item')].map((b) => b.textContent.trim());
+    check('menú ⋯: editar, cuadrar, archivar y eliminar', ['Editar cuenta', 'Cuadrar saldo con el banco', 'Archivar', 'Eliminar cuenta'].every((x) => menu.includes(x)) && !menu.includes('Usar por defecto'), menu.join(' | '));
+    (await import('../../js/ui/sheet.js')).closeAllSheets();
+    await wait(450);
+
+    // ── Sin desbordes a 390 px ──
+    const sc = screen.querySelector('.scroller');
+    check('sin scroll horizontal a 390 px', sc.scrollWidth <= sc.clientWidth + 1, `${sc.scrollWidth} > ${sc.clientWidth}`);
+    sc.scrollTop = screen.querySelector('.ad-moves').offsetTop;
+    sc.dispatchEvent(new Event('scroll'));
+    check('al bajar, la barra muestra nombre y saldo', screen.querySelector('.ad-topbar').classList.contains('mini') && /Nequi/.test(text('.ad-mini')) && /\$2\.995\.000/.test(text('.ad-mini')), text('.ad-mini'));
+
+    // ── Lista de cuentas ──
+    unmount?.();
+    const list = await import('../../js/views/accounts.js');
+    const scr2 = document.createElement('section'); scr2.className = 'screen';
+    document.getElementById('view').replaceChildren(scr2);
+    unmount = list.mount(scr2, { navigate });
+    await wait(200);
+    check('lista de cuentas: total $3.375.000 y chevron en cada fila', /\$3\.375\.000/.test(scr2.querySelector('.big-total').textContent) && scr2.querySelectorAll('.acc-row .chev').length === 3, scr2.querySelector('.big-total')?.textContent);
+    scr2.querySelector('.acc-row[data-id="nequi"]').click();
+    check('tocar una cuenta abre su extracto (no el formulario de edición)', navs.at(-1) === 'cuentas/nequi' && !document.querySelector('.sheet:not(.closing) form'), `${navs.at(-1)}`);
+    unmount?.();
+    done();
+  }
+} catch (err) {
+  check('la prueba terminó sin excepciones', false, `${err.message}\n${err.stack}`);
+  done();
+}
+</script></body></html>
