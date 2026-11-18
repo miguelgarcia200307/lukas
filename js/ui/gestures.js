@@ -230,3 +230,190 @@ export function pullToRefresh(scroller, onRefresh) {
     ptr.remove();
   };
 }
+
+/**
+ * Presionar, mantener y arrastrar (como en iOS/Android): sirve para menú contextual y para reordenar.
+ * - Toque corto: no hace nada aquí (lo maneja el click normal).
+ * - Mantener `delay` ms sin moverse: onLift(node) (háptico medio, la tarjeta "se levanta").
+ *   · Soltar sin mover → onMenu(node).  · Mover → onDragStart(node, y) / onDragMove(node, dy, y) / onDragEnd(node).
+ * - Si el dedo se mueve antes de `delay`, es un scroll: se cancela y el navegador hace lo suyo.
+ * Con el dedo usa eventos táctiles (para poder frenar el scroll una vez levantada); con mouse, pointer events.
+ * Mientras se sostiene, el nodo recibe .pressing; levantado, .lifted. El click que sigue se descarta.
+ */
+export function enablePressDrag(root, selector, h = {}, { delay = 400, slop = 8, ignore = '' } = {}) {
+  let g = null;
+  let swallowUntil = 0;
+  const pick = (target) => {
+    const node = target.closest?.(selector);
+    if (!node || !root.contains(node) || (ignore && target.closest(ignore))) return null;
+    return node;
+  };
+  const reset = () => {
+    if (!g) return;
+    clearTimeout(g.hint); clearTimeout(g.timer);
+    g.node.classList.remove('pressing', 'lifted');
+    g = null;
+  };
+  const begin = (node, x, y) => {
+    reset();
+    g = { node, x0: x, y0: y, lifted: false, dragging: false };
+    g.hint = setTimeout(() => g?.node.classList.add('pressing'), 90);
+    g.timer = setTimeout(() => {
+      if (!g) return;
+      g.lifted = true;
+      g.node.classList.remove('pressing');
+      g.node.classList.add('lifted');
+      haptic.start();
+      h.onLift?.(g.node);
+    }, delay);
+  };
+  const move = (x, y, e) => {
+    if (!g) return;
+    const dx = x - g.x0, dy = y - g.y0;
+    if (!g.lifted) { if (Math.hypot(dx, dy) > slop) reset(); return; }
+    if (e?.cancelable) e.preventDefault();
+    if (!g.dragging && Math.hypot(dx, dy) > slop && h.onDragStart) { g.dragging = true; h.onDragStart(g.node, y); }
+    if (g.dragging) h.onDragMove?.(g.node, dy, y);
+  };
+  const end = () => {
+    if (!g) return;
+    const { node, lifted, dragging } = g;
+    reset();
+    if (!lifted) return;
+    swallowUntil = performance.now() + 600;
+    if (dragging) h.onDragEnd?.(node);
+    else h.onMenu?.(node);
+  };
+
+  const ts = (e) => {
+    if (e.touches.length !== 1) { reset(); return; }
+    const n = pick(e.target);
+    if (n) begin(n, e.touches[0].clientX, e.touches[0].clientY);
+  };
+  const tm = (e) => {
+    if (!g) return;
+    if (e.touches.length !== 1) { reset(); return; }
+    move(e.touches[0].clientX, e.touches[0].clientY, e);
+    if (g?.lifted) e.stopPropagation(); // que el pull-to-refresh no lo tome
+  };
+  const te = () => end();
+  const pd = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const n = pick(e.target);
+    if (n) begin(n, e.clientX, e.clientY);
+  };
+  const pm = (e) => { if (e.pointerType === 'mouse') move(e.clientX, e.clientY, e); };
+  const pu = (e) => { if (e.pointerType === 'mouse') end(); };
+  const click = (e) => {
+    if (performance.now() < swallowUntil && pick(e.target)) { e.stopPropagation(); e.preventDefault(); swallowUntil = 0; }
+  };
+  const ctx = (e) => {
+    const n = pick(e.target);
+    if (!n) return;
+    e.preventDefault();
+    if (g?.lifted || performance.now() < swallowUntil) return; // ya lo manejó la pulsación larga
+    reset();
+    haptic.start();
+    h.onMenu?.(n);
+  };
+  root.addEventListener('touchstart', ts, { passive: true });
+  root.addEventListener('touchmove', tm, { passive: false });
+  root.addEventListener('touchend', te);
+  root.addEventListener('touchcancel', reset);
+  root.addEventListener('pointerdown', pd);
+  window.addEventListener('pointermove', pm);
+  window.addEventListener('pointerup', pu);
+  root.addEventListener('click', click, true);
+  root.addEventListener('contextmenu', ctx);
+  return () => {
+    reset();
+    root.removeEventListener('touchstart', ts);
+    root.removeEventListener('touchmove', tm);
+    root.removeEventListener('touchend', te);
+    root.removeEventListener('touchcancel', reset);
+    root.removeEventListener('pointerdown', pd);
+    window.removeEventListener('pointermove', pm);
+    window.removeEventListener('pointerup', pu);
+    root.removeEventListener('click', click, true);
+    root.removeEventListener('contextmenu', ctx);
+  };
+}
+
+/**
+ * Deslizar una fila a ambos lados (vista lista de tarjetas).
+ * Cada fila (selector) tiene un .cl-main que se mueve, .cl-acts.left (aparece al deslizar a la derecha) y
+ * .cl-acts.right (al deslizar a la izquierda). full(row) se llama con un swipe a la izquierda completo
+ * (más del 55 % del ancho). Háptico ligero al cruzar cada umbral. Devuelve la función para quitarlo (con .close()).
+ */
+export function enableRowSwipe(root, selector, { leftW = 156, rightW = 156, full } = {}) {
+  let g = null, open = null;
+  const mainOf = (row) => row.querySelector('.cl-main');
+  const set = (row, x, animate = true) => {
+    row.classList.toggle('swiping', !animate);
+    mainOf(row).style.transform = x ? `translate3d(${x}px,0,0)` : '';
+    row.querySelector('.cl-acts.left')?.style.setProperty('--ap', x > 0 ? '1' : '0');
+    row.querySelector('.cl-acts.right')?.style.setProperty('--ap', x < 0 ? '1' : '0');
+    row.classList.toggle('full', x < -row.offsetWidth * 0.55);
+  };
+  const close = () => { if (open) { set(open.row, 0); open = null; } };
+  const down = (e) => {
+    if (e.button > 0) return;
+    const row = e.target.closest(selector);
+    if (!row || !root.contains(row) || e.target.closest('.cl-acts')) return;
+    if (open && open.row !== row) close();
+    g = { row, x0: e.clientX, y0: e.clientY, base: open?.row === row ? open.x : 0, dx: 0, active: false, id: e.pointerId, crossed: false, full: false };
+  };
+  const move = (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    if (g.row.classList.contains('lifted')) { g = null; return; } // está en modo reordenar o menú
+    const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (!g.active) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g = null; return; }
+      if (Math.abs(dx) < 10) return;
+      g.active = true;
+      try { g.row.setPointerCapture(e.pointerId); } catch { /* nada */ }
+    }
+    g.dx = dx;
+    const w = g.row.offsetWidth;
+    let x = g.base + dx;
+    if (x > leftW) x = leftW + (x - leftW) / 3;
+    if (x < -w) x = -w;
+    set(g.row, x, false);
+    const crossed = x > leftW * 0.5 || x < -rightW * 0.5;
+    const isFull = !!full && x < -w * 0.55;
+    if (crossed !== g.crossed || isFull !== g.full) { haptic.select(); g.crossed = crossed; g.full = isFull; }
+  };
+  const up = () => {
+    if (!g) return;
+    const { row, base, dx, active } = g;
+    g = null;
+    if (!active) return;
+    const x = base + dx;
+    const w = row.offsetWidth;
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    row.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => row.removeEventListener('click', swallow, { capture: true }), 350);
+    if (full && x < -w * 0.55) { set(row, 0); open = null; full(row); return; }
+    if (x > leftW * 0.4) { set(row, leftW); open = { row, x: leftW }; }
+    else if (x < -rightW * 0.4) { set(row, -rightW); open = { row, x: -rightW }; }
+    else { set(row, 0); if (open?.row === row) open = null; }
+  };
+  const click = (e) => {
+    if (open && !e.target.closest('.cl-acts')) { e.stopPropagation(); e.preventDefault(); close(); return; }
+    if (e.target.closest('.cl-acts button')) setTimeout(close, 0);
+  };
+  root.addEventListener('pointerdown', down);
+  root.addEventListener('pointermove', move);
+  root.addEventListener('pointerup', up);
+  root.addEventListener('pointercancel', up);
+  root.addEventListener('click', click, true);
+  const off = () => {
+    root.removeEventListener('pointerdown', down);
+    root.removeEventListener('pointermove', move);
+    root.removeEventListener('pointerup', up);
+    root.removeEventListener('pointercancel', up);
+    root.removeEventListener('click', click, true);
+  };
+  off.close = close;
+  return off;
+}

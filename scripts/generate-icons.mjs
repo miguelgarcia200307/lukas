@@ -44,6 +44,8 @@ const GLYPHS = {
   'shortcut-voice': '<rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5"/>',
   'shortcut-add': '<path d="M12 5v14M5 12h14"/>',
   'shortcut-reports': '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  'shortcut-card': '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/>',
+  'shortcut-best': '<path d="M12 3l2.2 5.6L20 9.3l-4.4 3.9 1.3 5.8L12 16l-4.9 3 1.3-5.8L4 9.3l5.8-.7z"/>',
 };
 
 const png = (svg, size, file) => sharp(Buffer.from(svg), { density: 384 }).resize(size, size).png({ compressionLevel: 9 }).toFile(file);

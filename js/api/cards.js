@@ -43,3 +43,27 @@ export async function adjustBalance({ cardId, target, note = null }) {
   refresh('cards'); // en segundo plano: actualiza la pantalla sin retener el botón
   return r;
 }
+
+/** Orden personalizado: guarda el orden de todas las tarjetas en un solo viaje */
+export async function reorderCards(ids) {
+  await rpc('reorder_cards', { p_ids: ids });
+  refresh('cards');
+}
+
+// ── Compras a cuotas ───────────────────────────
+export async function listInstallments(cardId) {
+  return unwrap(await from('card_installments').select('*').eq('card_id', cardId).order('created_at'));
+}
+export async function createInstallment(row) {
+  const r = unwrap(await from('card_installments').insert(row).select().single());
+  refresh('cards');
+  return r;
+}
+export async function updateInstallment(id, patch) {
+  unwrap(await from('card_installments').update(patch).eq('id', id));
+  refresh('cards');
+}
+export async function deleteInstallment(id) {
+  unwrap(await from('card_installments').delete().eq('id', id));
+  refresh('cards');
+}

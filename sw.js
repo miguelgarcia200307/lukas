@@ -1,7 +1,7 @@
 // Lukas · service worker
 // Precache del app shell con caché versionada, stale-while-revalidate para estáticos y CDNs,
 // nunca cachea Supabase / Auth / Edge Functions / Groq. Push + notificationclick.
-const VERSION = 'lukas-v1.12.0'; // mantener igual a APP_VERSION en js/config.js
+const VERSION = 'lukas-v1.13.0'; // mantener igual a APP_VERSION en js/config.js
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -20,6 +20,7 @@ const SHELL = [
   './css/lukas.css',
   './css/lukas-studio.css',
   './css/base.css',
+  './css/cards.css',
   './css/components.css',
   './css/tokens.css',
   './css/views.css',
@@ -56,6 +57,8 @@ const SHELL = [
   './js/state.js',
   './js/supabase.js',
   './js/ui/action-menu.js',
+  './js/ui/bio-lock.js',
+  './js/ui/card-art.js',
   './js/ui/charts.js',
   './js/ui/common.js',
   './js/ui/empty.js',
@@ -72,6 +75,7 @@ const SHELL = [
   './js/ui/submit.js',
   './js/ui/sheet.js',
   './js/ui/toast.js',
+  './js/utils/card-pick.js',
   './js/utils/dates.js',
   './js/utils/dom.js',
   './js/utils/export.js',
@@ -82,6 +86,7 @@ const SHELL = [
   './js/views/accounts.js',
   './js/views/budgets.js',
   './js/views/card-detail.js',
+  './js/views/card-sheets.js',
   './js/views/cards.js',
   './js/views/categories.js',
   './js/views/debts.js',
@@ -177,6 +182,8 @@ self.addEventListener('push', (event) => {
       tag: data.tag || data.type || undefined,
       renotify: !!data.tag,
       data: { url: data.url || '#/inicio' },
+      // Avisos de corte y pago de tarjetas: acción rápida para registrar el pago (Android/Chrome; iOS no muestra acciones)
+      actions: /^#\/tarjetas\/[\w-]+$/.test(data.url || '') && /^card_(due|cut)$/.test(data.type || '') ? [{ action: 'pay', title: 'Registrar pago' }] : [],
       lang: 'es-CO',
     });
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -201,7 +208,9 @@ self.addEventListener('pushsubscriptionchange', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '#/inicio', self.registration.scope).href;
+  let url = event.notification.data?.url || '#/inicio';
+  if (event.action === 'pay') url = `#/tarjetas?pagar=${encodeURIComponent(url.split('/').pop())}`;
+  const target = new URL(url, self.registration.scope).href;
   event.waitUntil((async () => {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const client = clients.find((c) => c.url.startsWith(self.registration.scope));

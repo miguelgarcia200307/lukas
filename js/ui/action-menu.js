@@ -6,17 +6,19 @@ import { haptic } from '../utils/haptics.js';
 import { openSheet } from './sheet.js';
 
 /**
- * actionMenu({ header, actions: [{ id, label, icon, danger }] }) → Promise<id | null>
+ * actionMenu({ header, quick, actions: [{ id, label, icon, danger }] }) → Promise<id | null>
+ * quick: fila opcional de acciones rápidas en mosaico arriba (como el menú contextual de iOS) [{ id, label, icon, primary }]
  * header: html`` opcional (p. ej. el resumen de la meta). onOpen(sheet) para animar lo que traiga la cabecera.
  * Resuelve null si se cierra sin elegir.
  */
-export function actionMenu({ header = '', label = 'Opciones', actions = [], onOpen = null }) {
+export function actionMenu({ header = '', label = 'Opciones', actions = [], quick = [], onOpen = null }) {
   return new Promise((resolve) => {
     let picked = null;
     const s = openSheet({
       className: 'action-sheet',
       body: html`<div class="am" role="menu" aria-label="${label}">
         ${header ? html`<div class="am-head">${header}</div>` : ''}
+        ${quick.length ? html`<div class="am-quick">${quick.map((a) => html`<button class="am-q${a.primary ? ' primary' : ''}" role="menuitem" data-act="${a.id}">${icon(a.icon, { size: 20 })}<span>${a.label}</span></button>`)}</div>` : ''}
         <div class="am-group">${actions.map((a) => html`<button class="am-item${a.danger ? ' danger' : ''}" role="menuitem" data-act="${a.id}">
           ${a.icon ? html`<span class="am-ic">${icon(a.icon, { size: 20 })}</span>` : ''}<span class="grow">${a.label}</span></button>`)}</div>
         <button class="am-cancel" data-sheet-close>Cancelar</button>

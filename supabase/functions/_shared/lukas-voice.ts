@@ -55,7 +55,9 @@ export function cardCut(c: Base & { label: string; days: number; debt: number; u
   const v: Vars = { label: c.label, debt: money(c.debt), name: firstName(c.name), usage: Math.round(Number(c.usagePct) || 0) };
   const title = choose(c.rng, c.days === 0
     ? ["Hoy es el corte de tu {label}", "✂️ Hoy corta tu {label}", "Día de corte: {label}", "{name}, hoy corta tu {label}"]
-    : ["Mañana es el corte de tu {label}", "✂️ Mañana corta tu {label}", "Tu {label} corta mañana", "{name}, mañana corta tu {label}"], v);
+    : c.days === 1
+      ? ["Mañana es el corte de tu {label}", "✂️ Mañana corta tu {label}", "Tu {label} corta mañana", "{name}, mañana corta tu {label}"]
+      : [`En ${c.days} días es el corte de tu {label}`, `✂️ Tu {label} corta en ${c.days} días`, `{name}, tu {label} corta en ${c.days} días`], v);
   const state = c.debt > 0
     ? choose(c.rng, ["Llevas {debt} en esta tarjeta.", "Vas en {debt} en este extracto.", "Tu deuda va en {debt}."], v)
     : choose(c.rng, ["Esta tarjeta está en ceros. ¡Bien ahí! 👏", "No debes nada en esta tarjeta: así da gusto."], v);

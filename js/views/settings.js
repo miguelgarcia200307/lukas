@@ -19,14 +19,15 @@ import { exportTransactionsCSV, exportAllJSON } from '../utils/export.js';
 import { unlockVoice, speak, stopSpeaking, playTestTone, ENGINES, loadVoices, spanishVoices, pickVoice, hasGoodSpanish, voicePrefs, setVoicePrefs, isIOS, canSpeak } from '../voice/speech.js';
 import { testLine } from '../voice/talk.js';
 import { checkForUpdate } from '../update.js';
+import { bioAvailable, bioLockEnabled, enableBioLock, disableBioLock } from '../ui/bio-lock.js';
 
 const rateLabel = (r) => `${Number(r).toFixed(2).replace(/0$/, '').replace('.', ',')}×`;
 
 export const title = 'Ajustes';
 
 const NOTIF_TYPES = [
-  ['card_cut', 'Corte de tarjetas', '1 día antes y el mismo día'],
-  ['card_due', 'Pago de tarjetas', '3 días, 1 día antes y el mismo día'],
+  ['card_cut', 'Corte de tarjetas', 'El mismo día y 1 día antes (cámbialo en cada tarjeta)'],
+  ['card_due', 'Pago de tarjetas', '3 días, 1 día antes y el mismo día (cámbialo en cada tarjeta)'],
   ['debts', 'Cuotas de créditos', '1 día antes y el mismo día'],
   ['subscriptions', 'Suscripciones', '1 día antes del cobro'],
   ['budget', 'Alertas de presupuesto', 'Al 80%, al 100% y si te pasas'],
@@ -40,6 +41,7 @@ export function mount(screen) {
   let pushOn = false;
   let mic = 'prompt';
   let usage; // Uso de IA de hoy (undefined = cargando, null = no disponible)
+  let bio = null; // ¿hay Face ID / huella? (null = averiguando)
   const render = () => {
     const p = state.profile ?? {};
     const prefs = p.notification_prefs ?? {};
@@ -77,6 +79,13 @@ export function mount(screen) {
           <div class="grow"><div class="row-title">Hora de recordatorios</div><div class="row-sub">Cortes, pagos y cuotas</div></div>
           <input class="input time-input" type="time" step="3600" data-reminder value="${String(p.reminder_time ?? '08:00').slice(0, 5)}" aria-label="Hora de recordatorios"></label>
         ${NOTIF_TYPES.map(([k, t, d]) => html`<label class="list-row"><div class="grow" style="padding-left:52px"><div class="row-title">${t}</div><div class="row-sub">${d}</div></div>${sw(k, prefs[k] !== false)}</label>`)}
+      </div>
+
+      <div class="eyebrow mt-8 mb-2">Seguridad</div>
+      <div class="list">
+        <label class="list-row"><span class="cat-icon" style="--c:#1D1D1B">${icon('lock', { size: 20 })}</span>
+          <div class="grow"><div class="row-title">Bloquear Tarjetas</div><div class="row-sub">${bio === false ? 'Este dispositivo no tiene Face ID, Touch ID ni huella disponibles para la app' : 'Pide Face ID, Touch ID o tu huella para ver tus tarjetas'}</div></div>
+          ${bio === false ? '' : html`<span class="switch"><input type="checkbox" data-biolock ${bioLockEnabled() ? 'checked' : ''} aria-label="Bloquear Tarjetas con Face ID o huella"><span class="track"></span></span>`}</label>
       </div>
 
       <div class="eyebrow mt-8 mb-2">Asistente</div>
@@ -238,6 +247,11 @@ export function mount(screen) {
     }),
     on(screen, 'change', '[data-handsfree]', (e, inp) => { setVoicePrefs({ handsfree: inp.checked }); haptic.select(); }),
     on(screen, 'change', '[data-autosend]', (e, inp) => savePrefs({ voice_autosend: inp.checked })),
+    on(screen, 'change', '[data-biolock]', async (e, inp) => {
+      if (!inp.checked) { disableBioLock(); haptic.select(); toast('Tarjetas ya no piden Face ID ni huella', { type: 'info' }); return; }
+      try { await enableBioLock(); haptic.success(); toast('Listo: Tarjetas pedirá Face ID o tu huella'); }
+      catch { inp.checked = false; toast('No se pudo activar. Intenta de nuevo.', { type: 'err' }); }
+    }),
     on(screen, 'change', '[data-reminder]', (e, inp) => inp.value && savePrefs({ reminder_time: `${inp.value.slice(0, 2)}:00` })),
     on(screen, 'change', '[data-push]', async (e, inp) => {
       try {
@@ -288,5 +302,6 @@ export function mount(screen) {
   hasPushSubscription().then((v) => { pushOn = v; render(); if (v) syncPushSubscription(); });
   micStatus().then((v) => { mic = v; render(); });
   aiUsage().then((u) => { usage = u?.quota_day ? u : null; render(); }).catch(() => { usage = null; render(); });
+  bioAvailable().then((ok) => { bio = ok; render(); });
   return () => { stopSpeaking(); offs.forEach((f) => f()); };
 }

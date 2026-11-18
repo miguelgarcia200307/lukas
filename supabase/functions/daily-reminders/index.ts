@@ -21,20 +21,24 @@ async function morning(admin: SupabaseClient, p: Profile, today: string, log: st
   const prefs = p.notification_prefs ?? {};
   const name = p.name;
 
-  // Tarjetas: corte (1 día antes y el mismo día) y pago (3, 1 y 0 días)
+  // Tarjetas: corte (el mismo día y los días antes que elija el usuario por tarjeta; 1 por defecto) y pago
+  // (el mismo día, 1 día antes y los días que elija; 3 por defecto). remind_*_days = null apaga ese aviso de la tarjeta.
+  // Sin la migración de Tarjetas 2.0 las columnas no existen (undefined) y se usan los valores de siempre.
   const { data: cards, error: cErr } = await admin.from("card_status").select("*").eq("user_id", uid).eq("archived", false);
   if (cErr) throw cErr;
   for (const c of cards ?? []) {
     const label = [c.name, c.bank].filter(Boolean).join(" ");
     const dCut = daysBetween(today, c.next_cut_date);
-    if (on(prefs, "card_cut") && (dCut === 0 || dCut === 1)) {
+    const cutDays = c.remind_cut_days === undefined ? 1 : c.remind_cut_days;
+    const dueDays = c.remind_due_days === undefined ? 3 : c.remind_due_days;
+    if (on(prefs, "card_cut") && cutDays !== null && (dCut === 0 || dCut === Number(cutDays))) {
       const key = `cut:${c.id}:${c.next_cut_date}:${dCut}`;
       const msg = voice.cardCut({ rng: rngFor(p, key), name, label, days: dCut, debt: Number(c.debt), usagePct: Number(c.usage_pct) });
       const ok = await notify(admin, uid, { type: "card_cut", ...msg, url: `#/tarjetas/${c.id}` }, key);
       if (ok) log.push(`cut ${c.name} ${dCut}`);
     }
     const dDue = daysBetween(today, c.next_due_date);
-    if (on(prefs, "card_due") && [0, 1, 3].includes(dDue) && Number(c.debt) > 0) {
+    if (on(prefs, "card_due") && dueDays !== null && [0, 1, Number(dueDays)].includes(dDue) && Number(c.debt) > 0) {
       const key = `due:${c.id}:${c.next_due_date}:${dDue}`;
       const msg = voice.cardDue({ rng: rngFor(p, key), name, label, days: dDue, debt: Number(c.debt), estInterest: c.est_interest == null ? null : Number(c.est_interest) });
       const ok = await notify(admin, uid, { type: "card_due", ...msg, url: `#/tarjetas/${c.id}` }, key);

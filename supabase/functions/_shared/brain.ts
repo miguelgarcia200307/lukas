@@ -1,6 +1,7 @@
 // Cerebro del asistente (sin APIs de Deno: también corre en Node para el banco de pruebas):
 // contexto compacto con ids cortos, prompt en bloques cacheables, validación de líneas JSONL → propuestas,
 // fechas y respuestas calculadas en código (plantillas), vocabulario para Whisper.
+import { bestCardToday } from "./card-pick.ts";
 
 // ───────────────────────── tipos ─────────────────────────
 export type Kind = "expense" | "income";
@@ -10,7 +11,8 @@ export interface RawCtx {
   def: string | null;
   cats: [string, string, Kind, string | null, string | null][];
   accs: [string, string, string][];
-  cards: [string, string, string | null, string, string | null][];
+  /** [id, nombre, banco, franquicia, últimos 4, apodo] (el apodo llega desde la migración de Tarjetas 2.0) */
+  cards: [string, string, string | null, string, string | null, (string | null)?][];
   debts: [string, string, string | null, number][];
   subs: [string, string, number, string][];
   goals: [string, string, number][];
@@ -25,7 +27,7 @@ export interface Built {
   toAlias: Record<string, string>;
   cats: Map<string, Cat>;
   accounts: { id: string; name: string; type: string }[];
-  cards: { id: string; name: string; bank: string | null }[];
+  cards: { id: string; name: string; bank: string | null; nickname: string | null }[];
   debts: { id: string; name: string; monthly: number }[];
   goals: { id: string; name: string }[];
   block: string; // contexto del usuario para el prompt (estable → cacheable)
@@ -166,7 +168,7 @@ export function buildContext(raw: RawCtx, v: string): Built {
     `Categorías de gasto: ${catLine("expense")}`,
     `Categorías de ingreso: ${catLine("income")}`,
     `Cuentas: ${list(raw.accs.map(([id, name]) => `${toAlias[id]}:${name}${id === raw.def ? " (por defecto)" : ""}`))}`,
-    `Tarjetas de crédito: ${list(raw.cards.map(([id, name, bank, brand]) => `${toAlias[id]}:${name}${bank && !fold(name).includes(fold(bank)) ? ` ${bank}` : ""}${brand && brand !== "other" && !fold(name).includes(brand) ? ` (${brand})` : ""}`))}`,
+    `Tarjetas de crédito: ${list(raw.cards.map(([id, name, bank, brand, , nick]) => `${toAlias[id]}:${name}${bank && !fold(name).includes(fold(bank)) ? ` ${bank}` : ""}${brand && brand !== "other" && !fold(name).includes(brand) ? ` (${brand})` : ""}${nick ? ` apodo "${nick}"` : ""}`))}`,
     `Créditos: ${list(raw.debts.map(([id, name, lender, monthly]) => `${toAlias[id]}:${name}${lender ? ` ${lender}` : ""} cuota ${monthly}`))}`,
     `Metas de ahorro: ${list(raw.goals.map(([id, name]) => `${toAlias[id]}:${name}`))}`,
     `Suscripciones activas: ${list(raw.subs.map(([, name]) => name))}`,
@@ -174,7 +176,7 @@ export function buildContext(raw: RawCtx, v: string): Built {
 
   // Vocabulario para Whisper: estilo + nombres propios del usuario (≤ ~224 tokens)
   const names = [...new Set([
-    ...raw.accs.map((a) => a[1]), ...raw.cards.flatMap((c) => [c[1], c[2] ?? ""]), ...raw.debts.map((d) => d[1]),
+    ...raw.accs.map((a) => a[1]), ...raw.cards.flatMap((c) => [c[1], c[2] ?? "", c[5] ?? ""]), ...raw.debts.map((d) => d[1]),
     ...raw.subs.map((s) => s[1]), ...raw.goals.map((g) => g[1]),
   ].filter(Boolean))];
   const catNames = raw.cats.filter((c) => c[3]).map((c) => c[1]); // subcategorías (Taxi, Gasolina…)
@@ -186,7 +188,7 @@ export function buildContext(raw: RawCtx, v: string): Built {
   return {
     v, userName: raw.name, defAccount: raw.def, toId, toAlias, cats,
     accounts: raw.accs.map(([id, name, type]) => ({ id, name, type })),
-    cards: raw.cards.map(([id, name, bank]) => ({ id, name, bank })),
+    cards: raw.cards.map(([id, name, bank, , , nick]) => ({ id, name, bank, nickname: nick ?? null })),
     debts: raw.debts.map(([id, name, , monthly]) => ({ id, name, monthly: Number(monthly) })),
     goals: raw.goals.map(([id, name]) => ({ id, name })),
     block, whisper: whisper.replace(/,\s*$/, "."),
@@ -220,7 +222,7 @@ Pago a tarjeta de crédito (no es gasto): {"k":"tc","t":"tarjeta","p":"cuenta de
 Cuota de un crédito: {"k":"cr","cr":"crédito","p":"cuenta","a":monto} (sin "a" si no dice el monto)
 Nueva suscripción: {"k":"su","n":"nombre","a":monto,"fr":"m|a|s","c":"cat","p":"cuenta o tarjeta"}
 Aporte a meta de ahorro: {"k":"me","m":"meta","a":monto,"p":"cuenta"}
-Consulta sobre su plata: {"k":"q","m":"gasto|ingreso|saldo|deuda|corte|creditos|suscripciones|presupuesto|metas","per":"hoy|ayer|semana|semana_pasada|mes|mes_pasado|año","c":"cat","t":"tarjeta","p":"cuenta"}
+Consulta sobre su plata: {"k":"q","m":"gasto|ingreso|saldo|deuda|corte|mejor_tarjeta|creditos|suscripciones|presupuesto|metas","per":"hoy|ayer|semana|semana_pasada|mes|mes_pasado|año","c":"cat","t":"tarjeta","p":"cuenta"}
 Pregunta para aclarar: {"k":"?","q":"pregunta"}
 Fuera de tema o saludo: {"k":"x","r":"respuesta"}
 
@@ -230,12 +232,12 @@ REGLAS
 3. "d": corta y natural, con mayúscula inicial ("Almuerzo", "Uber", "Comida con mi novia").
 4. "c": solo ids de la lista; prefiere la subcategoría (Taxi para Uber/DiDi/taxi, Bus para TransMilenio/SITP/bus, Gasolina, Parqueadero). "alt": 2 ids distintos del mismo tipo. Si hay pistas del usuario para una palabra, úsalas.
    Guía: comida, almuerzo, tinto, domicilio, Rappi → Comida y restaurantes; D1, Ara, Éxito, Carulla, tienda, plaza → Mercado; ferretería, aseo, arreglos de la casa → Hogar; mecánico, taller, moto, carro, llantas, peaje, SOAT → Transporte; luz, agua, gas, internet, Claro → Servicios públicos; droguería, médico → Salud; cine, rumba, bar → Entretenimiento; sueldo, quincena, nómina → Salario; vendí, venta → Ventas; cliente, proyecto → Freelance; me devolvieron → Reembolsos.
-5. "p": solo si dice cómo pagó o de dónde salió la plata ("con la Visa", "por Nequi", "en efectivo", "con la de Bancolombia" = su tarjeta de ese banco si tiene una). Si no lo dice, omítelo. Ingresos: solo cuentas.
+5. "p": solo si dice cómo pagó o de dónde salió la plata ("con la Visa", "por Nequi", "en efectivo", "con la de Bancolombia" = su tarjeta de ese banco si tiene una; "con la de Mercado" = la tarjeta con ese apodo). Si no lo dice, omítelo. Ingresos: solo cuentas.
 6. "f": solo si no fue hoy; copia la expresión de tiempo tal como la dijo ("ayer", "anoche", "antier", "el sábado", "la semana pasada", "hace 3 días", "el 5 de noviembre", "esta mañana").
 7. Si a algo le falta el monto, emítelo igual en SU PROPIA línea, sin "a", con "d", "c" y "q" preguntando solo el monto (ej. {"k":"g","d":"Clavos","c":"…","l":"ferretería","q":"¿Y cuánto te costaron los clavos?"}). Nunca lo metas en "it" de otra línea ni lo omitas. Usa "?" solo si no se entiende en qué gastó o si entró o salió plata. No preguntes por pago, fecha ni categoría.
    Plata que le entró ("me entraron", "me cayeron", "me consignaron", "me pagaron", "recibí") con monto es un ingreso: regístralo sin preguntar (si no dice de qué, Otros ingresos).
 8. Varias cosas en una frase → una línea por cada una (por categoría y lugar). Primero los registros; la "?" al final.
-9. Preguntas como "¿cuánto llevo?" o "¿cuánto debo en la Visa?" son consultas "q": no calcules cifras.
+9. Preguntas como "¿cuánto llevo?" o "¿cuánto debo en la Visa?" son consultas "q": no calcules cifras. "¿Con cuál tarjeta pago hoy?", "¿cuál tarjeta me conviene usar?" → {"k":"q","m":"mejor_tarjeta"}.
 10. Saludo o algo ajeno a finanzas → solo "x" diciendo, amable y breve, qué puedes hacer.
 11. Preguntas y respuestas: cortas, cálidas y naturales, en español colombiano neutro, tuteando, sin emojis.`;
 
@@ -295,6 +297,7 @@ const str = (v: unknown, max = 120) => (typeof v === "string" ? v.trim().slice(0
 const METRICS: Record<string, string> = {
   gasto: "spending", gastos: "spending", ingreso: "income", ingresos: "income", saldo: "balance", saldos: "balance",
   deuda: "card_debt", corte: "card_dates", fechas: "card_dates", pago: "card_dates", creditos: "debts", credito: "debts",
+  mejor_tarjeta: "card_best", mejor: "card_best", tarjeta_hoy: "card_best", cual_tarjeta: "card_best",
   suscripciones: "subscriptions", presupuesto: "budget", metas: "goals", meta: "goals",
 };
 
@@ -699,6 +702,18 @@ export function queryReply(q: QuerySpec, d: any, b: Built): string {
     case "card_dates": {
       if (!rows.length) return "Aún no tienes tarjetas registradas.";
       return rows.slice(0, 3).map((r) => `La ${r[0]} corta el ${longDate(String(r[5]))} y se paga el ${longDate(String(r[6]))}.`).join(" ");
+    }
+    case "card_best": {
+      if (!rows.length) return "Aún no tienes tarjetas registradas.";
+      const today = String(d?.to ?? q.to).slice(0, 10);
+      const cards = rows.map((r) => ({ name: r[0], debt: Number(r[2]), available: Number(r[3]), credit_limit: Number(r[4]),
+        nickname: r[7], cut_day: Number(r[8]), due_day: Number(r[9]) }));
+      const pick = bestCardToday(cards, today);
+      if (!pick) return "Ahora ninguna tarjeta tiene cupo cómodo: todas están sin disponible o por encima del 90%.";
+      const c = pick.card;
+      const who = c.nickname ? `la ${c.name}, tu tarjeta ${c.nickname}` : `la ${c.name}`;
+      const why = pick.daysSinceCut <= 7 ? `cortó hace ${pick.daysSinceCut} ${pick.daysSinceCut === 1 ? "día" : "días"}, así que ` : "";
+      return `Usa ${who}: ${why}lo que compres hoy lo pagas el ${longDate(pick.payDate)}, en ${pick.daysToPay} días. Te quedan ${money(Math.max(0, c.available))} de cupo.`;
     }
     case "debts": {
       if (!rows.length) return "No tienes créditos registrados.";

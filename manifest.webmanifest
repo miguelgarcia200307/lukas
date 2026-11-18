@@ -22,6 +22,8 @@
   "shortcuts": [
     { "name": "Registrar con voz", "short_name": "Voz", "url": "./#/inicio?voz=1", "icons": [{ "src": "./assets/icons/shortcut-voice.png", "sizes": "96x96", "type": "image/png" }] },
     { "name": "Nuevo gasto", "short_name": "Nuevo", "url": "./#/movimientos?nuevo=1", "icons": [{ "src": "./assets/icons/shortcut-add.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "¿Con cuál tarjeta pago hoy?", "short_name": "¿Con cuál pago?", "url": "./#/tarjetas?mejor=1", "icons": [{ "src": "./assets/icons/shortcut-best.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Registrar pago de tarjeta", "short_name": "Pagar tarjeta", "url": "./#/tarjetas?pagar=1", "icons": [{ "src": "./assets/icons/shortcut-card.png", "sizes": "96x96", "type": "image/png" }] },
     { "name": "Reportes", "short_name": "Reportes", "url": "./#/reportes", "icons": [{ "src": "./assets/icons/shortcut-reports.png", "sizes": "96x96", "type": "image/png" }] }
   ]
 }

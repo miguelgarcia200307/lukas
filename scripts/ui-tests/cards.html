@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ui-test-budget" content="20000">
+<title>Prueba · Tarjetas</title>
+<script type="importmap">{ "imports": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js" } }</script>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/cards.css"><link rel="stylesheet" href="../../css/animations.css">
+<style>#app { position: relative; height: 844px; width: 390px; } #results { display: none; }</style>
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><div id="toast-root"></div><pre id="results"></pre>
+<script type="module">
+// Tarjetas (la corre scripts/ui-tests/run.mjs): resumen, pila tipo Wallet, lista, carrusel, giro, menú, pago, privacidad.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 4000) => { for (let t = 0; t < ms; t += 50) { if (f()) return true; await wait(50); } return false; };
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  localStorage.removeItem('lukas-cards-ui'); localStorage.removeItem('lukas-privacy');
+  const { todayISO, addDays } = await import('../../js/utils/dates.js');
+  const T = todayISO();
+  const dayOf = (iso) => Number(iso.slice(8, 10));
+  // 6 tarjetas: deuda total $2.955.000 · cupo total $10.400.000
+  const mk = (id, name, bank, brand, last4, limit, debt, cutIn, dueIn, color, extra = {}) => ({
+    id, name, bank, brand, last4, credit_limit: limit, debt, available: limit - debt, usage_pct: Math.round(debt * 1000 / limit) / 10,
+    cut_day: dayOf(addDays(T, cutIn)), due_day: dayOf(addDays(T, dueIn)), next_cut_date: addDays(T, cutIn), next_due_date: addDays(T, dueIn),
+    color, color2: null, finish: 'gradient', archived: false, pinned: false, sort_order: 0, nickname: null, emoji: null, created_at: `2026-01-0${id.length}`,
+    monthly_rate: 2.1, min_payment: null, installments_count: 0, installments_monthly: 0, ...extra });
+  let rows = [
+    mk('fal', 'CMR Falabella', 'Banco Falabella', 'mastercard', '6013', 1900000, 540000, 12, 27, '#2E8B3E'),
+    mk('rap', 'RappiCard', 'Rappi Bank', 'visa', '4471', 2500000, 1517000, 17, 4, '#17171A', { finish: 'matte' }),
+    mk('bco', 'Visa Platinum', 'Bancolombia', 'visa', '9930', 2000000, 400000, 27, 14, '#1C1C1C', { finish: 'metal' }),
+    mk('dav', 'Davivienda Visa', 'Davivienda', 'visa', '1188', 1500000, 298000, 2, 17, '#C8102E'),
+    mk('nu', 'Nu', 'Nu', 'mastercard', '0042', 1500000, 200000, 22, 2 + 30, '#820AD1', { nickname: 'Mercado', emoji: '🛒' }),
+    mk('bbva', 'BBVA Azul', 'BBVA', 'visa', '5520', 1000000, 0, 8, 23, '#072146'),
+  ];
+  const ops = [];
+  const chain = (table, calls = []) => new Proxy({}, { get: (t, k) => (k === 'then'
+    ? (res) => {
+      const [verb, args] = calls[0] ?? [];
+      const id = calls.find(([m]) => m === 'eq')?.[1]?.[1];
+      if (table === 'credit_cards' && verb === 'update') { ops.push(['update', id, args[0]]); rows = rows.map((r) => (r.id === id ? { ...r, ...args[0] } : r)); }
+      if (table === 'credit_cards' && verb === 'delete') { ops.push(['delete', id]); rows = rows.filter((r) => r.id !== id); }
+      res({ data: table === 'card_status' ? rows.map((r) => ({ ...r })) : null, error: null });
+    }
+    : (...a) => chain(table, [...calls, [k, a]])) });
+  window.__from = (table) => chain(table);
+  window.__rpc = (fn, args) => { ops.push([fn, args]); if (fn === 'pay_card') { rows = rows.map((r) => (r.id === args.p_card_id ? { ...r, debt: r.debt - args.p_amount, available: r.available + args.p_amount } : r)); return { payment_id: 'tx1' }; } return 1; };
+
+  const { state } = await import('../../js/state.js');
+  state.accounts = [{ id: 'acc', name: 'Bancolombia ahorros', balance: 3000000, archived: false }];
+  state.profile = { default_account_id: 'acc', notification_prefs: {} };
+  const { mount } = await import('../../js/views/cards.js');
+  const screen = document.getElementById('scr');
+  const unmount = mount(screen, { query: {} });
+  await until(() => screen.querySelectorAll('.w-item').length === 6);
+  await wait(100);
+  const head = screen.querySelector('.cx-head');
+  check('se ven las 6 tarjetas apiladas', screen.querySelectorAll('.w-item').length === 6);
+  check('resumen: deuda total $2.955.000', /\$2\.955\.000/.test(head.querySelector('[data-total="debt"]').textContent), head.querySelector('[data-total="debt"]').textContent);
+  check('resumen: cupo total $10.400.000 y disponible $7.445.000', /\$10\.400\.000/.test(head.textContent) && /\$7\.445\.000/.test(head.textContent));
+  check('uso global 28 % (deuda / cupo)', /28\s*%/.test(head.querySelector('.cx-ring').textContent), head.querySelector('.cx-ring').textContent);
+  const next = head.querySelector('[data-next]');
+  check('próximo pago: banco · monto · días', next && /^Rappi · \$1\.517\.000 · en 4 días$/.test(next.textContent.replace(/\s+/g, ' ').trim()), next?.textContent);
+  check('próximo pago a ≤ 5 días se resalta en ámbar', next?.classList.contains('warn'));
+  const best = head.querySelector('[data-best]');
+  check('"¿Con cuál pago hoy?" recomienda la que acaba de cortar', best && /Hoy paga con/.test(best.textContent), best?.textContent);
+
+  // Las 6 tarjetas caben sin scroll en un iPhone de 390×844 instalado: barra de estado (47) + barra inferior (64) + indicador de inicio (34)
+  const finish = () => document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* nada */ } });
+  finish();
+  const wallet = screen.querySelector('.wallet');
+  const bottom = wallet.getBoundingClientRect().bottom - screen.getBoundingClientRect().top;
+  check(`con 6 tarjetas la pila completa cabe sin scroll (iPhone 390×844: ${Math.round(bottom + 47)} de ${844 - 98} px)`, bottom + 47 <= 844 - 64 - 34, `fondo de la pila: ${Math.round(bottom + 47)} px de ${844 - 98}`);
+  const strips = [...screen.querySelectorAll('.w-item')].map((n) => Math.round(n.getBoundingClientRect().top));
+  check('cada tarjeta deja ver su franja (48 px)', strips.every((y, i) => i === 0 || y - strips[i - 1] === 48), strips.join(','));
+  check('el selector de vista está en la barra superior', screen.querySelectorAll('.cx-topbar [data-view]').length === 3);
+  const strip = screen.querySelector('.w-item[data-id="fal"] .cc-strip');
+  check('la franja muestra banco, ••••, deuda y franquicia', /Banco Falabella/.test(strip.textContent) && /•••• 6013/.test(strip.textContent) && /\$540\.000/.test(strip.textContent) && strip.querySelector('.cc-mc'));
+  check('anillo de uso con color semántico (Rappi 61 % = amarillo, Falabella 28 % = verde)',
+    screen.querySelector('[data-id="rap"] .cc-use').classList.contains('tone-mid') && screen.querySelector('[data-id="fal"] .cc-use').classList.contains('tone-ok'));
+  check('tarjeta con proporción real 1,586:1', Math.abs(screen.querySelector('.cc').offsetWidth / screen.querySelector('.cc').offsetHeight - 1.586) < 0.02);
+  check('lector de pantalla oye banco, deuda y uso', /Banco Falabella.*deuda 540 mil pesos, uso 28 por ciento/.test(screen.querySelector('[data-id="fal"] .w-hit').getAttribute('aria-label')), screen.querySelector('[data-id="fal"] .w-hit').getAttribute('aria-label'));
+  check('apodo y emoji en la franja', /🛒Mercado/.test(screen.querySelector('[data-id="nu"] .cc-sub').textContent.replace(/\s/g, '')));
+
+  // Tocar abre (las de abajo bajan), doble toque gira, un toque cierra
+  const hit = (id) => screen.querySelector(`.w-item[data-id="${id}"] .w-hit`);
+  const yOf = (id) => Number(screen.querySelector(`.w-item[data-id="${id}"]`).dataset.y);
+  const order = [...screen.querySelectorAll('.w-item')].map((n) => n.dataset.id);
+  const second = order[1], third = order[2];
+  const before = yOf(third);
+  hit(second).click();
+  await wait(50); finish();
+  check('tocar una tarjeta la abre y las de abajo se deslizan', hit(second).getAttribute('aria-expanded') === 'true' && yOf(third) > before + 150, `${before} → ${yOf(third)}`);
+  check('aparecen las acciones de la tarjeta abierta', screen.querySelector('.w-actions').classList.contains('show'));
+  hit(second).click(); await wait(80); hit(second).click();
+  await wait(350);
+  check('doble toque gira la tarjeta (reverso con cupo, fechas y mínimo)', screen.querySelector(`.w-item[data-id="${second}"] .cc`).classList.contains('flipped')
+    && /Cupo/.test(screen.querySelector(`.w-item[data-id="${second}"] .cc-back`).textContent) && /Mínimo/.test(screen.querySelector(`.w-item[data-id="${second}"] .cc-back`).textContent));
+  check('la tarjeta sigue abierta después de girarla', hit(second).getAttribute('aria-expanded') === 'true');
+  hit(second).click(); await wait(400);
+  check('un toque sobre la abierta la cierra', hit(second).getAttribute('aria-expanded') === 'false' && yOf(third) === before);
+
+  // Mantener presionado → menú contextual con la tarjeta ampliada
+  const item = screen.querySelector('.w-item[data-id="fal"]');
+  item.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse', button: 0, clientX: 100, clientY: 100 }));
+  await wait(150);
+  check('al sostener la tarjeta se encoge (0,97)', item.classList.contains('pressing'));
+  await wait(400);
+  check('a los 400 ms la tarjeta se levanta', item.classList.contains('lifted'));
+  window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse', button: 0, clientX: 100, clientY: 100 }));
+  await until(() => document.querySelector('.sheet.action-sheet'));
+  const menuEl = document.querySelector('.sheet.action-sheet');
+  const labels = [...menuEl.querySelectorAll('[data-act]')].map((b) => b.textContent.trim());
+  check('menú contextual con tarjeta ampliada', !!menuEl.querySelector('.am-card .cc'));
+  check('menú con todas las opciones', ['Pagar', 'Movimientos', 'Cuotas', 'Simular', 'Personalizar', 'Fijar arriba', 'Copiar últimos 4', 'Configurar recordatorios', 'Archivar tarjeta', 'Eliminar']
+    .every((l) => labels.some((x) => x.startsWith(l))), labels.join(' | '));
+  check('"Eliminar" va en rojo', menuEl.querySelector('[data-act="delete"]').classList.contains('danger'));
+
+  // Personalizar en 3 toques: mantener (1) → Personalizar (2) → color (3)
+  menuEl.querySelector('[data-act="personalize"]').click();
+  await until(() => [...document.querySelectorAll('.sheet h2')].some((h) => h.textContent === 'Personalizar'));
+  const pz = [...document.querySelectorAll('.sheet')].find((s) => s.querySelector('h2')?.textContent === 'Personalizar');
+  check('personalizar muestra la vista previa en vivo', !!pz.querySelector('[data-preview] .cc'));
+  check('ofrece el color del banco primero', pz.querySelector('.pz-sw')?.classList.contains('bank'));
+  pz.querySelector('[data-sw^="#4B3BF5"]').click();
+  check('elegir un color cambia la vista previa al instante', pz.querySelector('[data-preview] .cc').getAttribute('style').includes('#4B3BF5'));
+  pz.querySelector('#pz-nick').value = 'Viajes';
+  pz.querySelector('#pz-nick').dispatchEvent(new Event('input', { bubbles: true }));
+  pz.querySelector('[data-emoji="✈️"]').click();
+  await wait(700);
+  const up = ops.filter(([o, id]) => o === 'update' && id === 'fal').reduce((a, [, , p]) => ({ ...a, ...p }), {});
+  check('guarda color, apodo y emoji sin botón de guardar', up.color === '#4B3BF5' && up.nickname === 'Viajes' && up.emoji === '✈️', JSON.stringify(up));
+  (await import('../../js/ui/sheet.js')).closeAllSheets();
+  await wait(500);
+  check('la pantalla refleja el apodo nuevo', /Viajes/.test(screen.querySelector('[data-id="fal"] .cc-sub').textContent));
+
+  // Registrar pago desde el próximo pago: chips + deslizar para confirmar
+  screen.querySelector('[data-next]').click();
+  await until(() => document.querySelector('.sheet.pay-sheet [data-slide]'));
+  const pay = document.querySelector('.sheet.pay-sheet');
+  check('el pago abre con el total sugerido', pay.querySelector('[name="amount"]').value === '1.517.000' && pay.querySelector('[data-mode="total"]').getAttribute('aria-pressed') === 'true');
+  pay.querySelector('[data-mode="min"]').click();
+  check('chip "Mínimo" llena el monto estimado', pay.querySelector('[name="amount"]').value !== '' && pay.querySelector('[name="amount"]').value !== '1.517.000');
+  pay.querySelector('[data-mode="other"]').click();
+  const inp = pay.querySelector('[name="amount"]');
+  inp.value = '2000000'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+  check('avisa si pagas más de lo que debes', !pay.querySelector('[data-warn]').hidden && /saldo a favor/.test(pay.querySelector('[data-warn]').textContent));
+  inp.value = '500000'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+  check('muestra cómo queda la deuda', /Deuda después: \$1\.017\.000/.test(pay.querySelector('[data-after]').textContent), pay.querySelector('[data-after]').textContent);
+  const slide = pay.querySelector('[data-slide]');
+  const sw = (type, x) => slide.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, pointerId: 7 }));
+  sw('pointerdown', 10); sw('pointermove', 80); sw('pointerup', 80);
+  await wait(50);
+  check('soltar a mitad de camino no paga (regresa)', !ops.some(([o]) => o === 'pay_card') && (parseFloat(slide.style.getPropertyValue('--x')) || 0) === 0);
+  sw('pointerdown', 10); sw('pointermove', 600); sw('pointerup', 600);
+  await until(() => ops.some(([o]) => o === 'pay_card'));
+  const p = ops.find(([o]) => o === 'pay_card')?.[1];
+  check('deslizar hasta el final registra el pago', p && p.p_card_id === 'rap' && p.p_amount === 500000 && p.p_account_id === 'acc', JSON.stringify(p));
+  await until(() => document.querySelector('.pay-done'));
+  check('check animado y la deuda baja', !!document.querySelector('.pay-done .ok'));
+  await until(() => /Deshacer/.test(document.getElementById('toast-root').textContent), 3000);
+  check('toast con "Deshacer" tras el pago', /Pago de \$500\.000 registrado/.test(document.getElementById('toast-root').textContent));
+  await wait(400);
+
+  // Privacidad: el ojo oculta todos los montos (máscara de largo fijo)
+  screen.querySelector('[data-eye]').click();
+  await wait(50);
+  check('el ojo oculta todos los montos', !/\$\d/.test(screen.querySelector('.cx-body').textContent.replace(/\d+ días|\d+\s*%/g, '')) && screen.querySelectorAll('.is-masked').length > 10);
+  check('el lector de pantalla oye "deuda oculta"', /deuda oculta/.test(screen.querySelector('.w-hit').getAttribute('aria-label')));
+  screen.querySelector('[data-eye]').click();
+  await wait(50);
+
+  // Vista lista: filas con barra de uso; deslizar a la izquierda muestra Pagar/Más
+  screen.querySelector('[data-view="list"]').click();
+  await until(() => screen.querySelectorAll('.cl-row').length === 6);
+  check('vista lista compacta con 6 filas', screen.querySelectorAll('.cl-row').length === 6);
+  check('cada fila tiene mini barra de uso con su color', [...screen.querySelectorAll('.cl-bar')].every((b) => /tone-(ok|mid|high)/.test(b.className)));
+  const row = screen.querySelector('.cl-row');
+  const main = row.querySelector('.cl-main');
+  const pe = (type, x) => main.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: 300, pointerId: 3, button: 0 }));
+  pe('pointerdown', 300); pe('pointermove', 280); pe('pointermove', 150); pe('pointerup', 150);
+  await wait(50);
+  check('swipe corto a la izquierda: Pagar (verde) y Más', main.style.transform.includes('-156px') && row.querySelector('.cl-acts.right .a-pay'));
+  main.click(); await wait(50);
+  pe('pointerdown', 100); pe('pointermove', 120); pe('pointermove', 260); pe('pointerup', 260);
+  await wait(50);
+  check('swipe a la derecha: Movimientos y Fijar', main.style.transform.includes('156px') && /Movimientos/.test(row.querySelector('.cl-acts.left').textContent));
+  main.click(); await wait(50);
+
+  // Vista carrusel: una tarjeta grande con su detalle; la pantalla no crece
+  screen.querySelector('[data-view="carousel"]').click();
+  await until(() => screen.querySelector('.cr-track'));
+  check('carrusel con puntos y detalle de la seleccionada', screen.querySelectorAll('.cr-dots i').length === 6 && /Cupo/.test(screen.querySelector('.cr-detail').textContent));
+  check('el detalle tiene fechas relativas + absolutas', /Pago en \d+ días · \d+ \w+/.test(screen.querySelector('.cr-detail').textContent), screen.querySelector('.cr-detail .cs2-dates')?.textContent);
+
+  // Ordenar: por deuda pone primero la de mayor deuda
+  screen.querySelector('[data-view="stack"]').click();
+  await until(() => screen.querySelector('.wallet'));
+  screen.querySelector('[data-sort]').click();
+  await until(() => document.querySelector('.sheet.action-sheet [data-act="debt"]'));
+  document.querySelector('.sheet.action-sheet [data-act="debt"]').click();
+  await wait(400);
+  check('ordenar por deuda', screen.querySelector('.w-item').dataset.id === 'rap', screen.querySelector('.w-item').dataset.id);
+  check('la preferencia de vista y orden se recuerda', JSON.parse(localStorage.getItem('lukas-cards-ui')).sort === 'debt');
+
+  // Estado vacío
+  unmount?.();
+  rows = [];
+  state.cards = [];
+  const un2 = mount(screen, { query: {} });
+  await until(() => screen.querySelector('.empty, [data-new]'));
+  await wait(300);
+  check('estado vacío con "Agregar tu primera tarjeta"', /Agregar tu primera tarjeta/.test(screen.textContent));
+  un2?.();
+} catch (e) { check('sin excepciones', false, String(e?.stack || e)); }
+done();
+</script></body></html>

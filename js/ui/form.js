@@ -44,6 +44,9 @@ export function formSheet({ title, fields, submitLabel = 'Guardar', onSubmit, on
       case 'day':
         control = html`<input id="${id}" class="input" type="number" name="${f.name}" min="1" max="31" inputmode="numeric" value="${f.value ?? ''}" placeholder="${f.placeholder ?? '1–31'}" ${raw(req)}>`;
         break;
+      case 'number':
+        control = html`<input id="${id}" class="input" type="number" name="${f.name}" min="${f.min ?? 0}" max="${f.max ?? ''}" inputmode="numeric" value="${f.value ?? ''}" placeholder="${f.placeholder ?? ''}" ${raw(req)}>`;
+        break;
       case 'percent':
         control = html`<div class="input-prefix suffix"><input id="${id}" class="input" type="text" inputmode="decimal" name="${f.name}" value="${f.value ?? ''}" placeholder="${f.placeholder ?? '0,0'}"><span>%</span></div>`;
         break;
