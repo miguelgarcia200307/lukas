@@ -1,10 +1,11 @@
 {
-  "version": "1.14.0",
-  "date": "2026-11-18",
+  "version": "1.15.0",
+  "date": "2026-11-21",
   "notes": [
-    "Toca una cuenta y ves todos sus movimientos: lo que entró, lo que salió y el saldo que quedó después de cada uno",
-    "Gráfica del saldo: desliza el dedo sobre ella para ver cuánto tenías cualquier día",
-    "Mira a dónde se fue tu plata y de dónde vino, por mes, 3 meses, año o desde el inicio",
-    "Registra ingresos, gastos y transferencias desde la cuenta, y cuádrala con tu banco en un toque"
+    "Nuevo reporte diario: en Reportes elige \"Día\" y mira cómo te ha ido hoy con tus ingresos, gastos y balance",
+    "Compara tu día con ayer y con tu promedio de la semana, y mira cuánto te queda de tu límite diario",
+    "Todos los movimientos del día en una lista y tus últimos 7 días en una gráfica: toca una barra para ver ese día",
+    "Usa las flechas o toca la fecha para ver cualquier día; Reportes recuerda el periodo que usaste",
+    "Proyección del mes mucho más precisa: tiene en cuenta tus suscripciones, el arriendo y pagos de cada mes, tu sueldo y cómo gastas cada día de la semana. Tócala para ver de dónde sale"
   ]
 }

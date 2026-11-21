@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ui-test-budget" content="25000">
+<title>Prueba · Reporte diario</title>
+<script type="importmap">{ "imports": {
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm": "./fixtures/supabase-stub.js",
+  "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/+esm": "./fixtures/chart-stub.js"
+} }</script>
+<link rel="stylesheet" href="../../css/tokens.css"><link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/components.css"><link rel="stylesheet" href="../../css/views.css"><link rel="stylesheet" href="../../css/animations.css">
+<style>#app { position: relative; height: 844px; width: 390px; overflow: hidden; } #results { display: none; }</style>
+</head><body><div id="app"><main id="view"><section class="screen" id="scr"></section></main></div><div id="toast-root"></div><pre id="results"></pre>
+<script type="module">
+// Reporte diario (la corre scripts/ui-tests/run.mjs): periodo "Día", KPIs vs ayer, límite diario, movimientos del día,
+// últimos 7 días (tocar una barra cambia de día), flechas, selector de fecha, "Volver a hoy", día vacío y que los
+// demás periodos siguen igual. ?shot=day|week|empty deja la pantalla quieta para capturas.
+const results = [];
+const check = (name, ok, extra = '') => results.push({ name, ok: !!ok, extra: String(extra) });
+const done = () => { document.getElementById('results').textContent = 'RESULTS:' + JSON.stringify(results); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 5000) => { for (let t = 0; t < ms; t += 50) { if (f()) return true; await wait(50); } return false; };
+const shot = new URLSearchParams(location.search).get('shot');
+window.addEventListener('error', (e) => { check('sin errores de JS', false, e.message); done(); });
+try {
+  window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  localStorage.removeItem('lukas-reports-ui'); localStorage.removeItem('lukas-privacy');
+  const { todayISO, addDays, addMonths, daysBetween } = await import('../../js/utils/dates.js');
+  const T = todayISO();
+  const D = (k) => addDays(T, k);
+  const at = (date, h) => `${date}T${String(h).padStart(2, '0')}:00:00-05:00`;
+
+  // Hoy: +150.000 (Venta), −30.000 (Almuerzo), −50.000 (D1) y una transferencia de 20.000 → balance +70.000.
+  // Ayer −100.000; 2 a 5 días atrás −40.000 cada uno → promedio de los 6 días anteriores $43.333.
+  const TXS = [
+    { id: 'h0', type: 'transfer', amount: 20000, account_id: 'nequi', to_account_id: 'ahorros', description: '', occurred_at: at(T, 9) },
+    { id: 'h1', type: 'income', amount: 150000, account_id: 'nequi', category_id: 'ventas', description: 'Venta', occurred_at: at(T, 10) },
+    { id: 'h2', type: 'expense', amount: 30000, account_id: 'nequi', category_id: 'comida', description: 'Almuerzo', occurred_at: at(T, 13) },
+    { id: 'h3', type: 'expense', amount: 50000, account_id: 'nequi', category_id: 'mercado', description: 'D1', occurred_at: at(T, 18) },
+    { id: 'y1', type: 'expense', amount: 100000, account_id: 'nequi', category_id: 'comida', description: 'Restaurante', occurred_at: at(D(-1), 20) },
+    ...[2, 3, 4, 5].map((k) => ({ id: `p${k}`, type: 'expense', amount: 40000, account_id: 'nequi', category_id: 'mercado', description: 'Tienda', occurred_at: at(D(-k), 12) })),
+    { id: 'old', type: 'expense', amount: 70000, account_id: 'nequi', category_id: 'mercado', description: 'Viejo', occurred_at: at(D(-12), 12) },
+  ];
+  const CATS = [
+    { id: 'ventas', name: 'Ventas', kind: 'income', icon: 'briefcase', color: '#12875A' },
+    { id: 'comida', name: 'Comida', kind: 'expense', icon: 'utensils', color: '#E5527A' },
+    { id: 'mercado', name: 'Mercado', kind: 'expense', icon: 'cart', color: '#F08A4B' },
+  ];
+  const day = (t) => t.occurred_at.slice(0, 10);
+  const sum = (rows, type) => rows.filter((t) => t.type === type).reduce((s, t) => s + t.amount, 0);
+  const rpcs = [];
+  // Mismo contrato que report_data: rango actual y anterior de igual duración
+  window.__rpc = (fn, a) => {
+    rpcs.push([fn, a]);
+    if (fn !== 'report_data') return null;
+    const n = daysBetween(a.p_from, a.p_to) + 1;
+    const pf = addDays(a.p_from, -n), pt = addDays(a.p_from, -1);
+    const cur = TXS.filter((t) => day(t) >= a.p_from && day(t) <= a.p_to);
+    const prev = TXS.filter((t) => day(t) >= pf && day(t) <= pt);
+    const by_category = CATS.filter((c) => c.kind === 'expense').map((c) => {
+      const rows = cur.filter((t) => t.type === 'expense' && t.category_id === c.id);
+      return { id: c.id, name: c.name, color: c.color, icon: c.icon, total: sum(rows, 'expense'), count: rows.length,
+        prev_total: sum(prev.filter((t) => t.category_id === c.id), 'expense') };
+    }).filter((c) => c.count).sort((x, y) => y.total - x.total);
+    return {
+      from: a.p_from, to: a.p_to, days: n,
+      income: sum(cur, 'income'), expense: sum(cur, 'expense'), expense_count: cur.filter((t) => t.type === 'expense').length,
+      prev_income: sum(prev, 'income'), prev_expense: sum(prev, 'expense'),
+      by_category, income_by_category: [],
+      by_day: Array.from({ length: n }, (_, i) => { const d = addDays(a.p_from, i); const r = cur.filter((t) => day(t) === d); return { d, expense: sum(r, 'expense'), income: sum(r, 'income') }; }),
+      monthly: [], top_descriptions: [], ant: { count: 0, total: 0, threshold: 20000, top: [] },
+      cards: [], debts: [], subscriptions: { monthly: 0, yearly: 0, items: [] },
+      daily_limit: 100000, monthly_budget: null,
+    };
+  };
+  const lists = [];
+  const chain = (table, calls = []) => new Proxy({}, { get: (t, k) => (k === 'then'
+    ? (res) => {
+      const arg = (m) => calls.find(([nm]) => nm === m)?.[1];
+      if (table === 'transactions') {
+        const gte = arg('gte')?.[1], lt = arg('lt')?.[1];
+        const [a, b] = arg('range') ?? [0, 59];
+        lists.push([gte, lt, b - a + 1]);
+        const rows = TXS.filter((t) => (!gte || Date.parse(t.occurred_at) >= Date.parse(gte)) && (!lt || Date.parse(t.occurred_at) < Date.parse(lt)))
+          .sort((x, y) => Date.parse(y.occurred_at) - Date.parse(x.occurred_at)).slice(a, b + 1).map((t) => ({ created_at: t.occurred_at, ...t }));
+        res({ data: rows, error: null }); return;
+      }
+      res({ data: [], error: null });
+    }
+    : (...a) => chain(table, [...calls, [k, a]])) });
+  window.__from = (table) => chain(table);
+
+  const { state } = await import('../../js/state.js');
+  state.categories = CATS;
+  state.accounts = [{ id: 'nequi', name: 'Nequi', type: 'wallet', color: '#A65BE0', archived: false }, { id: 'ahorros', name: 'Ahorros', type: 'savings', color: '#3FA672', archived: false }];
+  state.cards = [];
+  state.profile = { default_account_id: 'nequi', daily_limit: 100000, notification_prefs: {} };
+  // Gimnasio se cobra hoy y aún no se ha cobrado → la proyección lo suma
+  state.subscriptions = [{ id: 'gym', name: 'Gimnasio', amount: 90000, frequency: 'monthly', next_charge_date: T, active: true }];
+
+  const screen = document.getElementById('scr');
+  const { mount } = await import('../../js/views/reports.js');
+  let unmount = mount(screen);
+  const text = (sel) => screen.querySelector(sel)?.textContent.replace(/\s+/g, ' ').trim() ?? '';
+  const finish = () => document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* infinita */ } });
+  const lastReport = () => rpcs.filter(([f]) => f === 'report_data').at(-1)?.[1];
+  const charts = () => (window.__charts ?? []).filter((c) => !c.destroyed);
+  const weekChart = () => charts().find((c) => c.canvas.dataset.chart === 'week');
+  const settled = () => until(() => !screen.querySelector('.rep-body lukas-loader') && (screen.querySelector('.rep-body .kpis') || screen.querySelector('.rep-body .empty, .rep-body [class*="empty"]')));
+  await settled();
+  await wait(300);
+  check('sin preferencia guardada, abre en "Mes" como antes', screen.querySelector('[data-seg="period"] .active')?.dataset.value === 'month' && lastReport()?.p_to >= T);
+
+  // ── Proyección del mes ──
+  const som = `${T.slice(0, 8)}01`;
+  const monthSpent = TXS.filter((t) => t.type === 'expense' && day(t) >= som).reduce((s, t) => s + t.amount, 0);
+  const num = (s) => Number(String(s).replace(/[^\d]/g, ''));
+  await until(() => charts().some((c) => c.canvas.dataset.chart === 'cumulative'));
+  check('pide ingresos y gastos desde 3 meses antes para proyectar', lists.some(([g]) => g === `${addMonths(som, -3)}T00:00:00-05:00`), JSON.stringify(lists));
+  const projBtn = screen.querySelector('[data-projection]');
+  const projTotal = num(text('[data-proj-total]'));
+  check('KPI "Proyección del mes" tocable, ≥ lo gastado + el gimnasio por cobrar', projBtn && projTotal >= monthSpent + 90000, `${projTotal} vs ${monthSpent + 90000}`);
+  check('debajo muestra el rango probable', / – /.test(text('[data-proj-sub]')), text('[data-proj-sub]'));
+  check('promedio diario dice en cuántos días', /en \d+ días?/.test(text('.kpi:nth-child(5)')), text('.kpi:nth-child(5)'));
+  const cum = charts().find((c) => c.canvas.dataset.chart === 'cumulative');
+  const pds = cum?.config.data.datasets.find((d) => d.label === 'Proyección');
+  check('gasto acumulado: línea de proyección que termina en el total', pds && pds.data.at(-1) === projTotal && pds.data.filter((v) => v != null).length >= 1, `${pds?.data.at(-1)} vs ${projTotal}`);
+  if (shot === 'kpis') { await wait(1500); finish(); check('captura', true); done(); await new Promise(() => {}); }
+  projBtn.click();
+  await until(() => document.querySelector('.sheet.pj-sheet'));
+  const pj = document.querySelector('.sheet.pj-sheet');
+  const pjText = pj?.textContent.replace(/\s+/g, ' ') ?? '';
+  check('el detalle explica de dónde sale: ya gastado, día a día, suscripciones', /Ya gastaste/.test(pjText) && /Día a día que falta/.test(pjText) && /Suscripciones por cobrar/.test(pjText) && /Gimnasio/.test(pjText) && /¿Cómo lo calculo\?/.test(pjText), pjText.slice(0, 200));
+  check('con poco historial no presume confianza alta', /Confianza (baja|media)/.test(pjText), pjText.match(/Confianza \S+/)?.[0]);
+  check('"Ya gastaste" = gasto real del mes', num(pj.querySelector('.pj-row .num').textContent) === monthSpent, pj.querySelector('.pj-row .num').textContent);
+  check('el detalle no se desborda a 390 px', pj.scrollWidth <= pj.clientWidth + 1);
+  if (shot === 'proj') { await wait(600); finish(); check('captura', true); done(); await new Promise(() => {}); }
+  (await import('../../js/ui/sheet.js')).closeAllSheets();
+  await wait(450);
+
+  // ── Segmento ──
+  const segs = [...screen.querySelectorAll('[data-seg="period"] button')];
+  check('segmento: Día · Semana · Mes · Trim. · Año · Rango', segs.map((b) => b.textContent.trim()).join(',') === 'Día,Semana,Mes,Trim.,Año,Rango', segs.map((b) => b.textContent.trim()).join(','));
+  check('los textos del segmento caben a 390 px', segs.every((b) => b.scrollWidth <= b.clientWidth + 1), segs.map((b) => `${b.textContent.trim()}:${b.scrollWidth}/${b.clientWidth}`).join(' '));
+
+  screen.querySelector('[data-seg="period"] [data-value="day"]').click();
+  await until(() => lastReport()?.p_from === T && lastReport()?.p_to === T);
+  await settled(); await wait(300); finish();
+
+  if (shot) {
+    if (shot === 'week') { const sc = screen.querySelector('.scroller'); sc.scrollTop = screen.querySelector('.day-moves').offsetTop - 40; }
+    if (shot === 'empty') { const p = screen.querySelector('[data-day-pick]'); p.value = D(-20); p.dispatchEvent(new Event('change', { bubbles: true })); await until(() => lastReport()?.p_from === D(-20)); await settled(); await wait(300); finish(); }
+    check('captura', true); done();
+  } else {
+    check('"Día" pide el reporte de hoy (desde = hasta = hoy)', lastReport()?.p_from === T && lastReport()?.p_to === T, JSON.stringify(lastReport()));
+    check('y los movimientos de los últimos 7 días', lists.some(([g, l]) => g === `${D(-6)}T00:00:00-05:00` && l === `${D(1)}T00:00:00-05:00`), JSON.stringify(lists));
+    check('etiqueta "Hoy · fecha" y flecha siguiente desactivada', /^Hoy · /.test(text('.period-label')) && screen.querySelector('[data-nav="1"]').disabled && !screen.querySelector('[data-nav="-1"]').disabled, text('.period-label'));
+    check('selector de fecha visible (máx. hoy) y sin "Volver a hoy"', !screen.querySelector('[data-day-pick]').hidden && screen.querySelector('[data-day-pick]').max === T && screen.querySelector('.period-today').hidden);
+    check('el periodo "Día" se recuerda', JSON.parse(localStorage.getItem('lukas-reports-ui')).period === 'day');
+
+    // ── KPIs ──
+    await wait(1200); finish();
+    const kpis = [...screen.querySelectorAll('.kpi')].map((k) => k.textContent.replace(/\s+/g, ' ').trim());
+    check('KPIs: ingresos $150.000, gastos $80.000', /Ingresos ?\$150\.000/.test(kpis[0]) && /Gastos ?\$80\.000/.test(kpis[1]), kpis.join(' | '));
+    check('gastos ▼ 20% vs ayer (en verde)', /▼ 20% vs ayer/.test(kpis[1]) && screen.querySelectorAll('.kpi')[1].querySelector('.delta.good'), kpis[1]);
+    check('balance del día +$70.000 en verde', text('[data-balance]') === '+$70.000' && screen.querySelector('[data-balance]').classList.contains('income'), text('[data-balance]'));
+    check('movimientos: 3 (2 gastos · 1 ingreso)', /Movimientos ?3 ?2 gastos · 1 ingreso/.test(kpis[3]), kpis[3]);
+
+    // ── Límite diario ──
+    check('límite diario: $80.000 de $100.000, 80%, te quedan $20.000 (amarillo)', /\$80\.000/.test(text('.day-limit .dl-line')) && /de \$100\.000/.test(text('.day-limit .dl-line')) && /80%/.test(text('.day-limit .cc-head')) && text('.dl-msg') === 'Te quedan $20.000' && screen.querySelector('.day-limit').classList.contains('warn'), `${text('.day-limit')}`);
+
+    // ── Insights ──
+    const ins = [...screen.querySelectorAll('.insight')].map((x) => x.textContent.trim());
+    check('insight: 85% más que el promedio de los 6 días anteriores', ins.some((x) => /Hoy gastaste 85% más que tu promedio de los 6 días anteriores \(\$43\.333\)/.test(x)), ins.join(' | '));
+    check('insight: categoría que más se llevó la plata hoy (Mercado)', ins.some((x) => /más se llevó tu plata hoy: Mercado \(\$50\.000, 63%\)/.test(x)), ins.join(' | '));
+    check('insight: te quedaron $70.000', ins.some((x) => /te quedaron \$70\.000/.test(x)), ins.join(' | '));
+
+    // ── Movimientos del día ──
+    const rows = [...screen.querySelectorAll('.day-moves .list-row')];
+    check('"Movimientos de hoy": los 4 del día (incluye la transferencia), del más reciente al más antiguo', /Movimientos de hoy/.test(text('.day-moves .section-title')) && rows.map((r) => r.dataset.tx).join(',') === 'h3,h2,h1,h0', rows.map((r) => r.dataset.tx).join(','));
+
+    // ── Gráficas ──
+    const donut = charts().find((c) => c.canvas.dataset.chart === 'donut');
+    check('dona de categorías del día (Mercado, Comida)', donut && donut.config.data.labels.join(',') === 'Mercado,Comida', donut?.config.data.labels.join(','));
+    const wk = weekChart();
+    check('últimos 7 días: 7 barras terminando en "Hoy"', wk && wk.config.data.labels.length === 7 && wk.config.data.labels[6][0] === 'Hoy' && wk.config.data.labels[6][1] === String(Number(T.slice(8))), JSON.stringify(wk?.config.data.labels));
+    check('gastos por día de la semana correctos', wk?.config.data.datasets[1].data.join(',') === '0,40000,40000,40000,40000,100000,80000', wk?.config.data.datasets[1].data.join(','));
+    const bg = wk?.config.data.datasets[1].backgroundColor ?? [];
+    check('el día elegido se resalta (los demás atenuados)', bg[6] !== bg[5] && bg[5] === bg[0], bg.join(','));
+    check('no se dibujan acumulado ni calendario en un día', !screen.querySelector('[data-chart="cumulative"]') && !screen.querySelector('.heat'));
+    check('sin scroll horizontal a 390 px', screen.querySelector('.scroller').scrollWidth <= screen.querySelector('.scroller').clientWidth + 1);
+
+    // ── Tocar una barra: ayer ──
+    wk.config.options.onClick({}, [{ index: 5 }]);
+    await until(() => lastReport()?.p_from === D(-1));
+    await settled(); await wait(1200); finish();
+    check('tocar la barra de ayer muestra "Ayer · fecha"', /^Ayer · /.test(text('.period-label')) && !screen.querySelector('[data-nav="1"]').disabled, text('.period-label'));
+    check('aparece "Volver a hoy"', !screen.querySelector('.period-today').hidden);
+    check('ayer: gastos $100.000 ▲ 150% vs día anterior', /\$100\.000/.test(text('.kpi:nth-child(2)')) && /▲ 150% vs día anterior/.test(text('.kpi:nth-child(2)')), text('.kpi:nth-child(2)'));
+    check('ayer: límite al 100% → "Llegaste justo al límite"', /100%/.test(text('.day-limit .cc-head')) && text('.dl-msg') === 'Llegaste justo al límite', text('.day-limit'));
+    check('"Movimientos del día" con 1 movimiento', /Movimientos del día/.test(text('.day-moves .section-title')) && screen.querySelectorAll('.day-moves .list-row').length === 1);
+
+    // ── Flecha anterior ──
+    screen.querySelector('[data-nav="-1"]').click();
+    await until(() => lastReport()?.p_from === D(-2));
+    await settled(); await wait(300);
+    check('flecha ← va al día anterior (nombre del día y fecha)', !/^(Hoy|Ayer)/.test(text('.period-label')) && / · /.test(text('.period-label')), text('.period-label'));
+
+    // ── Selector de fecha: un día sin movimientos ──
+    const pick = screen.querySelector('[data-day-pick]');
+    pick.value = D(-20); pick.dispatchEvent(new Event('change', { bubbles: true }));
+    await until(() => lastReport()?.p_from === D(-20));
+    await settled(); await wait(300);
+    check('elegir una fecha sin movimientos muestra el estado vacío', /Sin movimientos ese día/.test(text('.rep-body')), text('.rep-body').slice(0, 120));
+
+    // ── Volver a hoy ──
+    screen.querySelector('[data-go-today]').click();
+    await until(() => lastReport()?.p_from === T);
+    await settled(); await wait(300);
+    check('"Volver a hoy" regresa a hoy', /^Hoy · /.test(text('.period-label')) && screen.querySelector('.period-today').hidden);
+
+    // ── Recordar al volver a entrar ──
+    unmount?.();
+    screen.innerHTML = '';
+    unmount = mount(screen);
+    await until(() => lastReport()?.p_from === T && screen.querySelector('[data-seg="period"] .active')?.dataset.value === 'day');
+    check('al volver a Reportes abre en "Día"', screen.querySelector('[data-seg="period"] .active')?.dataset.value === 'day');
+    await settled(); await wait(300);
+
+    // ── Los demás periodos siguen igual ──
+    screen.querySelector('[data-seg="period"] [data-value="week"]').click();
+    await until(() => lastReport() && daysBetween(lastReport().p_from, lastReport().p_to) === 6);
+    await settled(); await wait(1200); finish();
+    check('"Semana" pide 7 días y muestra la vista de siempre (tasa de ahorro, acumulado, calendario)', /Tasa de ahorro/.test(text('.kpis')) && screen.querySelector('[data-chart="cumulative"]') && screen.querySelector('.heat') && !screen.querySelector('.day-moves') && screen.querySelector('[data-day-pick]').hidden && screen.querySelector('.period-today').hidden, JSON.stringify(lastReport()));
+    unmount?.();
+    done();
+  }
+} catch (err) {
+  check('la prueba terminó sin excepciones', false, `${err.message}\n${err.stack}`);
+  done();
+}
+</script></body></html>

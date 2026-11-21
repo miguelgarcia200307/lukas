@@ -26,6 +26,20 @@ export async function listTransactions(f = {}) {
   return unwrap(await q);
 }
 
+/** Ingresos y gastos entre dos fechas con solo las columnas que usan los cálculos (proyección), todas las páginas */
+export async function listFlows(fromDate, toDate, { pageSize = 1000, max = 10000 } = {}) {
+  const out = [];
+  for (let off = 0; off < max; off += pageSize) {
+    const rows = unwrap(await from('transactions').select('type, amount, occurred_at, description, source, subscription_id')
+      .in('type', ['expense', 'income'])
+      .gte('occurred_at', `${fromDate}T00:00:00-05:00`).lt('occurred_at', `${addDays(toDate, 1)}T00:00:00-05:00`)
+      .order('occurred_at').order('id').range(off, off + pageSize - 1));
+    out.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+  return out;
+}
+
 function afterWrite() {
   emitChanged('transactions');
   refresh('accounts', 'cards', 'debts', 'goals', 'subscriptions').catch(() => {});

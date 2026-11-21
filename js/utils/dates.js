@@ -45,6 +45,8 @@ const fDateNoYear = fmt({ day: 'numeric', month: 'short' });
 const fTime = fmt({ hour: 'numeric', minute: '2-digit', hour12: true });
 const fMonth = fmt({ month: 'long', year: 'numeric' });
 const fMonthShort = fmt({ month: 'short' });
+const fWeekday = fmt({ weekday: 'long' });
+const fWeekdayShort = fmt({ weekday: 'short' });
 
 const asDate = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T12:00:00-05:00`) : new Date(v));
 
@@ -64,6 +66,9 @@ export const dateShort = (v) => {
 export const timeLabel = (v) => fTime.format(new Date(v)).replace(/\s?a\.\s?m\./i, ' a. m.').replace(/\s?p\.\s?m\./i, ' p. m.');
 export const monthLabel = (v) => { const s = fMonth.format(asDate(v)); return s.charAt(0).toUpperCase() + s.slice(1); };
 export const monthShort = (v) => fMonthShort.format(asDate(v)).replace('.', '');
+/** "Miércoles" / "mié" */
+export const weekdayLong = (v) => { const s = fWeekday.format(asDate(v)); return s.charAt(0).toUpperCase() + s.slice(1); };
+export const weekdayShort = (v) => fWeekdayShort.format(asDate(v)).replace('.', '');
 
 export function inDays(n) {
   if (n <= 0) return 'Hoy';
